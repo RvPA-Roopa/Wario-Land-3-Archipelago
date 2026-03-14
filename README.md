@@ -16,20 +16,22 @@ A randomizer for **Wario Land 3** built on the [Archipelago](https://archipelago
 
 **This project is completely unrelated to the current Wario Land 3 Randomizer. Please direct any questions/concerns to me with this project!**
 
-## Differences from the Original Game
-- LOTS of cutscene skips. You can immediately start playing your game and not wait 5 minutes through intro cutscenes. Also, all cutscenes after treasures/abilities have been cut. 
+## What's changed from the vanilla game?
+- Progressive Overalls/Grab/Flippers. You SHOULD always receive the first tier of these items! Abilities are also immediately granted, so they should work even if you receive them while in-level.
+- LOTS of cutscene skips. You can immediately start playing your game and not wait 5 minutes through intro cutscenes. Also, all cutscenes after treasures/abilities have been cut.
+- The entire map has been opened to help a bit with logic. The levels will be locked (notated with a red blinking dot) until you get each levels unlock (i.e. Tablets for W1). This helps the game feel less linear.
 - I've taken vanilla Gems out of the game (they were treasures that didn't have any affect on the game). They are now used to notate others items.
-    - Red Gems are progression items.
-    - Blue Gems are useful items.
-    - Green Gems are filler items.
+   - Red Gems are progression items.
+   - Blue Gems are useful items.
+   - Green Gems are filler items.
+- The option to combine level unlocks to one item has been added (i.e. For W1, you only need "Tablets" instead of each of the two tablets). This helps with generation, seed variety, and keeps the massive amount of progression items down. This is the suggested option. All extra items have been changed to filler (Crests that act as coins). If you do want to play without combined-items, there will be a several pre-fill items placed in your game to help with seed generation.
 - The game SHOULD sync all your items if you play offline then reconnect. This needs a bit more testing, but should be working.
+- There's nothing that notates that you've received an item in-game. I could set this up as an option, though. You can receive items in-level or overworld, you will receive the item regardless. You'll need to refresh the overworld for the red dots to disappear, but even if they are on the level it's accessible if you have the item(s).
 - You SHOULD be able to play this game solo offline completely (with the exception of start_inventory, in which you'll need to connect once). Offline play needs more testing, so please feel free to try this out!
 - Rudy cutscene will show the Music Boxes you've collected instead of all 5 (not important but a neat feature!)
 - Crests have also been taken out of the game, they now act as Coin items (this helps with the lack of filler items in this game).
 - Quick key pickups (down to 1 second). I'm not against adding the vanilla option and instant pickup as QoL, let me know opinions on this!
 - Quick treasure pickup. (Also not against adding vanilla pickups back in, just give me opinions on this!)
-- The entire map has been opened to help a bit with logic. You will have to get each levels unlocks (i.e. Tablets for W1) to unlock the level. This helps the game feel less linear.
-- The option to combine level unlocks to one item has been added (i.e. For W1, you only need "Tablets" instead of each of the two tablets). This helps with generation, seed variety, and keeps the massive amount of progression items down. This is the suggested option. All extra items have been changed to filler (Crests that act as coins). If you do want to play without combined-items, there will be a several pre-fill items placed in your game to help with seed generation.
 ---
 
 ## Requirements
@@ -174,5 +176,7 @@ This is pre-alpha software. When you encounter a bug or logic issue:
 
 1. Use `/send_location` in the Archipelago text client as a workaround if you're stuck
 2. Report the issue with as much detail as possible (level, chest color, items you had, what happened)
+
+Future plans: [Trello](https://trello.com/b/hF0nKXow/wario-land-3-ap)
 
 Thanks for testing!
