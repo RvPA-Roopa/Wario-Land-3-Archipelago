@@ -225,7 +225,7 @@ CHEST_RULES: dict = {
     "The Big Bridge": [
         None,
         _c(has_flippers_1, has_overalls_1),
-        _c(has_flippers_1, has_grab_1),
+        _c(has_flippers_1, has_grab_1, has_overalls_1),
         _c(_has("Scepter"), has_flippers_1, _has("Garlic"), _has("Spiked Helmet")),
     ],
     "Tower of Revival": [
