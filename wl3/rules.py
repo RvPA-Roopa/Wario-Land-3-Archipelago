@@ -274,7 +274,7 @@ CHEST_RULES: dict = {
     "The Colossal Hole": [
         None,
         _has("Garlic"),
-        _c(_has("Sun Medallion Top"), _has("Sun Medallion Bottom")),
+        _o(_c(_has("Sun Medallion Top"), _has("Sun Medallion Bottom")), _has("High Jump Boots")),
         _c(_has("Explosive Plunger Box"), _has("High Jump Boots")),
     ],
     "The Warped Void": [
