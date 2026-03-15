@@ -20,8 +20,8 @@ if TYPE_CHECKING:
 
 CHEST_TABLE_OFFSET               = 0x001A81   # LevelTreasureIDs_WithoutTemple (100 bytes)
 LEVEL_MUSIC_OFFSET               = 0x03FE40   # LevelMusic table (25 levels × 16 bytes = 400 bytes)
-MUSIC_BOXES_REQUIRED_OFFSET      = 0x080EC6   # MusicBoxesRequired byte in Bank 20
-START_WITH_AXE_OFFSET            = 0x080EC7   # StartWithAxeOpt byte in Bank 20
+MUSIC_BOXES_REQUIRED_OFFSET      = 0x080ED3   # MusicBoxesRequired byte in Bank 20
+START_WITH_AXE_OFFSET            = 0x080ED4   # StartWithAxeOpt byte in Bank 20
 START_WITH_MAG_GLASS_OFFSET      = 0x080ED5   # StartWithMagnifyingGlassOpt byte in Bank 20
 GOLF_PRICE_OPT_OFFSET            = 0x003A00   # GolfPriceOpt byte in Home bank
 GOLF_BUILDING_OPT_OFFSET         = 0x003A01   # GolfBuildingOpt byte in Home bank
