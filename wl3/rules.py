@@ -256,7 +256,7 @@ CHEST_RULES: dict = {
     "The Stagnant Swamp": [
         None,
         _c(_has("Foot of Stone"), has_overalls_1),
-        _c(_has("Foot of Stone"), _has("High Jump Boots")),
+        _c(_has("Foot of Stone"), _has("High Jump Boots"), has_grab_1),
         _has("Explosive Plunger Box"),
     ],
     "The Frigid Sea": [
