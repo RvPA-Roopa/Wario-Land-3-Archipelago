@@ -238,7 +238,7 @@ CHEST_RULES: dict = {
     "The Steep Canyon": [
         None,
         _has("Foot of Stone"),
-        _c(_has("Foot of Stone"), has_flippers_1, has_overalls_2, _has("High Jump Boots")),
+        _c(_has("Foot of Stone"), has_flippers_2, has_overalls_2, _has("High Jump Boots")),
         _c(_has("Rust Spray"), has_overalls_1),
     ],
     "Cave of Flames": [
