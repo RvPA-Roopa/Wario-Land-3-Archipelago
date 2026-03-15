@@ -127,7 +127,7 @@ class WL3Settings(ap_settings.Group):
         """Path to the unmodified Wario Land 3 (USA/EUR) GBC ROM."""
         copy_to   = "warioland3.gbc"
         description = "Wario Land 3 ROM File"
-        md5s      = ["1bfe2a3b47a60e3f2294e4338264d9d0"]
+        md5s      = []
 
     rom_file:  RomFile = RomFile(RomFile.copy_to)
     rom_start: bool    = False
