@@ -285,7 +285,7 @@ CHEST_RULES: dict = {
     ],
     "The East Crater": [
         _c(has_grab_1, has_overalls_2),
-        None,
+        _has("Fire Drencher"),
         _c(_has("Jackhammer"), has_grab_1),
         _c(_has("Pick Axe"), has_grab_1, _has("High Jump Boots")),
     ],
