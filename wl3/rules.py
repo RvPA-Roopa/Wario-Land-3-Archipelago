@@ -242,7 +242,7 @@ CHEST_RULES: dict = {
         _c(_has("Rust Spray"), has_overalls_1),
     ],
     "Cave of Flames": [
-        _c(_has("Spiked Helmet"), has_grab_1),
+        has_grab_1,
         _c(has_grab_1, _has("High Jump Boots"), has_overalls_2),
         _has("Explosive Plunger Box"),
         _c(_has("Rust Spray"), has_overalls_1, has_grab_1, _has("High Jump Boots")),
