@@ -206,9 +206,9 @@ CHEST_RULES: dict = {
     ],
     "Beneath the Waves": [
         _c(has_flippers_1, _has("High Jump Boots")),
-        _c(has_flippers_1, has_grab_2),
-        _c(has_flippers_1, _has("Sapling of Growth")),
-        _c(has_flippers_1, has_grab_1, _has("Blue Chemical"), _has("Red Chemical")),
+        _c(has_flippers_2, has_grab_2),
+        _c(has_flippers_1, _has("Sapling of Growth"), _has("High Jump Boots")),
+        _c(has_flippers_1, has_grab_1, _has("Blue Chemical"), _has("Red Chemical"), _has("High Jump Boots")),
     ],
     "The West Crater": [
         has_overalls_1,
@@ -220,7 +220,7 @@ CHEST_RULES: dict = {
         has_overalls_1,
         _c(_has("Magic Seeds"), has_overalls_1),
         _c(_has("Flute"), has_flippers_1),
-        _c(has_flippers_1, _has("High Jump Boots")),
+        _has("High Jump Boots"),
     ],
     "The Big Bridge": [
         None,
@@ -263,12 +263,12 @@ CHEST_RULES: dict = {
         None,
         has_grab_1,
         _c(_has("Scepter"), has_flippers_1),
-        _c(_has("Sun Medallion Top"), _has("Sun Medallion Bottom"), has_flippers_2),
+        _o(_c(_has("Sun Medallion Top"), _has("Sun Medallion Bottom")), has_flippers_2),
     ],
     "Castle of Illusions": [
-        has_overalls_1,
-        _o(has_grab_2, _c(_has("Sun Medallion Top"), _has("Sun Medallion Bottom"))),
-        _o(has_grab_2, _c(_has("Sun Medallion Top"), _has("Sun Medallion Bottom"))),
+        _c(has_overalls_1, has_grab_1),
+        _c(has_grab_1, _o(has_overalls_2, _has("High Jump Boots"))),
+        has_grab_2,
         _c(_has("Castle Brick"), has_grab_1),
     ],
     "The Colossal Hole": [

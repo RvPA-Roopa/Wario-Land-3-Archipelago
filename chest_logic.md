@@ -131,9 +131,9 @@
 | Chest | Requirements |
 |-------|-------------|
 | Grey  | Flippers x1 + High Jump Boots |
-| Red   | Flippers x1 + Grab x2 |
-| Green | Flippers x1 + Sapling of Growth |
-| Blue  | Flippers x1 + Grab x1 + Blue Chemical + Red Chemical |
+| Red   | Flippers x2 + Grab x2 |
+| Green | Flippers x1 + Sapling of Growth + High Jump Boots |
+| Blue  | Flippers x1 + Grab x1 + Blue Chemical + Red Chemical + High Jump Boots |
 
 ---
 
@@ -157,7 +157,7 @@
 | Grey  | Overalls x1 |
 | Red   | Magic Seeds + Overalls x1 |
 | Green | Flute + Flippers x1 |
-| Blue  | Flippers x1 + High Jump Boots |
+| Blue  | High Jump Boots |
 
 ---
 
@@ -241,7 +241,7 @@
 | Grey  | *(none)* |
 | Red   | Grab x1 |
 | Green | Scepter + Flippers x1 |
-| Blue  | Sun Medallion Top + Sun Medallion Bottom + Flippers x2 |
+| Blue  | (Sun Medallion Top + Sun Medallion Bottom) OR Flippers x2 |
 
 ---
 
@@ -250,9 +250,9 @@
 
 | Chest | Requirements |
 |-------|-------------|
-| Grey  | Overalls x1 |
-| Red   | Grab x2 OR (Sun Medallion Top + Sun Medallion Bottom) |
-| Green | Grab x2 OR (Sun Medallion Top + Sun Medallion Bottom) |
+| Grey  | Overalls x1 + Grab x1 |
+| Red   | Grab x1 + (Overalls x2 OR High Jump Boots) |
+| Green | Grab x2 |
 | Blue  | Castle Brick + Grab x1 |
 
 ---
