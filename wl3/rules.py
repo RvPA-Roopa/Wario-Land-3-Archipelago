@@ -201,7 +201,7 @@ CHEST_RULES: dict = {
     "A Town in Chaos": [
         None,
         _has("Spiked Helmet"),
-        _c(has_grab_2, _has("High Jump Boots")),
+        _c(has_grab_2, has_overalls_2, _has("High Jump Boots")),
         _c(_has("Electric Fan Propeller"), has_grab_1),
     ],
     "Beneath the Waves": [
