@@ -120,7 +120,7 @@
 |-------|-------------|
 | Grey  | *(none)* |
 | Red   | Spiked Helmet |
-| Green | Grab x2 + High Jump Boots |
+| Green | Grab x2 + Overalls x2 + High Jump Boots |
 | Blue  | Electric Fan Propeller + Grab x1 |
 
 ---
