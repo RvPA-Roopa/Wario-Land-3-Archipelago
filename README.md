@@ -39,8 +39,7 @@ A randomizer for **Wario Land 3** built on the [Archipelago](https://archipelago
 | Software | Notes |
 |---|---|
 | [Archipelago](https://github.com/ArchipelagoMW/Archipelago/releases/latest) | Install this first |
-| [mGBA (dev build)](https://mgba.io/downloads.html#development-downloads) | **Development build required** — this has been specifically tested on dev builds of mGBA. There may be issues with any non-dev build, but testing is appreciated |
-| [mGBA-to-BizHawk connector](https://gist.github.com/Zunawe/d41677500b08694c9985f67f41896cc5) | Download the zip from this link |
+| [Bizhawk 2.11](https://github.com/TASEmulators/BizHawk/releases/tag/2.11) | **Bizhawk 2.11 required** — This currently runs on the 2.11 version of Bizhawk. Previous versions do not run this game correctly. |
 | A LEGALLY DUMPED Wario Land 3 GBC ROM (EN/JP is intended, but should work with other regions) | 
 
 ---
@@ -49,72 +48,33 @@ A randomizer for **Wario Land 3** built on the [Archipelago](https://archipelago
 
 ### 1. Install the apworld
 
-Download `wl3.apworld` from Releases into your Archipelago custom worlds folder (you can also either download the yaml from Releases or Generate the yaml yourself):
-
-```
-C:\ProgramData\Archipelago\custom_worlds\wl3.apworld
-```
+Open the Archipelago Launcher and click on "Install APWorld", and select the wl3.apworld you downloaded.
 
 ### 2. Place your ROM
 
-Name your LEGALLY DUMPED Wario Land 3 ROM exactly `warioland3.gbc` and place it here:
+Click "Browse Files" at the bottom of the Archipelago launcher to open your Archipelago folder.
 
-```
-C:\ProgramData\Archipelago\warioland3.gbc
-```
+Place your LEGALLY DUMPED Wario Land 3 ROM exactly `warioland3.gbc` in this folder.
 
 Currently, I have not been able to find any regional differences, so any Wario Land 3 cartridge should work. I have only been able to test with my copy (EN/JP). If you do have a non EN/JP copy, please let me know if there are any issues with it. 
 
-### 3. Install the mGBA connector
+### 3. Generate Your Yaml 
 
-Download the zip from the [mGBA-to-BizHawk connector gist](https://gist.github.com/Zunawe/d41677500b08694c9985f67f41896cc5). Extract it and place `connector_bizhawkclient_mgba.lua` into:
+In the Archipelago launcher, click "Generate Template Options". This should generate a WarioLand3.yaml file. Open the WarioLand3.yaml file in any text editor to select your options! Save your options in your "Archipelago/players" folder! (Click "Browse Files" at the bottom of the Archipelago launcher to open your Archipelago folder)
 
-```
-C:\ProgramData\Archipelago\data\lua\
-```
-
-### 4. Associate `.apwl3` files with the Archipelago Launcher
-
-**Do this once.**
-
-1. Right-click the `.apwl3` file → **Open with** → **Choose another app**
-2. Click **More apps** → **Look for another app on this PC**
-3. Navigate to `C:\ProgramData\Archipelago\ArchipelagoLauncher.exe` and select it
-4. Check **Always use this app** → **OK**
-
-After this, it should patch the rom and place it in the folder where your .apwl3 file is, and then automatically open Bizhawk Client.
----
+This yaml is what you what you will roll your seed with, either by putting it in the "Archipelago/Players" folder or what you will provide your host with.
 
 ## Playing a Game
 
 ### Step 1 — Get your patch file
 
-When playing on a hosted room, the room page will have a **Download Patch File** link for your slot. Download the `.apwl3` file from there.
+When playing on a hosted room, the room page will have a **Download Patch File** link for your slot. Download the `.apwl3` file from there. (For more information on hosting/generating a seed, please visit (https://archipelago.gg/tutorial/Archipelago/setup_en) and read under "generating a game").
 
 ### Step 2 — Patch your ROM
 
-Double-click the `.apwl3` file. The Archipelago Launcher will patch your ROM and automatically open the **BizHawk Client**. Your patched `.gbc` file will appear in the same folder as the `.apwl3` file.
+Double-click the `.apwl3` file. The first time setting this up, a prompt will come up asking for your EmuHawk Exectuable. Double-click on your EmuHawk.exe, located in your Bizhawk 2.11 folder (the Bizhawk 2.11 release is linked in the "Requirements" section above). Once you've done this, the patched seed in Bizhawk, the lua script and the Bizhawk Client should all open. After this initial setup, this will happen automatically after double clicking on the `.apwl3` patch.
 
-### Step 3 — Load the ROM in mGBA
-
-Open mGBA and load the patched `.gbc` file:
-
-**File → Load ROM** → select your patched `.gbc`
-
-Always start a **New Game** — do not load an existing save from a different seed (unless you are intending to play that seed)
-
-### Step 4 — Load the connector script in mGBA
-
-In mGBA: **Tools → Scripting → Load script**
-
-Navigate to and open:
-```
-C:\ProgramData\Archipelago\data\lua\connector_bizhawkclient_mgba.lua
-```
-
-The script will automatically detect the BizHawk Client that opened in Step 2.
-
-### Step 5 — Connect in the BizHawk Client
+### Step 3 — Connect in the BizHawk Client
 
 In the BizHawk Client window that opened during patching, enter your connection details and connect:
 
@@ -122,7 +82,9 @@ In the BizHawk Client window that opened during patching, enter your connection 
 - **Slot:** your player name from the YAML
 - **Password:** room password if applicable
 
-Once connected, items will start flowing and the game is live.
+Once connected, you will be able to start sending/receiving items! Once connected, click New Game. Sending/receiving ability items can be a little buggy on the title screen, so it's suggested to select "New Game" before receiving items.
+
+Have fun!! You will run into bugs, as this game is in a testing phase currently. Please let me know if you run into any bugs or logic issues and I will address them as necessary!
 
 ---
 
@@ -132,7 +94,7 @@ Once connected, items will start flowing and the game is live.
 |---|---|
 | **Music Boxes Required** | How many of the 5 music boxes must be collected before the Temple opens (0–5) |
 | **Music Box Shuffle** | Whether music boxes can only appear at boss chests or anywhere in the multiworld |
-| **Start with Axe** | Grants the Axe at the start, opening 3 early locations in Out of the Woods |
+| **Start with Axe** | Grants the Axe at the start, opening 3 early locations in Out of the Woods. It's suggested to use this option to help more easily generate seeds. |
 | **Combined Level Unlocks** | Combines multi-item level unlocks (e.g. Blue Tablet + Green Tablet → Tablets) into single items for more seed variety |
 | **Golf Price** | Vanilla / Cheap / Free mini-game pricing |
 | **Golf Building** | Whether the Golf Building requires all 7 crayons or is always open (always free to play) |
