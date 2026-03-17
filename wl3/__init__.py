@@ -211,10 +211,6 @@ class WL3World(World):
 
     def set_rules(self) -> None:
         set_rules(self)
-        # These chests not yet properly accessible - force filler
-        for loc_name in ("The Pool of Rain - Red Chest", "The Pool of Rain - Blue Chest"):
-            loc = self.multiworld.get_location(loc_name, self.player)
-            loc.progress_type = LocationProgressType.EXCLUDED
 
     # ------------------------------------------------------------------
     # Pre-fill — restrict music box placement if requested
