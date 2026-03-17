@@ -40,6 +40,7 @@ from . import client as _client  # noqa: F401 — registers WL3Client with AutoB
 def _do_patch(*args):
     import Patch
     import logging
+    import shlex
     import subprocess
     import sys
     import os
@@ -51,6 +52,24 @@ def _do_patch(*args):
     logger.info(f"Patching {patch_file} ...")
     _, rom_file = Patch.create_rom_file(patch_file)
     logger.info(f"Patched ROM written to: {rom_file}")
+    from settings import get_settings
+    settings = get_settings()
+    opts = settings.wl3_options
+    rom_start = opts.get("rom_start", False) if isinstance(opts, dict) else getattr(opts, "rom_start", False)
+    if rom_start is True:
+        # Auto-build command from bizhawkclient_options
+        bzhawk_opts = settings.bizhawkclient_options
+        emuhawk = bzhawk_opts.get("emuhawk_path", "") if isinstance(bzhawk_opts, dict) else getattr(bzhawk_opts, "emuhawk_path", "")
+        if emuhawk and os.path.isfile(emuhawk):
+            rom_start = f'"{emuhawk}" --lua=data/lua/connector_bizhawk_generic.lua'
+        else:
+            rom_start = False
+    if isinstance(rom_start, str) and rom_start:
+        cmd_args = shlex.split(rom_start)
+        cmd_args.append(os.path.realpath(rom_file))
+        script_dir = os.path.dirname(sys.executable) if getattr(sys, "frozen", False) else os.path.dirname(os.path.realpath(__file__))
+        subprocess.Popen(cmd_args, stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, cwd=script_dir)
+        logger.info(f"Launched: {cmd_args[0]}")
     bizhawk_client = os.path.join(os.path.dirname(sys.executable), "ArchipelagoBizHawkClient.exe")
     if os.path.isfile(bizhawk_client):
         subprocess.Popen([bizhawk_client])
@@ -60,7 +79,7 @@ def _launch_patch(*args):
     launch_subprocess(_do_patch, name="Wario Land 3 Patcher", args=args)
 
 
-components.insert(0, Component(
+components.append(Component(
     "Wario Land 3 Patcher",
     func=_launch_patch,
     component_type=Type.CLIENT,
@@ -130,7 +149,9 @@ class WL3Settings(ap_settings.Group):
         md5s      = []
 
     rom_file:  RomFile = RomFile(RomFile.copy_to)
-    rom_start: bool    = False
+    # Auto-launches BizHawk using bizhawkclient_options.emuhawk_path with the connector script.
+    # Set to a custom string command to override, or false to disable.
+    rom_start: bool = True
 
 
 class WL3World(World):
