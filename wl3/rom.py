@@ -257,6 +257,15 @@ def write_tokens(world: "WL3World", patch: WL3ProcedurePatch) -> None:
         for off in WARIO_BLACK_OFFSETS:
             patch.write_token(APTokenTypes.WRITE, off, color_bytes)
 
+        WARIO_SHIRT_OFFSETS = [off - 4 for off in WARIO_BLACK_OFFSETS]
+        r = world.random.randint(8, 31)
+        g = world.random.randint(8, 31)
+        b = world.random.randint(8, 31)
+        gbc_color = (b << 10) | (g << 5) | r
+        color_bytes = bytes([gbc_color & 0xFF, (gbc_color >> 8) & 0xFF])
+        for off in WARIO_SHIRT_OFFSETS:
+            patch.write_token(APTokenTypes.WRITE, off, color_bytes)
+
     # Embed the base bsdiff4 patch and token data into self.files so
     # APProcedurePatch.write_contents() includes them in the output zip.
     here = os.path.dirname(os.path.abspath(__file__))
