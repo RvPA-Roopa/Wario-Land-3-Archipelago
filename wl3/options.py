@@ -81,11 +81,17 @@ class MusicShuffle(Choice):
     default = 0
 
 
-class PaletteShuffle(Toggle):
-    """Randomize color of certain palettes in the game
-    (Currently only affects enemy sprites, but may be expanded in the future).
+class PaletteShuffle(Choice):
+    """Randomize colors in the game.
+    Enemies: randomizes enemy sprite palettes.
+    Wario: randomizes Wario's outline/shadow color.
+    Both: randomizes enemies and Wario.
     """
     display_name = "Palette Shuffle"
+    option_off      = 0
+    option_enemies  = 1
+    option_wario    = 2
+    option_both     = 3
     default = 0
 
 
