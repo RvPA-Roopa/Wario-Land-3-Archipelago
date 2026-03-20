@@ -19,7 +19,7 @@ class StartWithAxe(Toggle):
     (Out of the Woods has axe-gated locations right at the start).
     """
     display_name = "Start with Axe"
-    default = 0
+    default = 1
 
 
 class MusicBoxesRequired(Range):
@@ -55,7 +55,7 @@ class GolfPrice(Choice):
     option_vanilla = 0
     option_free    = 1
     option_cheap   = 2
-    default = 0
+    default = 1
 
 
 class GolfBuilding(Choice):
@@ -84,7 +84,7 @@ class MusicShuffle(Choice):
 class PaletteShuffle(Choice):
     """Randomize colors in the game.
     Enemies: randomizes enemy sprite palettes.
-    Wario: randomizes Wario's outline/shadow color.
+    Wario: randomizes Wario's outline/overalls color.
     Both: randomizes enemies and Wario.
     """
     display_name = "Palette Shuffle"
