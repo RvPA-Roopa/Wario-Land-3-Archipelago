@@ -218,7 +218,8 @@ def write_tokens(world: "WL3World", patch: WL3ProcedurePatch) -> None:
                           _build_level_music_table(zip(pool[:25], pool[25:])))
 
     # --- palette shuffle ---
-    if int(world.options.palette_shuffle):
+    pal_mode = int(world.options.palette_shuffle)
+    if pal_mode in (1, 3):  # enemies or both
         here = os.path.dirname(os.path.abspath(__file__))
         table_path = os.path.join(here, "data", "palette_table.json")
         if os.path.exists(table_path):
@@ -235,11 +236,26 @@ def write_tokens(world: "WL3World", patch: WL3ProcedurePatch) -> None:
             offset = entry["offset"]
             data   = base64.b64decode(entry["data"])
             result = bytearray()
-            # each 8-byte chunk = one palette of 4 colors; give it its own hue shift
             for i in range(len(data) // 8):
                 chunk = data[i * 8 : (i + 1) * 8]
                 result.extend(_recolor_palette(chunk, world.random.random))
             patch.write_token(APTokenTypes.WRITE, offset, bytes(result))
+
+    if pal_mode in (2, 3):  # wario or both
+        WARIO_BLACK_OFFSETS = [
+            0xc806, 0xc812, 0xc826, 0xc82e, 0xc836, 0xc83e, 0xc846, 0xc84e,
+            0xc856, 0xc85a, 0xc85e, 0xc866, 0xc86e, 0xc876, 0xc87e, 0xc886,
+            0xc89e, 0xc8ae, 0xc8be, 0xc8c6, 0xc8ce, 0xc8d6, 0xc8de, 0xc8ee,
+            0xc8fe, 0xc90e, 0xc916, 0xc936, 0xc942, 0xc956, 0xc95e, 0xc96e,
+            0xc97e, 0xc996, 0xc99e, 0xc9a6, 0xc9ae, 0xc9c6, 0xc9d6, 0xc9e6,
+        ]
+        r = world.random.randint(0, 23)
+        g = world.random.randint(0, 23)
+        b = world.random.randint(0, 23)
+        gbc_color = (b << 10) | (g << 5) | r
+        color_bytes = bytes([gbc_color & 0xFF, (gbc_color >> 8) & 0xFF])
+        for off in WARIO_BLACK_OFFSETS:
+            patch.write_token(APTokenTypes.WRITE, off, color_bytes)
 
     # Embed the base bsdiff4 patch and token data into self.files so
     # APProcedurePatch.write_contents() includes them in the output zip.
