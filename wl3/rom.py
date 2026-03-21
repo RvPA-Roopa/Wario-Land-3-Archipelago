@@ -140,23 +140,29 @@ def _floats_to_gbc(r: float, g: float, b: float) -> int:
     return round(r * 31) | (round(g * 31) << 5) | (round(b * 31) << 10)
 
 def _recolor_palette(data: bytes, rand) -> bytes:
-    """Recolor near-grayscale colors in an 8-byte GBC palette.
+    """Recolor an 8-byte GBC palette.
 
-    Each near-grayscale color (s < 0.25) gets its own independent random hue,
-    so white shirt and black outline end up as distinctly different colors.
-    Saturated colors (skin, hat, etc.) are left completely unchanged.
+    Near-grayscale colors (s < 0.25) each get an independent random hue at
+    high saturation.  Saturated colors (s >= 0.25) are all hue-rotated by a
+    single shared random offset so their relative color relationships are
+    preserved.  Very dark colors (v < 0.15) are left unchanged.
     """
     GRAY_THRESHOLD = 0.25
+    hue_rotate = rand()  # one shared rotation for saturated colors in this palette
     out = bytearray(len(data))
     for i in range(len(data) // 2):
         color = data[i * 2] | (data[i * 2 + 1] << 8)
         r, g, b = _gbc_to_floats(color)
         h, s, v = colorsys.rgb_to_hsv(r, g, b)
-        if s < GRAY_THRESHOLD and v >= 0.15:
+        if v < 0.15:
+            pass  # dark/outline colors — leave unchanged
+        elif s < GRAY_THRESHOLD:
             # near-white / light-gray: assign a random hue at high saturation
             h = rand()
             s = 0.85
-        # dark colors (outlines, pure black) and saturated colors — leave unchanged
+        else:
+            # saturated colors: rotate hue by shared offset
+            h = (h + hue_rotate) % 1.0
         r, g, b = colorsys.hsv_to_rgb(h, s, v)
         new = _floats_to_gbc(r, g, b)
         out[i * 2]     = new & 0xFF
