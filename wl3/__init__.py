@@ -9,7 +9,7 @@ import os
 from typing import Any, ClassVar, Dict, List
 
 import settings as ap_settings
-from BaseClasses import Item, ItemClassification, Location, LocationProgressType, Tutorial
+from BaseClasses import Item, ItemClassification, Location, Tutorial
 
 from worlds.AutoWorld import WebWorld, World
 from worlds.LauncherComponents import Component, SuffixIdentifier, Type, components, launch_subprocess
