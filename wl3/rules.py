@@ -291,7 +291,7 @@ CHEST_RULES: dict = {
     ],
     "Forest of Fear": [
         None,
-        _c(_has("Mystery Handle"), has_grab_2),
+        _c(_has("Mystery Handle"), has_grab_2, _has("High Jump Boots")),
         _c(_has("Mystery Handle"), has_grab_1),
         _has("Demon's Blood"),
     ],

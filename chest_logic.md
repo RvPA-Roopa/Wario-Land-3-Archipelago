@@ -299,7 +299,7 @@
 | Chest | Requirements |
 |-------|-------------|
 | Grey  | *(none)* |
-| Red   | Mystery Handle + Grab x2 |
+| Red   | Mystery Handle + Grab x2 + High Jump Boots |
 | Green | Mystery Handle + Grab x1 |
 | Blue  | Demon's Blood |
 
