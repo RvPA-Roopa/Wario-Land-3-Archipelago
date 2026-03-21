@@ -140,23 +140,29 @@ def _floats_to_gbc(r: float, g: float, b: float) -> int:
     return round(r * 31) | (round(g * 31) << 5) | (round(b * 31) << 10)
 
 def _recolor_palette(data: bytes, rand) -> bytes:
-    """Recolor near-grayscale colors in an 8-byte GBC palette.
+    """Recolor an 8-byte GBC palette.
 
-    Each near-grayscale color (s < 0.25) gets its own independent random hue,
-    so white shirt and black outline end up as distinctly different colors.
-    Saturated colors (skin, hat, etc.) are left completely unchanged.
+    Near-grayscale colors (s < 0.25) each get an independent random hue at
+    high saturation.  Saturated colors (s >= 0.25) are all hue-rotated by a
+    single shared random offset so their relative color relationships are
+    preserved.  Very dark colors (v < 0.15) are left unchanged.
     """
     GRAY_THRESHOLD = 0.25
+    hue_rotate = rand()  # one shared rotation for saturated colors in this palette
     out = bytearray(len(data))
     for i in range(len(data) // 2):
         color = data[i * 2] | (data[i * 2 + 1] << 8)
         r, g, b = _gbc_to_floats(color)
         h, s, v = colorsys.rgb_to_hsv(r, g, b)
-        if s < GRAY_THRESHOLD and v >= 0.15:
+        if v < 0.15:
+            pass  # dark/outline colors — leave unchanged
+        elif s < GRAY_THRESHOLD:
             # near-white / light-gray: assign a random hue at high saturation
             h = rand()
             s = 0.85
-        # dark colors (outlines, pure black) and saturated colors — leave unchanged
+        else:
+            # saturated colors: rotate hue by shared offset
+            h = (h + hue_rotate) % 1.0
         r, g, b = colorsys.hsv_to_rgb(h, s, v)
         new = _floats_to_gbc(r, g, b)
         out[i * 2]     = new & 0xFF
@@ -218,7 +224,8 @@ def write_tokens(world: "WL3World", patch: WL3ProcedurePatch) -> None:
                           _build_level_music_table(zip(pool[:25], pool[25:])))
 
     # --- palette shuffle ---
-    if int(world.options.palette_shuffle):
+    pal_mode = int(world.options.palette_shuffle)
+    if pal_mode in (1, 3):  # enemies or both
         here = os.path.dirname(os.path.abspath(__file__))
         table_path = os.path.join(here, "data", "palette_table.json")
         if os.path.exists(table_path):
@@ -235,11 +242,35 @@ def write_tokens(world: "WL3World", patch: WL3ProcedurePatch) -> None:
             offset = entry["offset"]
             data   = base64.b64decode(entry["data"])
             result = bytearray()
-            # each 8-byte chunk = one palette of 4 colors; give it its own hue shift
             for i in range(len(data) // 8):
                 chunk = data[i * 8 : (i + 1) * 8]
                 result.extend(_recolor_palette(chunk, world.random.random))
             patch.write_token(APTokenTypes.WRITE, offset, bytes(result))
+
+    if pal_mode in (2, 3):  # wario or both
+        WARIO_BLACK_OFFSETS = [
+            0xc806, 0xc812, 0xc826, 0xc82e, 0xc836, 0xc83e, 0xc846, 0xc84e,
+            0xc856, 0xc85a, 0xc85e, 0xc866, 0xc86e, 0xc876, 0xc87e, 0xc886,
+            0xc89e, 0xc8ae, 0xc8be, 0xc8c6, 0xc8ce, 0xc8d6, 0xc8de, 0xc8ee,
+            0xc8fe, 0xc90e, 0xc916, 0xc936, 0xc942, 0xc956, 0xc95e, 0xc96e,
+            0xc97e, 0xc996, 0xc99e, 0xc9a6, 0xc9ae, 0xc9c6, 0xc9d6, 0xc9e6,
+        ]
+        r = world.random.randint(0, 23)
+        g = world.random.randint(0, 23)
+        b = world.random.randint(0, 23)
+        gbc_color = (b << 10) | (g << 5) | r
+        color_bytes = bytes([gbc_color & 0xFF, (gbc_color >> 8) & 0xFF])
+        for off in WARIO_BLACK_OFFSETS:
+            patch.write_token(APTokenTypes.WRITE, off, color_bytes)
+
+        WARIO_SHIRT_OFFSETS = [off - 4 for off in WARIO_BLACK_OFFSETS]
+        r = world.random.randint(8, 31)
+        g = world.random.randint(8, 31)
+        b = world.random.randint(8, 31)
+        gbc_color = (b << 10) | (g << 5) | r
+        color_bytes = bytes([gbc_color & 0xFF, (gbc_color >> 8) & 0xFF])
+        for off in WARIO_SHIRT_OFFSETS:
+            patch.write_token(APTokenTypes.WRITE, off, color_bytes)
 
     # Embed the base bsdiff4 patch and token data into self.files so
     # APProcedurePatch.write_contents() includes them in the output zip.
