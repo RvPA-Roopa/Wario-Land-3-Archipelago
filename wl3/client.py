@@ -87,6 +87,29 @@ ADDR_OVERALLS_TIER  = 0xCA02   # wOverallsTier:   0=none, 1=lead, 2=super jump s
 ADDR_GLOVES_TIER    = 0xCA03   # wGlovesTier:     0=none, 1=grab,  2=super grab
 ADDR_FLIPPERS_TIER  = 0xCA04   # wFlippersTier:   0=none, 1=swim,  2=prince frog
 
+# wAbilityFlags bit masks (match ABILFLAG_* in wario_constants.asm)
+ABILFLAG_OVERALLS   = 1 << 0
+ABILFLAG_GLOVES     = 1 << 1
+ABILFLAG_FLIPPERS   = 1 << 2
+ABILFLAG_GARLIC     = 1 << 3
+ABILFLAG_HIGH_JUMP  = 1 << 4
+ABILFLAG_HEAD_SMASH = 1 << 5
+
+# Per treasure-ID: (ability_flag, tier_addr, tier_value)
+# tier_addr=None means standalone ability (no tier var).
+# Only used for REMOTE items (chests in your own game are handled by the ROM).
+ABILITY_GRANTS = {
+    0x06: (ABILFLAG_FLIPPERS,   ADDR_FLIPPERS_TIER, 2),  # Prince Frog's Gloves
+    0x07: (ABILFLAG_FLIPPERS,   ADDR_FLIPPERS_TIER, 1),  # Swimming Flippers
+    0x08: (ABILFLAG_HIGH_JUMP,  None,               0),  # High Jump Boots
+    0x09: (ABILFLAG_GLOVES,     ADDR_GLOVES_TIER,   2),  # Super Grab Gloves
+    0x0A: (ABILFLAG_GARLIC,     None,               0),  # Garlic
+    0x0B: (ABILFLAG_GLOVES,     ADDR_GLOVES_TIER,   1),  # Grab Glove
+    0x0C: (ABILFLAG_OVERALLS,   ADDR_OVERALLS_TIER, 1),  # Lead Overalls
+    0x0D: (ABILFLAG_OVERALLS,   ADDR_OVERALLS_TIER, 2),  # Super Jump Slam Overalls
+    0x0E: (ABILFLAG_HEAD_SMASH, None,               0),  # Spiked Helmet
+}
+
 # wTreasuresCollected and wUnlockedLevels are in WRAMX bank 2.
 # Use the "WRAM" domain (all 32 KB across all banks) for reliable bank-2 access.
 # GBC WRAM layout: bank 0 at offset 0x0000, bank 1 at 0x1000, bank 2 at 0x2000, …
@@ -122,29 +145,6 @@ LEVEL_UNLOCK_ITEMS: dict[int, list[int]] = {
     24: [_i(0x16)],                              # East Crater — Treasure Map
     25: [_i(0x11)],                              # Forest of Fear — Torch
 }
-
-# wAbilityFlags bit masks
-ABILFLAG_OVERALLS   = 1 << 0
-ABILFLAG_GLOVES     = 1 << 1
-ABILFLAG_FLIPPERS   = 1 << 2
-ABILFLAG_GARLIC     = 1 << 3
-ABILFLAG_HIGH_JUMP  = 1 << 4
-ABILFLAG_HEAD_SMASH = 1 << 5
-
-# Per treasure-ID: (ability_flag, tier_addr, tier_value)
-# tier_addr=None means standalone ability (no tier var)
-ABILITY_GRANTS = {
-    0x06: (ABILFLAG_FLIPPERS,   ADDR_FLIPPERS_TIER, 2),  # Prince Frog's Gloves
-    0x07: (ABILFLAG_FLIPPERS,   ADDR_FLIPPERS_TIER, 1),  # Swimming Flippers
-    0x08: (ABILFLAG_HIGH_JUMP,  None,               0),  # High Jump Boots
-    0x09: (ABILFLAG_GLOVES,     ADDR_GLOVES_TIER,   2),  # Super Grab Gloves
-    0x0A: (ABILFLAG_GARLIC,     None,               0),  # Garlic
-    0x0B: (ABILFLAG_GLOVES,     ADDR_GLOVES_TIER,   1),  # Grab Glove
-    0x0C: (ABILFLAG_OVERALLS,   ADDR_OVERALLS_TIER, 1),  # Lead Overalls
-    0x0D: (ABILFLAG_OVERALLS,   ADDR_OVERALLS_TIER, 2),  # Super Jump Slam Overalls
-    0x0E: (ABILFLAG_HEAD_SMASH, None,               0),  # Spiked Helmet
-}
-
 
 class WL3Client(BizHawkClient):
     """Wario Land 3 game client for the Archipelago BizHawk Client / mGBA."""
@@ -305,7 +305,9 @@ class WL3Client(BizHawkClient):
             await self._apply_treasure(ctx, tid)
 
     async def _apply_treasure(self, ctx: "BizHawkClientContext", tid: int) -> None:
-        """Set wTreasuresCollected bit and, for ability items, update wAbilityFlags/tier vars."""
+        """Set wTreasuresCollected bit and, for ability items, update wAbilityFlags/tier vars.
+        The ROM also grants abilities when you open your own chests (SetTreasureTransitionParam);
+        both paths use max() so they are safe to run in any order."""
         await self._set_treasure_bit(ctx, tid)
         if tid in ABILITY_GRANTS:
             flag, tier_addr, tier_val = ABILITY_GRANTS[tid]
@@ -328,8 +330,8 @@ class WL3Client(BizHawkClient):
 
     async def _grant_ability(self, ctx: "BizHawkClientContext",
                              flag: int, tier_addr: int | None, tier_val: int) -> None:
-        """Set wAbilityFlags and tier var (using max so never downgrade).
-        The ROM's chest-open code also uses max(current, desired), so there is no race."""
+        """Set wAbilityFlags and tier var using max() so we never downgrade.
+        Safe to call alongside the ROM's SetTreasureTransitionParam — both use max logic."""
         try:
             cur_flags = (await read(ctx.bizhawk_ctx, [(ADDR_ABILITY_FLAGS, 1, "System Bus")]))[0][0]
             await write(ctx.bizhawk_ctx, [(ADDR_ABILITY_FLAGS, bytes([cur_flags | flag]), "System Bus")])
