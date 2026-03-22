@@ -47,7 +47,7 @@
 | Chest | Requirements |
 |-------|-------------|
 | Grey  | Flippers x1 |
-| Red   | Garlic |
+| Red   | Garlic + (Flippers x1 OR High Jump Boots) |
 | Green | Flippers x2 |
 | Blue  | Air Pump + Grab x1 |
 
@@ -263,7 +263,7 @@
 | Chest | Requirements |
 |-------|-------------|
 | Grey  | *(none)* |
-| Red   | Garlic |
+| Red   | Garlic + Grab x1 |
 | Green | (Sun Medallion Top + Sun Medallion Bottom) OR High Jump Boots |
 | Blue  | Explosive Plunger Box + High Jump Boots |
 

@@ -164,7 +164,7 @@ CHEST_RULES: dict = {
     ],
     "Bank of the Wild River": [
         has_flippers_1,
-        _has("Garlic"),
+        _c(_has("Garlic"), _o(has_flippers_1, _has("High Jump Boots"))),
         has_flippers_2,
         _c(_has("Air Pump"), has_grab_1),
     ],
@@ -273,7 +273,7 @@ CHEST_RULES: dict = {
     ],
     "The Colossal Hole": [
         None,
-        _has("Garlic"),
+        _c(_has("Garlic"), has_grab_1),
         _o(_c(_has("Sun Medallion Top"), _has("Sun Medallion Bottom")), _has("High Jump Boots")),
         _c(_has("Explosive Plunger Box"), _has("High Jump Boots")),
     ],
