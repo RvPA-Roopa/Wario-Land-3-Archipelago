@@ -118,6 +118,34 @@ ADDR_UNLOCKED_LEVELS_WRAM = 0x2E00 # WRAM domain offset for wUnlockedLevels    (
 ADDR_OPENED_CHESTS_WRAM   = 0x2E19 # WRAM domain offset for wOpenedChests      (bank 2, 0xDE19)
 
 
+LEVEL_NAMES: dict[int, str] = {
+     1: "N1 Out of the Woods",
+     2: "N2 The Peaceful Village",
+     3: "N3 The Vast Plain",
+     4: "N4 Bank of the Wild River",
+     5: "N5 The Tidal Coast",
+     6: "N6 Sea Turtle Rocks",
+     7: "W1 Desert Ruins",
+     8: "W2 The Volcano's Base",
+     9: "W3 The Pool of Rain",
+    10: "W4 A Town in Chaos",
+    11: "W5 Beneath the Waves",
+    12: "W6 The West Crater",
+    13: "S1 The Grasslands",
+    14: "S2 The Big Bridge",
+    15: "S3 Tower of Revival",
+    16: "S4 The Steep Canyon",
+    17: "S5 Cave of Flames",
+    18: "S6 Above the Clouds",
+    19: "E1 The Stagnant Swamp",
+    20: "E2 The Frigid Sea",
+    21: "E3 Castle of Illusions",
+    22: "E4 The Colossal Hole",
+    23: "E5 The Warped Void",
+    24: "E6 The East Crater",
+    25: "E7 Forest of Fear",
+}
+
 # Level unlock conditions: level (1-25) → set of AP item IDs all required
 LEVEL_UNLOCK_ITEMS: dict[int, list[int]] = {
     2:  [_i(0x1b)],                              # Peaceful Village — Axe
@@ -163,6 +191,8 @@ class WL3Client(BizHawkClient):
         self._combined_unlocks: bool = False
         self._seeded_from_wram: bool = False    # True after wOpenedChests read into _checked_locs
         self._goal_sent:        bool = False    # True after CLIENT_GOAL sent to server
+        self._cmd_registered:   bool = False    # True after /levels command registered
+        self._levels_shown:     bool = False    # True after auto-print on first connect
 
     # ------------------------------------------------------------------
     # validate_rom — called every poll cycle until it returns True
@@ -228,6 +258,11 @@ class WL3Client(BizHawkClient):
         if ctx.server is None or ctx.slot is None:
             return
 
+        # Register /levels command once
+        if not self._cmd_registered and hasattr(ctx, "command_processor"):
+            ctx.command_processor.commands["levels"] = lambda *_: self._show_unlocked_levels(ctx)
+            self._cmd_registered = True
+
         # ---- Seed _checked_locs from wOpenedChests on first server connection ----
         # The ROM now writes wOpenedChests on every chest open and it's saved to SRAM,
         # so it accurately reflects ALL offline checks including gem/crest placeholders.
@@ -239,6 +274,7 @@ class WL3Client(BizHawkClient):
                         self._checked_locs.add(BASE_LOC_ID + loc_index)
                 self._seeded_from_wram = True
                 logger.debug(f"[WL3] Seeded {len(self._checked_locs)} offline checks from wOpenedChests")
+                self._levels_shown = False  # trigger auto-print after items are processed
             except RequestFailedError:
                 pass  # retry next poll
 
@@ -266,6 +302,11 @@ class WL3Client(BizHawkClient):
         # Keep cache in sync with full server list (covers reconnect/reset cases)
         for net_item in ctx.items_received:
             self._cached_received.add(net_item.item)
+
+        # Auto-print unlocked levels once after first connect + items processed
+        if not self._levels_shown and self._seeded_from_wram:
+            self._show_unlocked_levels(ctx)
+            self._levels_shown = True
 
         # ---- Victory detection: wGameModeFlags bit 0 = MODE_GAME_CLEARED ----
         if not self._goal_sent:
@@ -367,6 +408,19 @@ class WL3Client(BizHawkClient):
             await write(ctx.bizhawk_ctx, [(ADDR_OPENED_CHESTS_WRAM, bytes(opened), "WRAM")])
         except RequestFailedError:
             pass
+
+    def _show_unlocked_levels(self, ctx: "BizHawkClientContext") -> None:
+        """Print which levels are currently unlocked based on received items."""
+        unlock_table = COMBINED_LEVEL_UNLOCK_ITEMS if self._combined_unlocks else LEVEL_UNLOCK_ITEMS
+        unlocked = []
+        for level in range(1, 26):
+            name = LEVEL_NAMES[level]
+            required = unlock_table.get(level)
+            if required is None or all(item in self._cached_received for item in required):
+                unlocked.append(name)
+        logger.info("=== Unlocked Levels ===")
+        for name in unlocked:
+            logger.info(f"  {name}")
 
     async def _update_level_unlocks_cached(self, ctx: "BizHawkClientContext") -> None:
         """Stamp AP-received treasure IDs into wTreasuresCollected (OR-merge) so the

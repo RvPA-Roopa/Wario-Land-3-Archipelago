@@ -15,11 +15,21 @@ from Options import Toggle, Choice, Range, PerGameCommonOptions
 #     default = 0
 
 class StartWithAxe(Toggle):
-    """Start Wario with the Axe, which unlocks 3 additional early locations
-    (Out of the Woods has axe-gated locations right at the start).
-    """
+    """Start with the Axe, immediately unlocking The Peaceful Village and The Vast Plain."""
     display_name = "Start with Axe"
     default = 1
+
+
+class RandomLevelStarts(Range):
+    """Start with this many additional randomly chosen level unlock items beyond Out of the Woods.
+    0: off (default)
+    1-10: that many random level unlock groups are granted at the start.
+    Stacks with Start with Axe (Axe is never included in the random pool).
+    """
+    display_name = "Random Level Starts"
+    range_start = 0
+    range_end   = 8
+    default     = 0
 
 
 class MusicBoxesRequired(Range):
@@ -113,13 +123,14 @@ class StartWithMagnifyingGlass(Toggle):
     """Start with the Magnifying Glass, which shows what treasures/chests have been collected
     in the overworld map (Press B while hovering a level)."""
     display_name = "Start with Magnifying Glass"
-    default = 0
+    default = 1
 
 
 @dataclass
 class WL3Options(PerGameCommonOptions):
     # starting_area:          StartingArea
     start_with_axe:               StartWithAxe
+    random_level_starts:          RandomLevelStarts
     combined_level_unlocks:       CombinedLevelUnlocks
     music_boxes_required:         MusicBoxesRequired
     music_box_shuffle:            MusicBoxShuffle

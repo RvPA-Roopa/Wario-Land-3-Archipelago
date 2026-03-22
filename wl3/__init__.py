@@ -86,6 +86,29 @@ components.append(Component(
     file_identifier=SuffixIdentifier(".apwl3"),
 ))
 
+# Level unlock groups eligible for random starts.
+# Each tuple unlocks a level with a sphere-0 grey chest; music box unlocks excluded.
+RANDOM_START_ELIGIBLE = [
+    ("Blue Tablet", "Green Tablet"),                 # Desert Ruins
+    ("Top Half of Scroll", "Bottom Half of Scroll"), # The Volcano's Base
+    ("Skull Ring Red", "Skull Ring Blue"),            # Tower of Revival
+    ("Trident", "Yellow Book"),                      # The Steep Canyon
+    ("Sky Key",),                                    # Above the Clouds
+    ("Ornamental Fan",),                             # The Stagnant Swamp
+    ("Blue Book", "Magic Wand"),                     # The Frigid Sea
+    ("Torch",),                                      # Forest of Fear
+]
+RANDOM_START_ELIGIBLE_COMBINED = [
+    ("Tablets",),
+    ("Scroll",),
+    ("Skull Ring",),
+    ("Trident & Yellow Book",),
+    ("Sky Key",),
+    ("Ornamental Fan",),
+    ("Blue Book & Magic Wand",),
+    ("Torch",),
+]
+
 # The 5 vanilla music box chest locations (original game placements)
 VANILLA_MUSIC_BOX_LOCATIONS = [
     "Out of the Woods - Blue Chest",       # Gold Music Box
@@ -179,9 +202,18 @@ class WL3World(World):
         skip_items = set()
 
         if self.options.start_with_axe:
-            # Axe is granted by the ROM; remove from pool and mark as pre-collected
             skip_items.add("Axe")
             self.multiworld.push_precollected(self.create_item("Axe"))
+
+        random_starts = int(self.options.random_level_starts)
+        if random_starts > 0:
+            eligible = RANDOM_START_ELIGIBLE_COMBINED if self.options.combined_level_unlocks else RANDOM_START_ELIGIBLE
+            count = min(random_starts, len(eligible))
+            picks = self.random.sample(eligible, count)
+            for group in picks:
+                for name in group:
+                    skip_items.add(name)
+                    self.multiworld.push_precollected(self.create_item(name))
 
         if self.options.combined_level_unlocks:
             # Skip the 17 individual multi-item unlocks; add 8 combined items instead
@@ -189,7 +221,8 @@ class WL3World(World):
                 if name not in INDIVIDUAL_MULTI_ITEM_NAMES and name not in skip_items:
                     items.append(self.create_item(name))
             for name in COMBINED_ITEMS:
-                items.append(self.create_item(name))
+                if name not in skip_items:
+                    items.append(self.create_item(name))
             # Fill freed slots with extra crest copies (9 + 1 if axe removed)
             extra = len(skip_items)
             counts = dict(CREST_EXTRA_COUNTS)
@@ -206,7 +239,7 @@ class WL3World(World):
             for name, count in CREST_DEFAULT_EXTRA_COUNTS.items():
                 for _ in range(count):
                     items.append(self.create_item(name))
-            # Replace removed items (e.g. start_with_axe) with crests
+            # Replace removed items (e.g. level_start_mode) with crests
             for _ in range(len(skip_items)):
                 items.append(self.create_item("Clubs Crest (1 Coin)"))
 
