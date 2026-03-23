@@ -60,7 +60,7 @@
 |-------|-------------|
 | Grey  | *(none)* |
 | Red   | Flippers x1 + Grab x1 |
-| Green | Statue |
+| Green | Statue + Garlic |
 | Blue  | Sapling of Growth + Flippers x1 + Garlic |
 
 ---
