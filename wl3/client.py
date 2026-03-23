@@ -82,33 +82,6 @@ COMBINED_LEVEL_UNLOCK_ITEMS: dict[int, list[int]] = {
 ADDR_LEVEL          = 0xCA0B   # wLevel:         (owlevel-1)*8 + state
 ADDR_END_SCREEN     = 0xCED4   # wLevelEndScreen: 0=idle, 0x81–0x84=chest collecting
 ADDR_GAME_MODE      = 0xCA44   # wGameModeFlags:  bit 0 = MODE_GAME_CLEARED (final boss defeated)
-ADDR_ABILITY_FLAGS  = 0xCA01   # wAbilityFlags:   bit 0=overalls,1=gloves,2=flippers,3=garlic,4=hjump,5=hsmash
-ADDR_OVERALLS_TIER  = 0xCA02   # wOverallsTier:   0=none, 1=lead, 2=super jump slam
-ADDR_GLOVES_TIER    = 0xCA03   # wGlovesTier:     0=none, 1=grab,  2=super grab
-ADDR_FLIPPERS_TIER  = 0xCA04   # wFlippersTier:   0=none, 1=swim,  2=prince frog
-
-# wAbilityFlags bit masks (match ABILFLAG_* in wario_constants.asm)
-ABILFLAG_OVERALLS   = 1 << 0
-ABILFLAG_GLOVES     = 1 << 1
-ABILFLAG_FLIPPERS   = 1 << 2
-ABILFLAG_GARLIC     = 1 << 3
-ABILFLAG_HIGH_JUMP  = 1 << 4
-ABILFLAG_HEAD_SMASH = 1 << 5
-
-# Per treasure-ID: (ability_flag, tier_addr, tier_value)
-# tier_addr=None means standalone ability (no tier var).
-# Only used for REMOTE items (chests in your own game are handled by the ROM).
-ABILITY_GRANTS = {
-    0x06: (ABILFLAG_FLIPPERS,   ADDR_FLIPPERS_TIER, 2),  # Prince Frog's Gloves
-    0x07: (ABILFLAG_FLIPPERS,   ADDR_FLIPPERS_TIER, 1),  # Swimming Flippers
-    0x08: (ABILFLAG_HIGH_JUMP,  None,               0),  # High Jump Boots
-    0x09: (ABILFLAG_GLOVES,     ADDR_GLOVES_TIER,   2),  # Super Grab Gloves
-    0x0A: (ABILFLAG_GARLIC,     None,               0),  # Garlic
-    0x0B: (ABILFLAG_GLOVES,     ADDR_GLOVES_TIER,   1),  # Grab Glove
-    0x0C: (ABILFLAG_OVERALLS,   ADDR_OVERALLS_TIER, 1),  # Lead Overalls
-    0x0D: (ABILFLAG_OVERALLS,   ADDR_OVERALLS_TIER, 2),  # Super Jump Slam Overalls
-    0x0E: (ABILFLAG_HEAD_SMASH, None,               0),  # Spiked Helmet
-}
 
 # wTreasuresCollected and wUnlockedLevels are in WRAMX bank 2.
 # Use the "WRAM" domain (all 32 KB across all banks) for reliable bank-2 access.
@@ -346,13 +319,9 @@ class WL3Client(BizHawkClient):
             await self._apply_treasure(ctx, tid)
 
     async def _apply_treasure(self, ctx: "BizHawkClientContext", tid: int) -> None:
-        """Set wTreasuresCollected bit and, for ability items, update wAbilityFlags/tier vars.
-        The ROM also grants abilities when you open your own chests (SetTreasureTransitionParam);
-        both paths use max() so they are safe to run in any order."""
+        """Set wTreasuresCollected bit. The ROM derives all ability vars from
+        wTreasuresCollected every frame via UpdateAbilitiesFromTreasures."""
         await self._set_treasure_bit(ctx, tid)
-        if tid in ABILITY_GRANTS:
-            flag, tier_addr, tier_val = ABILITY_GRANTS[tid]
-            await self._grant_ability(ctx, flag, tier_addr, tier_val)
 
     async def _set_treasure_bit(self, ctx: "BizHawkClientContext", treasure_id: int) -> None:
         """Set the collected bit for treasure_id in wTreasuresCollected (WRAMX bank 2)."""
@@ -368,21 +337,6 @@ class WL3Client(BizHawkClient):
             logger.debug(f"[WL3] Set treasure 0x{treasure_id:02X}: WRAM[0x{addr:04X}] 0x{cur:02X}→0x{new_val:02X}")
         except RequestFailedError as e:
             logger.warning(f"[WL3] Failed to set treasure 0x{treasure_id:02X}: {e}")
-
-    async def _grant_ability(self, ctx: "BizHawkClientContext",
-                             flag: int, tier_addr: int | None, tier_val: int) -> None:
-        """Set wAbilityFlags and tier var using max() so we never downgrade.
-        Safe to call alongside the ROM's SetTreasureTransitionParam — both use max logic."""
-        try:
-            cur_flags = (await read(ctx.bizhawk_ctx, [(ADDR_ABILITY_FLAGS, 1, "System Bus")]))[0][0]
-            await write(ctx.bizhawk_ctx, [(ADDR_ABILITY_FLAGS, bytes([cur_flags | flag]), "System Bus")])
-            if tier_addr is not None and tier_val > 0:
-                cur_tier = (await read(ctx.bizhawk_ctx, [(tier_addr, 1, "System Bus")]))[0][0]
-                new_tier = max(cur_tier, tier_val)
-                if new_tier != cur_tier:
-                    await write(ctx.bizhawk_ctx, [(tier_addr, bytes([new_tier]), "System Bus")])
-        except RequestFailedError:
-            pass
 
     async def _update_opened_chests(self, ctx: "BizHawkClientContext") -> None:
         """Write wOpenedChests (13 bytes) based on which AP locations are checked.

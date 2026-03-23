@@ -18,7 +18,7 @@ from worlds.Files import APProcedurePatch, APTokenMixin, APTokenTypes
 if TYPE_CHECKING:
     from . import WL3World
 
-CHEST_TABLE_OFFSET               = 0x001A81   # LevelTreasureIDs_WithoutTemple (100 bytes)
+CHEST_TABLE_OFFSET               = 0x001A84   # LevelTreasureIDs_WithoutTemple (100 bytes)
 LEVEL_MUSIC_OFFSET               = 0x03FE40   # LevelMusic table (25 levels × 16 bytes = 400 bytes)
 MUSIC_BOXES_REQUIRED_OFFSET      = 0x080ED3   # MusicBoxesRequired byte in Bank 20
 START_WITH_AXE_OFFSET            = 0x080ED4   # StartWithAxeOpt byte in Bank 20
