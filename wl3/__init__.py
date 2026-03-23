@@ -189,6 +189,12 @@ class WL3World(World):
     item_name_to_id      = {name: data.ap_id for name, data in ITEM_TABLE.items()}
     location_name_to_id  = {name: data.ap_id for name, data in LOCATION_TABLE.items()}
 
+    item_name_groups = {
+        "Grab":     {"Progressive Grab"},
+        "Flippers": {"Progressive Flippers"},
+        "Overalls": {"Progressive Overalls"},
+    }
+
     # ------------------------------------------------------------------
     # Item creation
     # ------------------------------------------------------------------

@@ -171,7 +171,7 @@ CHEST_RULES: dict = {
     "The Tidal Coast": [
         None,
         _c(has_flippers_1, has_grab_1),
-        _has("Statue"),
+        _c(_has("Statue"), _has("Garlic")),
         _c(_has("Sapling of Growth"), has_flippers_1, _has("Garlic")),
     ],
     "Sea Turtle Rocks": [
