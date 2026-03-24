@@ -410,12 +410,14 @@ class WL3World(World):
             else:
                 chest_table[loc_data.loc_index] = item_data.tier_ids[0]
 
-        # Assign tier IDs for progressive items: earlier chest index → lower tier
+        # Progressive ability chests always use tier 1 ID in ROM.
+        # Tier 2 is granted exclusively by the AP client when the 2nd progressive
+        # item is received — enforcing strict tier 1 → tier 2 progression regardless
+        # of which physical chest the player opens first.
         for prog_name, loc_indices in progressive_placements.items():
             tier_ids = PROGRESSIVE_ITEMS[prog_name].tier_ids
-            for tier, loc_idx in enumerate(sorted(loc_indices)):
-                if tier < len(tier_ids):
-                    chest_table[loc_idx] = tier_ids[tier]
+            for loc_idx in loc_indices:
+                chest_table[loc_idx] = tier_ids[0]
 
         return chest_table
 

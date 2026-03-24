@@ -392,6 +392,12 @@ class WL3Client(BizHawkClient):
             elif ap_id in COMBINED_GRANTS:               # combined item — expand
                 for tid2 in COMBINED_GRANTS[ap_id]:
                     ap_bits[tid2 >> 3] |= 1 << (tid2 & 7)
+        # Progressive ability bits: restore all tiers up to received count.
+        # Ensures save-state loads don't lose ability bits the AP already granted.
+        for ap_id, tiers in PROGRESSIVE_ITEMS.items():
+            count = self._prog_counts.get(ap_id, 0)
+            for tier_tid in tiers[:count]:
+                ap_bits[tier_tid >> 3] |= 1 << (tier_tid & 7)
         try:
             cur = (await read(ctx.bizhawk_ctx, [(ADDR_TREASURES_WRAM, 13, "WRAM")]))[0]
             merged = bytes(a | b for a, b in zip(cur, ap_bits))
