@@ -159,7 +159,6 @@ class WL3Client(BizHawkClient):
         self._prev_end_screen:  int  = 0
         self._checked_locs:     set  = set()
         self._items_handled:    int  = 0
-        self._prog_counts:      dict = {}
         self._cached_received:  set  = set()   # AP IDs received; kept between disconnects
         self._combined_unlocks: bool = False
         self._seeded_from_wram: bool = False    # True after wOpenedChests read into _checked_locs
@@ -260,10 +259,10 @@ class WL3Client(BizHawkClient):
         # Track combined mode from slot data
         self._combined_unlocks = bool((ctx.slot_data or {}).get("combined_level_unlocks", 0))
 
-        # If AP server reconnected and items list was reset, re-grant everything
+        # If AP server reset the items list, sync handler index down to match.
+        # _update_level_unlocks_cached restores all treasure bits from _cached_received.
         if len(ctx.items_received) < self._items_handled:
-            self._items_handled = 0
-            self._prog_counts   = {}
+            self._items_handled = len(ctx.items_received)
 
         # ---- Grant any newly received items ----
         while self._items_handled < len(ctx.items_received):
@@ -302,13 +301,10 @@ class WL3Client(BizHawkClient):
     async def _grant_item(self, ctx: "BizHawkClientContext", ap_id: int) -> None:
         """Resolve an AP item ID to treasure ID(s) and apply them to the game."""
         if ap_id in PROGRESSIVE_ITEMS:
-            tiers = PROGRESSIVE_ITEMS[ap_id]
-            count = self._prog_counts.get(ap_id, 0)
-            if count < len(tiers):
-                tid = tiers[count]
-                logger.debug(f"[WL3] Progressive AP {ap_id} tier {count + 1} → treasure 0x{tid:02X}")
-                await self._apply_treasure(ctx, tid)
-            self._prog_counts[ap_id] = count + 1
+            # ROM fully handles progressive ability progression via treasure_clear.asm.
+            # Client must not write these bits — doing so before a chest is opened
+            # would cause the ROM's upgrade logic to fire prematurely.
+            pass
         elif ap_id in COMBINED_GRANTS:
             for tid in COMBINED_GRANTS[ap_id]:
                 logger.debug(f"[WL3] Combined AP {ap_id} → treasure 0x{tid:02X}")
@@ -392,15 +388,18 @@ class WL3Client(BizHawkClient):
             elif ap_id in COMBINED_GRANTS:               # combined item — expand
                 for tid2 in COMBINED_GRANTS[ap_id]:
                     ap_bits[tid2 >> 3] |= 1 << (tid2 & 7)
-        # Progressive ability bits: restore all tiers up to received count.
-        # Ensures save-state loads don't lose ability bits the AP already granted.
-        for ap_id, tiers in PROGRESSIVE_ITEMS.items():
-            count = self._prog_counts.get(ap_id, 0)
-            for tier_tid in tiers[:count]:
-                ap_bits[tier_tid >> 3] |= 1 << (tier_tid & 7)
+        # Progressive ability bits are owned entirely by the ROM (treasure_clear.asm).
+        # The client never writes these bits.
         try:
             cur = (await read(ctx.bizhawk_ctx, [(ADDR_TREASURES_WRAM, 13, "WRAM")]))[0]
             merged = bytes(a | b for a, b in zip(cur, ap_bits))
-            await write(ctx.bizhawk_ctx, [(ADDR_TREASURES_WRAM, merged, "WRAM")])
+            # Only write bytes where we're adding new bits.
+            # Writing bytes unchanged would race against the ROM setting progressive
+            # ability bits (e.g., Swimming Flippers) in the same byte — a stale read
+            # followed by a write-back would clear the ROM's freshly-set bit.
+            writes = [(ADDR_TREASURES_WRAM + i, bytes([merged[i]]), "WRAM")
+                      for i in range(13) if merged[i] != cur[i]]
+            if writes:
+                await write(ctx.bizhawk_ctx, writes)
         except RequestFailedError:
             pass
