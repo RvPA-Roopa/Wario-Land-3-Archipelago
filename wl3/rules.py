@@ -269,7 +269,7 @@ CHEST_RULES: dict = {
         _c(has_overalls_1, has_grab_1),
         _c(_o(_c(has_grab_1, _has("Sun Medallion Top"), _has("Sun Medallion Bottom")), has_grab_2), _o(has_overalls_2, _has("High Jump Boots"))),
         has_grab_2,
-        _c(_has("Castle Brick"), has_grab_1),
+        _c(_has("Castle Brick"), has_grab_1, has_overalls_1),
     ],
     "The Colossal Hole": [
         None,

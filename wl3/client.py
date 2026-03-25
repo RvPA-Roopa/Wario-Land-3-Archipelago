@@ -160,6 +160,7 @@ class WL3Client(BizHawkClient):
         self._checked_locs:     set  = set()
         self._items_handled:    int  = 0
         self._cached_received:  set  = set()   # AP IDs received; kept between disconnects
+        self._prog_counts:      dict = {}       # ap_id → count received (for progressive tiers)
         self._combined_unlocks: bool = False
         self._seeded_from_wram: bool = False    # True after wOpenedChests read into _checked_locs
         self._goal_sent:        bool = False    # True after CLIENT_GOAL sent to server
@@ -263,11 +264,18 @@ class WL3Client(BizHawkClient):
         # _update_level_unlocks_cached restores all treasure bits from _cached_received.
         if len(ctx.items_received) < self._items_handled:
             self._items_handled = len(ctx.items_received)
+            # Recount progressive items from scratch after a server reset.
+            self._prog_counts = {}
+            for net_item in ctx.items_received:
+                if net_item.item in PROGRESSIVE_ITEMS:
+                    self._prog_counts[net_item.item] = self._prog_counts.get(net_item.item, 0) + 1
 
         # ---- Grant any newly received items ----
         while self._items_handled < len(ctx.items_received):
             ap_id = ctx.items_received[self._items_handled].item
             self._cached_received.add(ap_id)
+            if ap_id in PROGRESSIVE_ITEMS:
+                self._prog_counts[ap_id] = self._prog_counts.get(ap_id, 0) + 1
             await self._grant_item(ctx, ap_id)
             self._items_handled += 1
 
@@ -388,8 +396,21 @@ class WL3Client(BizHawkClient):
             elif ap_id in COMBINED_GRANTS:               # combined item — expand
                 for tid2 in COMBINED_GRANTS[ap_id]:
                     ap_bits[tid2 >> 3] |= 1 << (tid2 & 7)
-        # Progressive ability bits are owned entirely by the ROM (treasure_clear.asm).
-        # The client never writes these bits.
+        # Progressive abilities: set tier bits based on how many have been received.
+        # count >= 1 → tier 1 bit; count >= 2 → tier 2 bit.
+        # Skip during chest animation (wLevelEndScreen != 0) — the ROM owns the upgrade
+        # logic in .do_collect and must see the pre-chest WRAM state unmodified.
+        # After the animation ends (_prev_end_screen returns to 0), we write the bits;
+        # by then the ROM has already set them so the write is a no-op.
+        if self._prev_end_screen == 0:
+            for ap_id, count in self._prog_counts.items():
+                tier_ids = PROGRESSIVE_ITEMS[ap_id]
+                if count >= 1:
+                    t = tier_ids[0]
+                    ap_bits[t >> 3] |= 1 << (t & 7)
+                if count >= 2:
+                    t = tier_ids[1]
+                    ap_bits[t >> 3] |= 1 << (t & 7)
         try:
             cur = (await read(ctx.bizhawk_ctx, [(ADDR_TREASURES_WRAM, 13, "WRAM")]))[0]
             merged = bytes(a | b for a, b in zip(cur, ap_bits))

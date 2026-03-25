@@ -253,7 +253,7 @@
 | Grey  | Overalls x1 + Grab x1 |
 | Red   | ((Grab x1 + Sun Medallion Top + Sun Medallion Bottom) OR Grab x2) + (Overalls x2 OR High Jump Boots) |
 | Green | Grab x2 |
-| Blue  | Castle Brick + Grab x1 |
+| Blue  | Castle Brick + Grab x1 + Overalls x1 |
 
 ---
 
