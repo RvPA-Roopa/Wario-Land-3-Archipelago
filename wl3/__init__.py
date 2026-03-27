@@ -21,12 +21,14 @@ from .items import (
     CREST_EXTRA_COUNTS,
     INDIVIDUAL_MULTI_ITEM_NAMES,
     ITEM_TABLE,
+    KEY_BASE_ITEM_ID,
+    KEY_ITEM_TABLE,
     PROGRESSIVE_COUNTS,
     PROGRESSIVE_ITEMS,
     TREASURE_TABLE,
     WL3ItemData,
 )
-from .locations import BASE_LOC_ID, LOCATION_TABLE, WL3LocationData
+from .locations import BASE_LOC_ID, KEY_LOCATION_TABLE, LOCATION_TABLE, WL3LocationData
 from Options import OptionGroup
 from .options import (WL3Options, MusicBoxShuffle,
                       GolfPrice, GolfBuilding, StartWithMagnifyingGlass,
@@ -186,8 +188,14 @@ class WL3World(World):
     web                  = WL3WebWorld()
     settings:            ClassVar[WL3Settings]
 
-    item_name_to_id      = {name: data.ap_id for name, data in ITEM_TABLE.items()}
-    location_name_to_id  = {name: data.ap_id for name, data in LOCATION_TABLE.items()}
+    item_name_to_id      = {
+        **{name: data.ap_id for name, data in ITEM_TABLE.items()},
+        **{name: data.ap_id for name, data in KEY_ITEM_TABLE.items()},
+    }
+    location_name_to_id  = {
+        **{name: data.ap_id for name, data in LOCATION_TABLE.items()},
+        **{name: data.ap_id for name, data in KEY_LOCATION_TABLE.items()},
+    }
 
     item_name_groups = {
         "Grab":     {"Progressive Grab"},
@@ -200,6 +208,9 @@ class WL3World(World):
     # ------------------------------------------------------------------
 
     def create_item(self, name: str) -> WL3Item:
+        if name in KEY_ITEM_TABLE:
+            data = KEY_ITEM_TABLE[name]
+            return WL3Item(name, ItemClassification.progression, data.ap_id, self.player)
         data = ITEM_TABLE[name]
         return WL3Item(name, data.classification, data.ap_id, self.player)
 
@@ -277,6 +288,14 @@ class WL3World(World):
     # ------------------------------------------------------------------
 
     def pre_fill(self) -> None:
+        # Lock vanilla key items at their corresponding key locations (not in item pool).
+        for loc_name, loc_data in KEY_LOCATION_TABLE.items():
+            loc = self.multiworld.get_location(loc_name, self.player)
+            key_item_name = f"{loc_data.level_name} {loc_data.color_name} Key"
+            item = WL3Item(key_item_name, ItemClassification.progression,
+                           KEY_ITEM_TABLE[key_item_name].ap_id, self.player)
+            loc.place_locked_item(item)
+
         mode = self.options.music_box_shuffle
         if mode == MusicBoxShuffle.option_any_boss:
             allowed = BOSS_CHEST_LOCATIONS

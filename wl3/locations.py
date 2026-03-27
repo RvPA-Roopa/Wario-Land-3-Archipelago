@@ -77,3 +77,39 @@ assert len(LOCATION_TABLE) == 100, f"Expected 100 locations, got {len(LOCATION_T
 
 # Reverse lookup: ap_id → location name
 ID_TO_LOCATION: Dict[int, str] = {loc.ap_id: name for name, loc in LOCATION_TABLE.items()}
+
+
+# ---------------------------------------------------------------------------
+# Key locations  (one per level × color; IDs 7_770_400 – 7_770_499)
+# ---------------------------------------------------------------------------
+
+KEY_BASE_LOC_ID = 7_770_400  # AP location ID = KEY_BASE_LOC_ID + (owlevel-1)*4 + color_index
+
+
+class WL3KeyLocationData(NamedTuple):
+    ap_id: int
+    owlevel: int        # wOWLevel (1–25)
+    color_index: int    # 0=Grey, 1=Red, 2=Green, 3=Blue
+    region: str
+    level_name: str
+    color_name: str
+
+
+def _build_key_location_table() -> Dict[str, WL3KeyLocationData]:
+    table: Dict[str, WL3KeyLocationData] = {}
+    for owlevel, level_name, region in LEVEL_LIST:
+        for color_index, color_name in enumerate(COLOR_NAMES):
+            loc_name = f"{level_name} - {color_name} Key"
+            ap_id = KEY_BASE_LOC_ID + (owlevel - 1) * 4 + color_index
+            table[loc_name] = WL3KeyLocationData(
+                ap_id=ap_id,
+                owlevel=owlevel,
+                color_index=color_index,
+                region=region,
+                level_name=level_name,
+                color_name=color_name,
+            )
+    return table
+
+
+KEY_LOCATION_TABLE: Dict[str, WL3KeyLocationData] = _build_key_location_table()
