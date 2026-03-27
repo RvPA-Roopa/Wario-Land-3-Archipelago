@@ -7,6 +7,9 @@ BASE_ITEM_ID = 7_770_000
 #   Regular items:     BASE_ITEM_ID + treasure_id  (7770001 – 7770100, minus 6 progressive slots)
 #   Progressive items: BASE_ITEM_ID + 200 + index  (7770200 – 7770202)
 #   Combined items:    BASE_ITEM_ID + 203 + index  (7770203 – 7770210)
+#   Key items:         BASE_ITEM_ID + 300 + (owlevel-1)*4 + color  (7770300 – 7770399)
+
+KEY_BASE_ITEM_ID = BASE_ITEM_ID + 300  # 7_770_300
 
 
 class WL3ItemData(NamedTuple):
@@ -267,3 +270,36 @@ CREST_EXTRA_COUNTS: Dict[str, int] = {
 #   Combined mode: 74 (TREASURE_TABLE minus 17 individual) + 8 (combined) + 6 + 12 (extra crests) = 100
 _default_total = len(TREASURE_TABLE) + sum(PROGRESSIVE_COUNTS.values()) + sum(CREST_DEFAULT_EXTRA_COUNTS.values())
 assert _default_total == 100, f"Default pool size is {_default_total}, expected 100"
+
+
+# ---------------------------------------------------------------------------
+# Key items  (one per level × color; IDs 7_770_300 – 7_770_399)
+# Locked at their corresponding key locations — not placed in the item pool.
+# ---------------------------------------------------------------------------
+
+class WL3KeyItemData(NamedTuple):
+    ap_id: int
+    owlevel: int
+    color_index: int
+    level_name: str
+    color_name: str
+
+
+def _build_key_item_table() -> Dict[str, WL3KeyItemData]:
+    from .locations import LEVEL_LIST, COLOR_NAMES
+    table: Dict[str, WL3KeyItemData] = {}
+    for owlevel, level_name, _region in LEVEL_LIST:
+        for color_index, color_name in enumerate(COLOR_NAMES):
+            name = f"{level_name} {color_name} Key"
+            ap_id = KEY_BASE_ITEM_ID + (owlevel - 1) * 4 + color_index
+            table[name] = WL3KeyItemData(
+                ap_id=ap_id,
+                owlevel=owlevel,
+                color_index=color_index,
+                level_name=level_name,
+                color_name=color_name,
+            )
+    return table
+
+
+KEY_ITEM_TABLE: Dict[str, WL3KeyItemData] = _build_key_item_table()

@@ -26,9 +26,9 @@ Level unlock table:
 
 from typing import TYPE_CHECKING, List
 
-from BaseClasses import CollectionState
+from BaseClasses import CollectionState, LocationProgressType
 
-from .locations import LOCATION_TABLE
+from .locations import KEY_LOCATION_TABLE, LOCATION_TABLE
 
 if TYPE_CHECKING:
     from . import WL3World
@@ -336,6 +336,10 @@ def set_rules(world: "WL3World") -> None:
         elif chest_rule is not None:
             mw.get_location(loc_name, player).access_rule = \
                 lambda state, r=chest_rule: r(state, player)
+
+    # Key locations — excluded from logic until keysanity rules are implemented.
+    for loc_name in KEY_LOCATION_TABLE:
+        mw.get_location(loc_name, player).progress_type = LocationProgressType.EXCLUDED
 
     # Victory condition — collect required music boxes then beat the final boss.
     # Progressive Overalls x1 and Progressive Grab x2 are always required for the temple fight.

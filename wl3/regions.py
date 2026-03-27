@@ -10,7 +10,7 @@ from typing import TYPE_CHECKING, Dict
 
 from BaseClasses import Location, Region
 
-from .locations import LOCATION_TABLE
+from .locations import KEY_LOCATION_TABLE, LOCATION_TABLE
 
 if TYPE_CHECKING:
     from . import WL3World
@@ -45,6 +45,12 @@ def create_regions(world: "WL3World") -> Dict[str, Region]:
 
     # Attach each chest location to its compass region
     for loc_name, loc_data in LOCATION_TABLE.items():
+        region = all_regions[loc_data.region]
+        loc = Location(player, loc_name, loc_data.ap_id, region)
+        region.locations.append(loc)
+
+    # Attach each key location to its compass region (no rules — vanilla always accessible)
+    for loc_name, loc_data in KEY_LOCATION_TABLE.items():
         region = all_regions[loc_data.region]
         loc = Location(player, loc_name, loc_data.ap_id, region)
         region.locations.append(loc)

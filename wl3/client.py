@@ -89,6 +89,10 @@ ADDR_GAME_MODE      = 0xCA44   # wGameModeFlags:  bit 0 = MODE_GAME_CLEARED (fin
 ADDR_TREASURES_WRAM     = 0x2000   # WRAM domain offset for wTreasuresCollected (bank 2, 0xD000)
 ADDR_UNLOCKED_LEVELS_WRAM = 0x2E00 # WRAM domain offset for wUnlockedLevels    (bank 2, 0xDE00)
 ADDR_OPENED_CHESTS_WRAM   = 0x2E19 # WRAM domain offset for wOpenedChests      (bank 2, 0xDE19)
+ADDR_LEVEL_KEYS_WRAM      = 0x2E26 # WRAM domain offset for wLevelKeys         (bank 2, 0xDE26)
+
+KEY_BASE_LOC_ID  = 7_770_400        # AP location ID = KEY_BASE_LOC_ID + (owlevel-1)*4 + color
+KEY_BASE_ITEM_ID = BASE_ITEM_ID + 300  # 7_770_300
 
 
 LEVEL_NAMES: dict[int, str] = {
@@ -156,8 +160,9 @@ class WL3Client(BizHawkClient):
 
     def __init__(self) -> None:
         super().__init__()
-        self._prev_end_screen:  int  = 0
-        self._checked_locs:     set  = set()
+        self._prev_end_screen:  int   = 0
+        self._prev_level_keys:  bytes = bytes(25)
+        self._checked_locs:     set   = set()
         self._items_handled:    int  = 0
         self._cached_received:  set  = set()   # AP IDs received; kept between disconnects
         self._prog_counts:      dict = {}       # ap_id → count received (for progressive tiers)
@@ -223,10 +228,29 @@ class WL3Client(BizHawkClient):
 
         self._prev_end_screen = end_screen
 
+        # ---- Detect key pickups: new bits set in wLevelKeys ----
+        try:
+            lk_raw = (await read(ctx.bizhawk_ctx, [(ADDR_LEVEL_KEYS_WRAM, 25, "WRAM")]))[0]
+            for byte_idx in range(25):
+                new_bits = (~self._prev_level_keys[byte_idx]) & lk_raw[byte_idx] & 0x0F
+                for bit in range(4):
+                    if new_bits & (1 << bit):
+                        loc_id = KEY_BASE_LOC_ID + byte_idx * 4 + bit
+                        if loc_id not in self._checked_locs:
+                            self._checked_locs.add(loc_id)
+                            color_name = ("Grey", "Red", "Green", "Blue")[bit]
+                            logger.debug(f"[WL3] Key pickup — L{byte_idx+1} {color_name} → AP loc {loc_id}")
+            self._prev_level_keys = bytes(lk_raw)
+        except RequestFailedError:
+            pass
+
         # Refresh unlock flags from cache if we have any received items.
         # If cache is empty (never connected this session) the ROM handles it from SRAM.
         if self._cached_received:
             await self._update_level_unlocks_cached(ctx)
+
+        # ---- Restore wLevelKeys from checked locations (works offline too) ----
+        await self._update_level_keys(ctx)
 
         if ctx.server is None or ctx.slot is None:
             return
@@ -321,11 +345,29 @@ class WL3Client(BizHawkClient):
             tid = ap_id - BASE_ITEM_ID
             logger.debug(f"[WL3] Item AP {ap_id} → treasure 0x{tid:02X}")
             await self._apply_treasure(ctx, tid)
+        elif KEY_BASE_ITEM_ID <= ap_id < KEY_BASE_ITEM_ID + 100:
+            key_index = ap_id - KEY_BASE_ITEM_ID
+            owlevel_minus1 = key_index >> 2   # // 4
+            color = key_index & 3
+            color_name = ("Grey", "Red", "Green", "Blue")[color]
+            logger.debug(f"[WL3] Key item AP {ap_id} → L{owlevel_minus1+1} {color_name} key")
+            await self._set_key_bit(ctx, owlevel_minus1, color)
 
     async def _apply_treasure(self, ctx: "BizHawkClientContext", tid: int) -> None:
         """Set wTreasuresCollected bit. The ROM derives all ability vars from
         wTreasuresCollected every frame via UpdateAbilitiesFromTreasures."""
         await self._set_treasure_bit(ctx, tid)
+
+    async def _set_key_bit(self, ctx: "BizHawkClientContext", owlevel_minus1: int, color: int) -> None:
+        """Set a key bit in wLevelKeys (WRAMX bank 2) so the ROM suppresses that key object."""
+        addr = ADDR_LEVEL_KEYS_WRAM + owlevel_minus1
+        bit_mask = 1 << color
+        try:
+            cur = (await read(ctx.bizhawk_ctx, [(addr, 1, "WRAM")]))[0][0]
+            new_val = cur | bit_mask
+            await write(ctx.bizhawk_ctx, [(addr, bytes([new_val]), "WRAM")])
+        except RequestFailedError as e:
+            logger.warning(f"[WL3] Failed to set key L{owlevel_minus1+1} color {color}: {e}")
 
     async def _set_treasure_bit(self, ctx: "BizHawkClientContext", treasure_id: int) -> None:
         """Set the collected bit for treasure_id in wTreasuresCollected (WRAMX bank 2)."""
@@ -364,6 +406,26 @@ class WL3Client(BizHawkClient):
                 opened[loc_index >> 3] |= 1 << (loc_index & 7)
         try:
             await write(ctx.bizhawk_ctx, [(ADDR_OPENED_CHESTS_WRAM, bytes(opened), "WRAM")])
+        except RequestFailedError:
+            pass
+
+    async def _update_level_keys(self, ctx: "BizHawkClientContext") -> None:
+        """Write wLevelKeys (25 bytes) from checked key locations + received key items.
+        Mirrors _update_opened_chests — self-healing if WRAM is cleared on level load."""
+        level_keys = bytearray(25)
+        all_checked = set(ctx.locations_checked or set())
+        all_checked |= self._checked_locs
+        all_checked |= set(getattr(ctx, "checked_locations", None) or set())
+        for loc_id in all_checked:
+            key_index = loc_id - KEY_BASE_LOC_ID
+            if 0 <= key_index < 100:
+                level_keys[key_index >> 2] |= 1 << (key_index & 3)
+        for ap_id in self._cached_received:
+            if KEY_BASE_ITEM_ID <= ap_id < KEY_BASE_ITEM_ID + 100:
+                key_index = ap_id - KEY_BASE_ITEM_ID
+                level_keys[key_index >> 2] |= 1 << (key_index & 3)
+        try:
+            await write(ctx.bizhawk_ctx, [(ADDR_LEVEL_KEYS_WRAM, bytes(level_keys), "WRAM")])
         except RequestFailedError:
             pass
 
