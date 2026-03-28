@@ -441,6 +441,17 @@ class WL3Client(BizHawkClient):
                 key_index = ap_id - KEY_BASE_ITEM_ID
                 key_inventory[key_index >> 2] |= 1 << (key_index & 3)
         try:
+            # OR with current WRAM to preserve ROM-written bits not yet detected
+            cur = (await read(ctx.bizhawk_ctx, [
+                (ADDR_LEVEL_KEYS_WRAM, 25, "WRAM"),
+                (ADDR_KEY_INVENTORY_WRAM, 25, "WRAM"),
+            ]))
+            for i in range(25):
+                level_keys[i] |= cur[0][i]
+                key_inventory[i] |= cur[1][i]
+        except RequestFailedError:
+            pass
+        try:
             await write(ctx.bizhawk_ctx, [
                 (ADDR_LEVEL_KEYS_WRAM,    bytes(level_keys),    "WRAM"),
                 (ADDR_KEY_INVENTORY_WRAM, bytes(key_inventory), "WRAM"),
