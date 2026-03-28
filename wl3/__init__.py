@@ -430,11 +430,10 @@ class WL3World(World):
 
             item_data = ITEM_TABLE.get(item.name)
             if item_data is None:
-                # Key items (keysanity): use a gem placeholder so the chest shows
-                # something visible instead of a blank tile.  The actual AP item is
-                # delivered by the client; the gem just keeps the display valid.
+                # Key items (keysanity): show key icon via TREASURE_DUMMY ($65)
+                # whose tile graphics are patched with a key portrait by write_tokens.
                 if item.name in KEY_ITEM_TABLE:
-                    chest_table[loc_data.loc_index] = 0x4E  # Red Gem (progression)
+                    chest_table[loc_data.loc_index] = 0x65  # TREASURE_DUMMY → key icon
                 continue
 
             if item.name in PROGRESSIVE_ITEMS:

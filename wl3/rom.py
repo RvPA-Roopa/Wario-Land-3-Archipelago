@@ -20,6 +20,25 @@ if TYPE_CHECKING:
 
 CHEST_TABLE_OFFSET               = 0x001A84   # LevelTreasureIDs_WithoutTemple (100 bytes)
 KEY_TABLE_OFFSET                 = 0x001AE8   # LevelKeyPool (100 bytes; ITEM_KEY_BASE + index = vanilla)
+CHEST_KEY_PAL_OFFSET             = 0x001B4C   # ChestKeyPalettes (100 bytes; $FF=not key, 4-7=palette)
+TREASURE_DUMMY_TILE_OFFSET       = 0x099940   # TreasureGfx[$65] — 64 bytes (4 tiles, 2bpp)
+TREASURE_DUMMY_PAL_OFFSET        = 0x09AD1F   # TreasureOBPals[$65] — 1 byte (palette index)
+TREASURE_GFX_BASE                = 0x098000   # TreasureGfx[0] — each entry 64 bytes
+TREASURE_PAL_BASE                = 0x09ACBA   # TreasureOBPals[0] — each entry 1 byte
+KEY_COLOR_PALS = [0x08, 0x05, 0x06, 0x07]    # OBPAL: grey, red, green, blue
+
+# Key icon portrait — pause_menu.2bpp Frame 0 ($C0-$C3) with added black outline.
+# Color 1=highlight, 2=fill (themed), 3=outline (black border around entire key).
+KEY_PORTRAIT_TILES = bytes([
+    0x07, 0x07, 0x1E, 0x19, 0x38, 0x27, 0x37, 0x2F,
+    0x27, 0x3F, 0x20, 0x3F, 0x18, 0x1F, 0x07, 0x07,
+    0x03, 0x02, 0x01, 0x01, 0x03, 0x02, 0x02, 0x03,
+    0x02, 0x03, 0x02, 0x03, 0x02, 0x03, 0x01, 0x01,
+    0xE0, 0xE0, 0x18, 0xF8, 0x04, 0xFC, 0xE4, 0xFC,
+    0xE4, 0xFC, 0x04, 0xFC, 0x18, 0xF8, 0xE0, 0xE0,
+    0x40, 0xC0, 0x80, 0x80, 0x70, 0xF0, 0x18, 0xE8,
+    0x70, 0xF0, 0x70, 0xF0, 0x18, 0xE8, 0xF0, 0xF0,
+])
 LEVEL_MUSIC_OFFSET               = 0x03FE40   # LevelMusic table (25 levels × 16 bytes = 400 bytes)
 MUSIC_BOXES_REQUIRED_OFFSET      = 0x080ED3   # MusicBoxesRequired byte in Bank 20
 START_WITH_AXE_OFFSET            = 0x080ED4   # StartWithAxeOpt byte in Bank 20
@@ -173,11 +192,29 @@ def _recolor_palette(data: bytes, rand) -> bytes:
 
 def write_tokens(world: "WL3World", patch: WL3ProcedurePatch) -> None:
     """Write the randomized chest table, key pool, and options into the patch."""
-    chest_assignments = world._build_chest_assignments()
-    patch.write_token(APTokenTypes.WRITE, CHEST_TABLE_OFFSET, bytes(chest_assignments))
+    chest_assignments = list(world._build_chest_assignments())
 
     key_assignments = world._build_key_assignments()
     patch.write_token(APTokenTypes.WRITE, KEY_TABLE_OFFSET, bytes(key_assignments))
+
+    # Patch TREASURE_DUMMY ($65) tile graphics with key icon.
+    patch.write_token(APTokenTypes.WRITE, TREASURE_DUMMY_TILE_OFFSET, KEY_PORTRAIT_TILES)
+
+    # Build per-chest key palette table: $FF = not a key, 4-7 = key color palette.
+    from .items import KEY_ITEM_TABLE
+    from .locations import LOCATION_TABLE
+    chest_key_pals = bytearray([0xFF] * 100)
+    for loc_name, loc_data in LOCATION_TABLE.items():
+        idx = loc_data.loc_index
+        if chest_assignments[idx] == 0x65:  # TREASURE_DUMMY = key item
+            location = world.multiworld.get_location(loc_name, world.player)
+            item = location.item
+            if item and item.name in KEY_ITEM_TABLE:
+                color = KEY_ITEM_TABLE[item.name].color_index
+                chest_key_pals[idx] = KEY_COLOR_PALS[color]
+    patch.write_token(APTokenTypes.WRITE, CHEST_KEY_PAL_OFFSET, bytes(chest_key_pals))
+
+    patch.write_token(APTokenTypes.WRITE, CHEST_TABLE_OFFSET, bytes(chest_assignments))
 
     music_boxes_required = int(world.options.music_boxes_required)
     patch.write_token(APTokenTypes.WRITE, MUSIC_BOXES_REQUIRED_OFFSET,
