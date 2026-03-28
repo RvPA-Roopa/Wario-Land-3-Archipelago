@@ -115,6 +115,15 @@ class CombinedLevelUnlocks(Toggle):
     default = 0
 
 
+class KeyShuffle(Toggle):
+    """Shuffle all 100 level keys (4 per level × 25 levels) into the multiworld item pool.
+    Keys can appear anywhere, and key locations can contain any item.
+    When off, keys are vanilla: each key location always gives the matching key for that level.
+    """
+    display_name = "Key Shuffle"
+    default = 0
+
+
 # ---------------------------------------------------------------------------
 # Quality of Life
 # ---------------------------------------------------------------------------
@@ -132,6 +141,7 @@ class WL3Options(PerGameCommonOptions):
     start_with_axe:               StartWithAxe
     random_level_starts:          RandomLevelStarts
     combined_level_unlocks:       CombinedLevelUnlocks
+    key_shuffle:                  KeyShuffle
     music_boxes_required:         MusicBoxesRequired
     music_box_shuffle:            MusicBoxShuffle
     # QoL

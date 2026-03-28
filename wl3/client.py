@@ -82,6 +82,7 @@ COMBINED_LEVEL_UNLOCK_ITEMS: dict[int, list[int]] = {
 ADDR_LEVEL          = 0xCA0B   # wLevel:         (owlevel-1)*8 + state
 ADDR_END_SCREEN     = 0xCED4   # wLevelEndScreen: 0=idle, 0x81–0x84=chest collecting
 ADDR_GAME_MODE      = 0xCA44   # wGameModeFlags:  bit 0 = MODE_GAME_CLEARED (final boss defeated)
+ADDR_CHEST_AP_KEY   = 0x2E58   # wChestAPKey (WRAM domain, bank 2 $DE58): chest-gave-key signal (1-4)
 
 # wTreasuresCollected and wUnlockedLevels are in WRAMX bank 2.
 # Use the "WRAM" domain (all 32 KB across all banks) for reliable bank-2 access.
@@ -90,6 +91,7 @@ ADDR_TREASURES_WRAM     = 0x2000   # WRAM domain offset for wTreasuresCollected 
 ADDR_UNLOCKED_LEVELS_WRAM = 0x2E00 # WRAM domain offset for wUnlockedLevels    (bank 2, 0xDE00)
 ADDR_OPENED_CHESTS_WRAM   = 0x2E19 # WRAM domain offset for wOpenedChests      (bank 2, 0xDE19)
 ADDR_LEVEL_KEYS_WRAM      = 0x2E26 # WRAM domain offset for wLevelKeys         (bank 2, 0xDE26)
+ADDR_KEY_INVENTORY_WRAM   = 0x2E3F # WRAM domain offset for wKeyInventory      (bank 2, 0xDE3F)
 
 KEY_BASE_LOC_ID  = 7_770_400        # AP location ID = KEY_BASE_LOC_ID + (owlevel-1)*4 + color
 KEY_BASE_ITEM_ID = BASE_ITEM_ID + 300  # 7_770_300
@@ -352,6 +354,15 @@ class WL3Client(BizHawkClient):
             color_name = ("Grey", "Red", "Green", "Blue")[color]
             logger.debug(f"[WL3] Key item AP {ap_id} → L{owlevel_minus1+1} {color_name} key")
             await self._set_key_bit(ctx, owlevel_minus1, color)
+            # Signal ROM to show key portrait on clear screen if a chest is active
+            try:
+                cur_end = (await read(ctx.bizhawk_ctx, [(ADDR_END_SCREEN, 1, "System Bus")]))[0][0]
+                chest_color = cur_end & 0x7F  # strip bit 7
+                if 1 <= chest_color <= 4:
+                    await write(ctx.bizhawk_ctx, [(ADDR_CHEST_AP_KEY, bytes([chest_color]), "WRAM")])
+                    logger.debug(f"[WL3] wChestAPKey={chest_color} (key portrait for chest color {chest_color})")
+            except RequestFailedError:
+                pass
 
     async def _apply_treasure(self, ctx: "BizHawkClientContext", tid: int) -> None:
         """Set wTreasuresCollected bit. The ROM derives all ability vars from
@@ -359,8 +370,8 @@ class WL3Client(BizHawkClient):
         await self._set_treasure_bit(ctx, tid)
 
     async def _set_key_bit(self, ctx: "BizHawkClientContext", owlevel_minus1: int, color: int) -> None:
-        """Set a key bit in wLevelKeys (WRAMX bank 2) so the ROM suppresses that key object."""
-        addr = ADDR_LEVEL_KEYS_WRAM + owlevel_minus1
+        """Set a key bit in wKeyInventory (WRAMX bank 2) — key item received from AP."""
+        addr = ADDR_KEY_INVENTORY_WRAM + owlevel_minus1
         bit_mask = 1 << color
         try:
             cur = (await read(ctx.bizhawk_ctx, [(addr, 1, "WRAM")]))[0][0]
@@ -410,8 +421,11 @@ class WL3Client(BizHawkClient):
             pass
 
     async def _update_level_keys(self, ctx: "BizHawkClientContext") -> None:
-        """Write wLevelKeys (25 bytes) from checked key locations + received key items.
-        Mirrors _update_opened_chests — self-healing if WRAM is cleared on level load."""
+        """Write wLevelKeys (visited slots) and wKeyInventory (held keys) each poll.
+        Mirrors _update_opened_chests — self-healing if WRAM is cleared on level load.
+        wLevelKeys  ← which key LOCATIONS have been checked (suppresses key objects).
+        wKeyInventory ← which key ITEMS have been received (grants chest access)."""
+        # wLevelKeys: set from visited key locations (object suppression)
         level_keys = bytearray(25)
         all_checked = set(ctx.locations_checked or set())
         all_checked |= self._checked_locs
@@ -420,12 +434,17 @@ class WL3Client(BizHawkClient):
             key_index = loc_id - KEY_BASE_LOC_ID
             if 0 <= key_index < 100:
                 level_keys[key_index >> 2] |= 1 << (key_index & 3)
+        # wKeyInventory: set from received key items (held keys for chest access)
+        key_inventory = bytearray(25)
         for ap_id in self._cached_received:
             if KEY_BASE_ITEM_ID <= ap_id < KEY_BASE_ITEM_ID + 100:
                 key_index = ap_id - KEY_BASE_ITEM_ID
-                level_keys[key_index >> 2] |= 1 << (key_index & 3)
+                key_inventory[key_index >> 2] |= 1 << (key_index & 3)
         try:
-            await write(ctx.bizhawk_ctx, [(ADDR_LEVEL_KEYS_WRAM, bytes(level_keys), "WRAM")])
+            await write(ctx.bizhawk_ctx, [
+                (ADDR_LEVEL_KEYS_WRAM,    bytes(level_keys),    "WRAM"),
+                (ADDR_KEY_INVENTORY_WRAM, bytes(key_inventory), "WRAM"),
+            ])
         except RequestFailedError:
             pass
 

@@ -19,6 +19,7 @@ if TYPE_CHECKING:
     from . import WL3World
 
 CHEST_TABLE_OFFSET               = 0x001A84   # LevelTreasureIDs_WithoutTemple (100 bytes)
+KEY_TABLE_OFFSET                 = 0x001AE8   # LevelKeyPool (100 bytes; ITEM_KEY_BASE + index = vanilla)
 LEVEL_MUSIC_OFFSET               = 0x03FE40   # LevelMusic table (25 levels × 16 bytes = 400 bytes)
 MUSIC_BOXES_REQUIRED_OFFSET      = 0x080ED3   # MusicBoxesRequired byte in Bank 20
 START_WITH_AXE_OFFSET            = 0x080ED4   # StartWithAxeOpt byte in Bank 20
@@ -171,9 +172,12 @@ def _recolor_palette(data: bytes, rand) -> bytes:
 
 
 def write_tokens(world: "WL3World", patch: WL3ProcedurePatch) -> None:
-    """Write the randomized chest table and music box requirement into the patch."""
+    """Write the randomized chest table, key pool, and options into the patch."""
     chest_assignments = world._build_chest_assignments()
     patch.write_token(APTokenTypes.WRITE, CHEST_TABLE_OFFSET, bytes(chest_assignments))
+
+    key_pool = bytes(0x80 + i for i in range(100))
+    patch.write_token(APTokenTypes.WRITE, KEY_TABLE_OFFSET, key_pool)
 
     music_boxes_required = int(world.options.music_boxes_required)
     patch.write_token(APTokenTypes.WRITE, MUSIC_BOXES_REQUIRED_OFFSET,

@@ -30,7 +30,7 @@ from .items import (
 )
 from .locations import BASE_LOC_ID, KEY_LOCATION_TABLE, LOCATION_TABLE, WL3LocationData
 from Options import OptionGroup
-from .options import (WL3Options, MusicBoxShuffle,
+from .options import (WL3Options, MusicBoxShuffle, KeyShuffle,
                       GolfPrice, GolfBuilding, StartWithMagnifyingGlass,
                       MusicShuffle, PaletteShuffle)
 from .regions import create_regions
@@ -266,6 +266,12 @@ class WL3World(World):
                 items.append(self.create_item(name))
 
         assert len(items) == 100, f"Expected 100 items, got {len(items)}"
+
+        # Key shuffle: add all 100 key items to the pool (pool grows to 200)
+        if self.options.key_shuffle:
+            for name in KEY_ITEM_TABLE:
+                items.append(self.create_item(name))
+
         self.multiworld.itempool += items
 
     # ------------------------------------------------------------------
@@ -288,13 +294,15 @@ class WL3World(World):
     # ------------------------------------------------------------------
 
     def pre_fill(self) -> None:
-        # Lock vanilla key items at their corresponding key locations (not in item pool).
-        for loc_name, loc_data in KEY_LOCATION_TABLE.items():
-            loc = self.multiworld.get_location(loc_name, self.player)
-            key_item_name = f"{loc_data.level_name} {loc_data.color_name} Key"
-            item = WL3Item(key_item_name, ItemClassification.progression,
-                           KEY_ITEM_TABLE[key_item_name].ap_id, self.player)
-            loc.place_locked_item(item)
+        # Vanilla mode: lock each key item to its own location (not in item pool).
+        # Keysanity mode: keys are in the pool and placed by AP — don't lock them.
+        if not self.options.key_shuffle:
+            for loc_name, loc_data in KEY_LOCATION_TABLE.items():
+                loc = self.multiworld.get_location(loc_name, self.player)
+                key_item_name = f"{loc_data.level_name} {loc_data.color_name} Key"
+                item = WL3Item(key_item_name, ItemClassification.progression,
+                               KEY_ITEM_TABLE[key_item_name].ap_id, self.player)
+                loc.place_locked_item(item)
 
         mode = self.options.music_box_shuffle
         if mode == MusicBoxShuffle.option_any_boss:
@@ -422,6 +430,11 @@ class WL3World(World):
 
             item_data = ITEM_TABLE.get(item.name)
             if item_data is None:
+                # Key items (keysanity): use a gem placeholder so the chest shows
+                # something visible instead of a blank tile.  The actual AP item is
+                # delivered by the client; the gem just keeps the display valid.
+                if item.name in KEY_ITEM_TABLE:
+                    chest_table[loc_data.loc_index] = 0x4E  # Red Gem (progression)
                 continue
 
             if item.name in PROGRESSIVE_ITEMS:
@@ -439,6 +452,51 @@ class WL3World(World):
                 chest_table[loc_idx] = tier_ids[0]
 
         return chest_table
+
+    def _build_key_assignments(self) -> List[int]:
+        """Return a 100-element list of in-game item IDs for the LevelKeyPool table.
+
+        Index: (owlevel - 1) * 4 + color_index  (matches KEY_TABLE_OFFSET layout)
+
+        Non-keysanity: vanilla identity mapping (each key location gives its own key).
+        Keysanity:
+          - Own WL3 key item   → ROM key ID (0x80 + pool_index); ROM sets key inventory.
+          - Own WL3 treasure   → ROM treasure ID; ROM skips key inventory (bit-7 check).
+          - Foreign/empty      → Red Gem placeholder (0x4E); ROM skips, AP client delivers.
+        """
+        if not self.options.key_shuffle:
+            return [0x80 + i for i in range(100)]
+
+        key_table = [0] * 100
+        for loc_name, loc_data in KEY_LOCATION_TABLE.items():
+            location = self.multiworld.get_location(loc_name, self.player)
+            item = location.item
+            idx = (loc_data.owlevel - 1) * 4 + loc_data.color_index
+
+            if item is None or item.player != self.player:
+                # Foreign item — AP client delivers it; give ROM a safe no-op gem
+                if item is not None:
+                    cls = item.classification
+                    if cls in (ItemClassification.progression,
+                               ItemClassification.progression_skip_balancing):
+                        key_table[idx] = 0x4E  # Red Gem
+                    elif cls == ItemClassification.useful:
+                        key_table[idx] = 0x50  # Blue Gem
+                    else:
+                        key_table[idx] = 0x4F  # Green Gem
+                else:
+                    key_table[idx] = 0x4F
+                continue
+
+            if item.name in KEY_ITEM_TABLE:
+                key_item_data = KEY_ITEM_TABLE[item.name]
+                key_table[idx] = 0x80 + (key_item_data.owlevel - 1) * 4 + key_item_data.color_index
+            else:
+                # Own treasure at key location — ROM will safely skip inventory update
+                item_data = ITEM_TABLE.get(item.name)
+                key_table[idx] = item_data.tier_ids[0] if item_data else 0x4F
+
+        return key_table
 
     # ------------------------------------------------------------------
     # Slot data

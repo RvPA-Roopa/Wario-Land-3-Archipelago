@@ -28,7 +28,7 @@ from typing import TYPE_CHECKING, List
 
 from BaseClasses import CollectionState, LocationProgressType
 
-from .locations import KEY_LOCATION_TABLE, LOCATION_TABLE
+from .locations import COLOR_NAMES, KEY_LOCATION_TABLE, LOCATION_TABLE
 
 if TYPE_CHECKING:
     from . import WL3World
@@ -299,6 +299,166 @@ CHEST_RULES: dict = {
 
 
 # ---------------------------------------------------------------------------
+# Per-key access rules (additional requirements beyond the level unlock)
+# Each entry: [grey_rule, red_rule, green_rule, blue_rule]
+# ---------------------------------------------------------------------------
+
+KEY_RULES: dict = {
+    "Out of the Woods": [
+        None,
+        has_overalls_1,
+        _has("High Jump Boots"),
+        _c(_has("Gold Magic"), _has("High Jump Boots")),
+    ],
+    "The Peaceful Village": [
+        None,
+        _o(_has("Flute"), _has("High Jump Boots"), has_overalls_2),
+        _o(_has("Flute"), _has("High Jump Boots")),
+        _c(has_overalls_2, _has("Garlic")),
+    ],
+    "The Vast Plain": [
+        None,
+        has_overalls_1,
+        _has("Magic Seeds"),
+        _c(_has("Blue Chemical"), _has("Red Chemical")),
+    ],
+    "Bank of the Wild River": [
+        None,
+        _has("Garlic"),
+        has_flippers_2,
+        _has("Air Pump"),
+    ],
+    "The Tidal Coast": [
+        None,
+        _c(has_grab_1, _o(has_flippers_2, _c(has_flippers_1, _has("Spiked Helmet")))),
+        _has("Garlic"),
+        _c(has_flippers_1, _has("Garlic"), _has("Sapling of Growth")),
+    ],
+    "Sea Turtle Rocks": [
+        _c(_has("Garlic"), _has("Spiked Helmet"), has_overalls_1, has_flippers_1),
+        _c(_has("Scepter"), _has("Garlic"), has_overalls_1, has_flippers_1),
+        has_overalls_2,
+        _c(has_overalls_2, _has("High Jump Boots"), _has("Night Vision Scope")),
+    ],
+    "Desert Ruins": [
+        None,
+        None,
+        _c(_has("Spiked Helmet"), has_overalls_1),
+        has_overalls_2,
+    ],
+    "The Volcano's Base": [
+        None,
+        _has("Truck Wheel"),
+        _c(_has("Truck Wheel"), has_flippers_1),
+        _c(_has("Foot of Stone"), _o(has_flippers_2, _c(has_flippers_1, _has("Spiked Helmet")))),
+    ],
+    "The Pool of Rain": [
+        has_overalls_1,
+        _has("Magic Seeds"),
+        has_flippers_1,
+        _c(_has("Air Pump"), has_flippers_1),
+    ],
+    "A Town in Chaos": [
+        None,
+        None,
+        _c(has_grab_2, has_overalls_2),
+        _c(_has("Electric Fan Propeller"), has_grab_1),
+    ],
+    "Beneath the Waves": [
+        _has("High Jump Boots"),
+        _c(has_flippers_2, _has("Spiked Helmet"), has_grab_2),
+        has_flippers_2,
+        _c(has_flippers_1, _has("Red Chemical"), _has("Blue Chemical")),
+    ],
+    "The West Crater": [
+        None,
+        _c(has_overalls_1, has_grab_1),
+        _c(_has("Fire Drencher"), _has("High Jump Boots")),
+        _c(_has("Rust Spray"), has_grab_1),
+    ],
+    "The Grasslands": [
+        None,
+        None,
+        _o(_has("Flute"), _has("High Jump Boots")),
+        _has("High Jump Boots"),
+    ],
+    "The Big Bridge": [
+        None,
+        _c(has_overalls_1, has_flippers_1),
+        _c(has_overalls_1, has_flippers_1, has_grab_1),
+        _c(has_flippers_1, _has("Garlic")),
+    ],
+    "Tower of Revival": [
+        None,
+        _c(_has("Left Glass Eye"), _has("Right Glass Eye")),
+        _c(_has("Statue"), _has("High Jump Boots")),
+        _c(_has("Statue"), _has("High Jump Boots"), _has("Golden Left Eye"), _has("Golden Right Eye")),
+    ],
+    "The Steep Canyon": [
+        None,
+        _has("Foot of Stone"),
+        _c(_has("Foot of Stone"), has_flippers_2, has_overalls_2),
+        _c(_has("Rust Spray"), has_overalls_1),
+    ],
+    "Cave of Flames": [
+        has_grab_1,
+        _has("High Jump Boots"),
+        _has("Explosive Plunger Box"),
+        _c(_has("Rust Spray"), has_overalls_1, has_grab_1, _has("High Jump Boots")),
+    ],
+    "Above the Clouds": [
+        None,
+        _c(_has("High Jump Boots"), has_grab_1, _has("Spiked Helmet")),
+        _c(_has("Scissors"), _has("High Jump Boots")),
+        _c(_has("Scissors"), _has("Full Moon Gong"), _has("High Jump Boots")),
+    ],
+    "The Stagnant Swamp": [
+        None,
+        _has("Foot of Stone"),
+        _c(_has("Foot of Stone"), has_grab_1, _has("High Jump Boots")),
+        _has("Explosive Plunger Box"),
+    ],
+    "The Frigid Sea": [
+        None,
+        has_grab_1,
+        _c(_has("Scepter"), has_flippers_1),
+        _o(_c(_has("Sun Medallion Top"), _has("Sun Medallion Bottom")), has_flippers_2),
+    ],
+    "Castle of Illusions": [
+        has_grab_1,
+        _c(_o(_c(has_grab_1, _has("Sun Medallion Top"), _has("Sun Medallion Bottom")), has_grab_2),
+           _o(has_overalls_2, _has("High Jump Boots"))),
+        has_grab_2,
+        _c(_has("Castle Brick"), has_overalls_1),
+    ],
+    "The Colossal Hole": [
+        None,
+        _c(_has("Garlic"), has_grab_1),
+        _o(_c(_has("Sun Medallion Top"), _has("Sun Medallion Bottom")), _has("High Jump Boots")),
+        _c(_has("Explosive Plunger Box"), _has("High Jump Boots")),
+    ],
+    "The Warped Void": [
+        has_grab_1,
+        _has("Warp Removal Apparatus"),
+        _c(_has("Warp Removal Apparatus"), has_grab_1),
+        _c(_has("Key Card Red"), _has("Key Card Blue"), has_grab_1),
+    ],
+    "The East Crater": [
+        _c(has_grab_1, has_overalls_2),
+        _c(_has("Fire Drencher"), has_grab_1),
+        _c(_has("Jackhammer"), has_grab_1),
+        _c(_has("Pick Axe"), has_grab_1, _has("High Jump Boots")),
+    ],
+    "Forest of Fear": [
+        None,
+        _c(_has("Mystery Handle"), has_grab_2, _has("High Jump Boots")),
+        _c(_has("Mystery Handle"), has_grab_1),
+        _has("Demon's Blood"),
+    ],
+}
+
+
+# ---------------------------------------------------------------------------
 # Main rule-setting function — called from WL3World.set_rules()
 # ---------------------------------------------------------------------------
 
@@ -322,10 +482,17 @@ def set_rules(world: "WL3World") -> None:
             "Castle of Illusions": unlock_e3c,
         })
 
+    keysanity = bool(world.options.key_shuffle)
+
     for loc_name, loc_data in LOCATION_TABLE.items():
         level_rule  = level_rules.get(loc_data.level_name)
         chest_rules = CHEST_RULES.get(loc_data.level_name)
         chest_rule  = chest_rules[loc_data.color_index] if chest_rules else None
+
+        if keysanity:
+            key_item = f"{loc_data.level_name} {COLOR_NAMES[loc_data.color_index]} Key"
+            key_item_rule = _has(key_item)
+            chest_rule = _c(chest_rule, key_item_rule) if chest_rule is not None else key_item_rule
 
         if level_rule is not None and chest_rule is not None:
             mw.get_location(loc_name, player).access_rule = \
@@ -337,9 +504,26 @@ def set_rules(world: "WL3World") -> None:
             mw.get_location(loc_name, player).access_rule = \
                 lambda state, r=chest_rule: r(state, player)
 
-    # Key locations — excluded from logic until keysanity rules are implemented.
-    for loc_name in KEY_LOCATION_TABLE:
-        mw.get_location(loc_name, player).progress_type = LocationProgressType.EXCLUDED
+    # Key locations — excluded from logic in vanilla mode.
+    # In keysanity mode they are real locations (in logic, can hold any item).
+    if not world.options.key_shuffle:
+        for loc_name in KEY_LOCATION_TABLE:
+            mw.get_location(loc_name, player).progress_type = LocationProgressType.EXCLUDED
+    else:
+        for loc_name, loc_data in KEY_LOCATION_TABLE.items():
+            level_rule = level_rules.get(loc_data.level_name)
+            key_rules  = KEY_RULES.get(loc_data.level_name)
+            key_rule   = key_rules[loc_data.color_index] if key_rules else None
+
+            if level_rule is not None and key_rule is not None:
+                mw.get_location(loc_name, player).access_rule = \
+                    lambda state, lr=level_rule, kr=key_rule: lr(state, player) and kr(state, player)
+            elif level_rule is not None:
+                mw.get_location(loc_name, player).access_rule = \
+                    lambda state, r=level_rule: r(state, player)
+            elif key_rule is not None:
+                mw.get_location(loc_name, player).access_rule = \
+                    lambda state, r=key_rule: r(state, player)
 
     # Victory condition — collect required music boxes then beat the final boss.
     # Progressive Overalls x1 and Progressive Grab x2 are always required for the temple fight.
