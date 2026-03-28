@@ -176,8 +176,8 @@ def write_tokens(world: "WL3World", patch: WL3ProcedurePatch) -> None:
     chest_assignments = world._build_chest_assignments()
     patch.write_token(APTokenTypes.WRITE, CHEST_TABLE_OFFSET, bytes(chest_assignments))
 
-    key_pool = bytes(0x80 + i for i in range(100))
-    patch.write_token(APTokenTypes.WRITE, KEY_TABLE_OFFSET, key_pool)
+    key_assignments = world._build_key_assignments()
+    patch.write_token(APTokenTypes.WRITE, KEY_TABLE_OFFSET, bytes(key_assignments))
 
     music_boxes_required = int(world.options.music_boxes_required)
     patch.write_token(APTokenTypes.WRITE, MUSIC_BOXES_REQUIRED_OFFSET,
