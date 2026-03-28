@@ -26,6 +26,7 @@ TREASURE_DUMMY_PAL_OFFSET        = 0x09AD1F   # TreasureOBPals[$65] — 1 byte (
 TREASURE_GFX_BASE                = 0x098000   # TreasureGfx[0] — each entry 64 bytes
 TREASURE_PAL_BASE                = 0x09ACBA   # TreasureOBPals[0] — each entry 1 byte
 KEY_COLOR_PALS = [0x08, 0x05, 0x06, 0x07]    # OBPAL: grey, red, green, blue
+OBPAL_TREASURE_PURPLE = 0x09                  # Combined unlock items
 
 # Key icon portrait — pause_menu.2bpp Frame 0 ($C0-$C3) with added black outline.
 # Color 1=highlight, 2=fill (themed), 3=outline (black border around entire key).
@@ -200,19 +201,24 @@ def write_tokens(world: "WL3World", patch: WL3ProcedurePatch) -> None:
     # Patch TREASURE_DUMMY ($65) tile graphics with key icon.
     patch.write_token(APTokenTypes.WRITE, TREASURE_DUMMY_TILE_OFFSET, KEY_PORTRAIT_TILES)
 
-    # Build per-chest key palette table: $FF = not a key, 4-7 = key color palette.
-    from .items import KEY_ITEM_TABLE
+    # Build per-chest palette override table: $FF = use default, 4-9 = override palette.
+    from .items import COMBINED_ITEMS, KEY_ITEM_TABLE
     from .locations import LOCATION_TABLE
-    chest_key_pals = bytearray([0xFF] * 100)
+    pal_overrides = bytearray([0xFF] * 100)
     for loc_name, loc_data in LOCATION_TABLE.items():
         idx = loc_data.loc_index
-        if chest_assignments[idx] == 0x65:  # TREASURE_DUMMY = key item
-            location = world.multiworld.get_location(loc_name, world.player)
-            item = location.item
-            if item and item.name in KEY_ITEM_TABLE:
-                color = KEY_ITEM_TABLE[item.name].color_index
-                chest_key_pals[idx] = KEY_COLOR_PALS[color]
-    patch.write_token(APTokenTypes.WRITE, CHEST_KEY_PAL_OFFSET, bytes(chest_key_pals))
+        location = world.multiworld.get_location(loc_name, world.player)
+        item = location.item
+        if item is None or item.player != world.player:
+            continue
+        # Key items at chests → key color palette
+        if chest_assignments[idx] == 0x65 and item.name in KEY_ITEM_TABLE:
+            color = KEY_ITEM_TABLE[item.name].color_index
+            pal_overrides[idx] = KEY_COLOR_PALS[color]
+        # Combined items → purple palette
+        elif item.name in COMBINED_ITEMS:
+            pal_overrides[idx] = OBPAL_TREASURE_PURPLE
+    patch.write_token(APTokenTypes.WRITE, CHEST_KEY_PAL_OFFSET, bytes(pal_overrides))
 
     patch.write_token(APTokenTypes.WRITE, CHEST_TABLE_OFFSET, bytes(chest_assignments))
 
