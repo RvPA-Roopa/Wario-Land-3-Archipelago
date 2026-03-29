@@ -115,12 +115,16 @@ class CombinedLevelUnlocks(Toggle):
     default = 0
 
 
-class KeyShuffle(Toggle):
-    """Shuffle all 100 level keys (4 per level × 25 levels) into the multiworld item pool.
-    Keys can appear anywhere, and key locations can contain any item.
-    When off, keys are vanilla: each key location always gives the matching key for that level.
+class KeyShuffle(Choice):
+    """Controls how the 100 level keys (4 per level × 25 levels) are handled.
+    Vanilla: Each key location gives its matching key for that level.
+    Simple: Keys are shuffled among key locations only (keys stay at key spots).
+    Full: Keys and treasures are shuffled together across all 200 locations.
     """
     display_name = "Key Shuffle"
+    option_vanilla = 0
+    option_simple = 1
+    option_full = 2
     default = 0
 
 
