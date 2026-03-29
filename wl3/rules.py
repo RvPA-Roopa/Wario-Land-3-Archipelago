@@ -29,6 +29,7 @@ from typing import TYPE_CHECKING, List
 from BaseClasses import CollectionState, LocationProgressType
 
 from .locations import COLOR_NAMES, KEY_LOCATION_TABLE, LOCATION_TABLE
+from .options import KeyShuffle
 
 if TYPE_CHECKING:
     from . import WL3World
@@ -482,13 +483,15 @@ def set_rules(world: "WL3World") -> None:
             "Castle of Illusions": unlock_e3c,
         })
 
-    keysanity = bool(world.options.key_shuffle)
+    ks = world.options.key_shuffle
+    keysanity = (ks != KeyShuffle.option_vanilla)
 
     for loc_name, loc_data in LOCATION_TABLE.items():
         level_rule  = level_rules.get(loc_data.level_name)
         chest_rules = CHEST_RULES.get(loc_data.level_name)
         chest_rule  = chest_rules[loc_data.color_index] if chest_rules else None
 
+        # Simple & Full keysanity: chests require the matching key item.
         if keysanity:
             key_item = f"{loc_data.level_name} {COLOR_NAMES[loc_data.color_index]} Key"
             key_item_rule = _has(key_item)
@@ -504,9 +507,8 @@ def set_rules(world: "WL3World") -> None:
             mw.get_location(loc_name, player).access_rule = \
                 lambda state, r=chest_rule: r(state, player)
 
-    # Key locations — excluded from logic in vanilla mode.
-    # In keysanity mode they are real locations (in logic, can hold any item).
-    if not world.options.key_shuffle:
+    # Key locations — excluded in vanilla, in logic for simple & full.
+    if ks == KeyShuffle.option_vanilla:
         for loc_name in KEY_LOCATION_TABLE:
             mw.get_location(loc_name, player).progress_type = LocationProgressType.EXCLUDED
     else:

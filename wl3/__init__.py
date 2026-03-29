@@ -10,6 +10,7 @@ from typing import Any, ClassVar, Dict, List
 
 import settings as ap_settings
 from BaseClasses import Item, ItemClassification, Location, Tutorial
+from Fill import fill_restrictive
 
 from worlds.AutoWorld import WebWorld, World
 from worlds.LauncherComponents import Component, SuffixIdentifier, Type, components, launch_subprocess
@@ -267,10 +268,15 @@ class WL3World(World):
 
         assert len(items) == 100, f"Expected 100 items, got {len(items)}"
 
-        # Key shuffle: add all 100 key items to the pool (pool grows to 200)
-        if self.options.key_shuffle:
+        # Key shuffle: add all 100 key items to the pool
+        # Simple: keys are local + restricted to key locations via item_rules
+        # Full: pool is 200 with free placement across all locations
+        if self.options.key_shuffle != KeyShuffle.option_vanilla:
             for name in KEY_ITEM_TABLE:
                 items.append(self.create_item(name))
+            # Simple: mark keys as local BEFORE generate_basic processes them
+            if self.options.key_shuffle == KeyShuffle.option_simple:
+                self.options.local_items.value.update(KEY_ITEM_TABLE.keys())
 
         self.multiworld.itempool += items
 
@@ -294,15 +300,30 @@ class WL3World(World):
     # ------------------------------------------------------------------
 
     def pre_fill(self) -> None:
-        # Vanilla mode: lock each key item to its own location (not in item pool).
-        # Keysanity mode: keys are in the pool and placed by AP — don't lock them.
-        if not self.options.key_shuffle:
+        ks = self.options.key_shuffle
+        if ks == KeyShuffle.option_vanilla:
+            # Lock each key item to its own location (not in item pool).
             for loc_name, loc_data in KEY_LOCATION_TABLE.items():
                 loc = self.multiworld.get_location(loc_name, self.player)
                 key_item_name = f"{loc_data.level_name} {loc_data.color_name} Key"
                 item = WL3Item(key_item_name, ItemClassification.progression,
                                KEY_ITEM_TABLE[key_item_name].ap_id, self.player)
                 loc.place_locked_item(item)
+        elif ks == KeyShuffle.option_simple:
+            # Keys shuffled among key locations only.
+            # local_items (set in create_items) keeps keys in own world.
+            # item_rules force keys to key locations, not chests.
+            for loc_name in KEY_LOCATION_TABLE:
+                loc = self.multiworld.get_location(loc_name, self.player)
+                loc.item_rule = lambda item, p=self.player: (
+                    item.player == p and item.name in KEY_ITEM_TABLE
+                )
+            for loc_name in LOCATION_TABLE:
+                loc = self.multiworld.get_location(loc_name, self.player)
+                loc.item_rule = lambda item, p=self.player: (
+                    item.player != p or item.name not in KEY_ITEM_TABLE
+                )
+        # Full: keys are in the pool and placed freely by AP.
 
         mode = self.options.music_box_shuffle
         if mode == MusicBoxShuffle.option_any_boss:
@@ -316,7 +337,6 @@ class WL3World(World):
 
             target_locs = [self.multiworld.get_location(name, self.player) for name in allowed]
 
-            from Fill import fill_restrictive
             fill_restrictive(
                 self.multiworld,
                 self.multiworld.get_all_state(use_cache=False),
@@ -457,13 +477,13 @@ class WL3World(World):
 
         Index: (owlevel - 1) * 4 + color_index  (matches KEY_TABLE_OFFSET layout)
 
-        Non-keysanity: vanilla identity mapping (each key location gives its own key).
-        Keysanity:
+        Vanilla: identity mapping (each key location gives its own key).
+        Simple/Full keysanity:
           - Own WL3 key item   → ROM key ID (0x80 + pool_index); ROM sets key inventory.
           - Own WL3 treasure   → ROM treasure ID; ROM skips key inventory (bit-7 check).
           - Foreign/empty      → Red Gem placeholder (0x4E); ROM skips, AP client delivers.
         """
-        if not self.options.key_shuffle:
+        if self.options.key_shuffle == KeyShuffle.option_vanilla:
             return [0x80 + i for i in range(100)]
 
         key_table = [0] * 100
