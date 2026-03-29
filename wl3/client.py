@@ -235,6 +235,7 @@ class WL3Client(BizHawkClient):
                 self._checked_locs.add(loc_id)
                 color_name = ("Grey", "Red", "Green", "Blue")[color_index]
                 logger.debug(f"[WL3] Chest opened — level {owlevel} {color_name} → AP loc {loc_id}")
+                await self._show_sent_msg(ctx, loc_id)
 
         self._prev_end_screen = end_screen
 
@@ -250,6 +251,7 @@ class WL3Client(BizHawkClient):
                             self._checked_locs.add(loc_id)
                             color_name = ("Grey", "Red", "Green", "Blue")[bit]
                             logger.debug(f"[WL3] Key pickup — L{byte_idx+1} {color_name} → AP loc {loc_id}")
+                            await self._show_sent_msg(ctx, loc_id)
             self._prev_level_keys = bytes(lk_raw)
         except RequestFailedError:
             pass
@@ -294,8 +296,10 @@ class WL3Client(BizHawkClient):
         if pending:
             await ctx.send_msgs([{"cmd": "LocationChecks", "locations": list(pending)}])
 
-        # Track combined mode from slot data
+        # Track combined mode and location items from slot data
         self._combined_unlocks = bool((ctx.slot_data or {}).get("combined_level_unlocks", 0))
+        if not self._loc_items and ctx.slot_data:
+            self._loc_items = {int(k): v for k, v in (ctx.slot_data.get("loc_items") or {}).items()}
 
 
         # If AP server reset the items list, sync handler index down to match.

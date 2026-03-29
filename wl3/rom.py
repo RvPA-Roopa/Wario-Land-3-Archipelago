@@ -28,18 +28,43 @@ TREASURE_PAL_BASE                = 0x09ACBA   # TreasureOBPals[0] — each entry
 KEY_COLOR_PALS = [0x08, 0x05, 0x06, 0x07]    # OBPAL: grey, red, green, blue
 OBPAL_TREASURE_PURPLE = 0x09                  # Combined unlock items
 
-# Key icon portrait — pause_menu.2bpp Frame 0 ($C0-$C3) with added black outline.
-# Color 1=highlight, 2=fill (themed), 3=outline (black border around entire key).
-KEY_PORTRAIT_TILES = bytes([
-    0x07, 0x07, 0x1E, 0x19, 0x38, 0x27, 0x37, 0x2F,
-    0x27, 0x3F, 0x20, 0x3F, 0x18, 0x1F, 0x07, 0x07,
-    0x03, 0x02, 0x01, 0x01, 0x03, 0x02, 0x02, 0x03,
-    0x02, 0x03, 0x02, 0x03, 0x02, 0x03, 0x01, 0x01,
-    0xE0, 0xE0, 0x18, 0xF8, 0x04, 0xFC, 0xE4, 0xFC,
-    0xE4, 0xFC, 0x04, 0xFC, 0x18, 0xF8, 0xE0, 0xE0,
-    0x40, 0xC0, 0x80, 0x80, 0x70, 0xF0, 0x18, 0xE8,
-    0x70, 0xF0, 0x70, 0xF0, 0x18, 0xE8, 0xF0, 0xF0,
-])
+def _build_key_portrait() -> bytes:
+    """Generate 16x16 key icon portrait (4 tiles, 2bpp) programmatically.
+    Color 1=highlight, 2=fill (themed), 3=outline. No embedded game assets."""
+    # 16x16 pixel grid: 0=transparent, 1=highlight, 2=fill, 3=outline
+    rows = [
+        "00000333" "33300000",  # row 0
+        "00033112" "22233000",  # row 1
+        "00311222" "22222300",  # row 2
+        "00312333" "33322300",  # row 3
+        "00322333" "33322300",  # row 4
+        "00322222" "22222300",  # row 5
+        "00033222" "22233000",  # row 6
+        "00000333" "33300000",  # row 7
+        "00000031" "23000000",  # row 8
+        "00000003" "30000000",  # row 9
+        "00000031" "23330000",  # row 10
+        "00000032" "22213000",  # row 11
+        "00000032" "23330000",  # row 12
+        "00000032" "23330000",  # row 13
+        "00000032" "22213000",  # row 14
+        "00000003" "33330000",  # row 15
+    ]
+    # Convert to 4 tiles (top-left, bottom-left, top-right, bottom-right)
+    out = bytearray()
+    for ty, tx in [(0, 0), (8, 0), (0, 8), (8, 8)]:
+        for y in range(8):
+            lo = hi = 0
+            for x in range(8):
+                px = int(rows[ty + y][tx + x])
+                bit = 7 - x
+                lo |= (px & 1) << bit
+                hi |= ((px >> 1) & 1) << bit
+            out.append(lo)
+            out.append(hi)
+    return bytes(out)
+
+KEY_PORTRAIT_TILES = _build_key_portrait()
 LEVEL_MUSIC_OFFSET               = 0x03FE40   # LevelMusic table (25 levels × 16 bytes = 400 bytes)
 MUSIC_BOXES_REQUIRED_OFFSET      = 0x080ED3   # MusicBoxesRequired byte in Bank 20
 START_WITH_AXE_OFFSET            = 0x080ED4   # StartWithAxeOpt byte in Bank 20

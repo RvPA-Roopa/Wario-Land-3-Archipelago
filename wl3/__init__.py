@@ -502,7 +502,17 @@ class WL3World(World):
     # ------------------------------------------------------------------
 
     def fill_slot_data(self) -> Dict[str, Any]:
+        loc_items = {}
+        all_locs = {**LOCATION_TABLE, **KEY_LOCATION_TABLE}
+        for loc_name, loc_data in all_locs.items():
+            loc = self.multiworld.get_location(loc_name, self.player)
+            if loc.item is not None:
+                loc_items[str(loc_data.ap_id)] = {
+                    "item": loc.item.name,
+                    "player": loc.item.player,
+                }
         return {
             "death_link":            False,
             "combined_level_unlocks": int(self.options.combined_level_unlocks),
+            "loc_items":             loc_items,
         }
