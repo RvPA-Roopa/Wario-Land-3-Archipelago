@@ -19,8 +19,9 @@ if TYPE_CHECKING:
     from . import WL3World
 
 CHEST_TABLE_OFFSET               = 0x001A84   # LevelTreasureIDs_WithoutTemple (100 bytes)
-KEY_TABLE_OFFSET                 = 0x001AE8   # LevelKeyPool (100 bytes; ITEM_KEY_BASE + index = vanilla)
-CHEST_KEY_PAL_OFFSET             = 0x001B4C   # ChestKeyPalettes (100 bytes; $FF=not key, 4-7=palette)
+KEYSANITY_MODE_OFFSET            = 0x001AE8   # KeysanityMode (1 byte: 0=vanilla, 1=simple, 2=full)
+KEY_TABLE_OFFSET                 = 0x001AE9   # LevelKeyPool (100 bytes; ITEM_KEY_BASE + index = vanilla)
+CHEST_KEY_PAL_OFFSET             = 0x001B4D   # ChestKeyPalettes (100 bytes; $FF=not key, 4-7=palette)
 TREASURE_DUMMY_TILE_OFFSET       = 0x099940   # TreasureGfx[$65] — 64 bytes (4 tiles, 2bpp)
 TREASURE_DUMMY_PAL_OFFSET        = 0x09AD1F   # TreasureOBPals[$65] — 1 byte (palette index)
 TREASURE_GFX_BASE                = 0x098000   # TreasureGfx[0] — each entry 64 bytes
@@ -203,9 +204,10 @@ def _recolor_palette(data: bytes, rand) -> bytes:
         if v < 0.15:
             pass  # dark/outline colors — leave unchanged
         elif s < GRAY_THRESHOLD:
-            # near-white / light-gray: assign a random hue at high saturation
+            # near-white / light-gray: assign a random hue at moderate saturation
+            # (toned down to avoid intense hue shifts on glow effects sharing palette 0)
             h = rand()
-            s = 0.85
+            s = 0.45
         else:
             # saturated colors: rotate hue by shared offset
             h = (h + hue_rotate) % 1.0
@@ -222,6 +224,11 @@ def write_tokens(world: "WL3World", patch: WL3ProcedurePatch) -> None:
 
     key_assignments = world._build_key_assignments()
     patch.write_token(APTokenTypes.WRITE, KEY_TABLE_OFFSET, bytes(key_assignments))
+
+    # Write keysanity mode flag (0=vanilla, 1=simple, 2=full)
+    from .options import KeyShuffle
+    patch.write_token(APTokenTypes.WRITE, KEYSANITY_MODE_OFFSET,
+                      bytes([int(world.options.key_shuffle)]))
 
     # Patch TREASURE_DUMMY ($65) tile graphics with key icon.
     patch.write_token(APTokenTypes.WRITE, TREASURE_DUMMY_TILE_OFFSET, KEY_PORTRAIT_TILES)
