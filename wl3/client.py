@@ -322,8 +322,8 @@ class WL3Client(BizHawkClient):
             if ap_id in PROGRESSIVE_ITEMS:
                 self._prog_counts[ap_id] = self._prog_counts.get(ap_id, 0) + 1
             await self._grant_item(ctx, ap_id)
-            # Only show message for single new items (not bulk catch-up on connect)
-            if pending == 1:
+            # Show message for each received item (queued, displayed one at a time)
+            if True:
                 try:
                     item_name = ctx.item_names.lookup_in_game(ap_id) if ctx.item_names else f"ITEM {ap_id}"
                     sender = net_item.player
@@ -485,22 +485,26 @@ class WL3Client(BizHawkClient):
         """Send the next queued message if in-level and previous message is done."""
         if not self._msg_queue:
             return
+        import time
+        # Client-side timer: wait 4.5 seconds between messages (~270 frames)
+        now = time.time()
+        if hasattr(self, '_last_msg_time') and now - self._last_msg_time < 4.5:
+            return
         try:
-            # Check if we're in active gameplay (wState==2, wSubState==3) and no message active
+            # Must be in level (state 2) and past init (substate >= 2)
             state_data = await read(ctx.bizhawk_ctx, [
                 (0xC09B, 1, "System Bus"),               # wState
                 (0xC09C, 1, "System Bus"),               # wSubState
-                (ADDR_MSG_TIMER_WRAM, 1, "WRAM"),        # wMsgTimer
             ])
             game_state = state_data[0][0]
             sub_state = state_data[1][0]
-            msg_timer = state_data[2][0]
-            if game_state != 2 or sub_state != 3 or msg_timer > 0:
-                return  # not in active gameplay, or previous message still showing
+            if game_state != 2 or sub_state < 2:
+                return
         except RequestFailedError:
             return
 
         text = self._msg_queue.pop(0)
+        self._last_msg_time = time.time()
 
         def center_line(data, width=20):
             row = bytearray([0x54] * width)
