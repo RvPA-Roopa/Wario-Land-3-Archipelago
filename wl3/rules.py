@@ -146,155 +146,159 @@ def _has(item):
 
 CHEST_RULES: dict = {
     "Out of the Woods": [
-        None,
-        has_overalls_1,
-        _c(_has("High Jump Boots"), _has("Pouch"), _has("Eye of the Storm")),
-        _c(_has("Gold Magic"), _has("High Jump Boots"), has_grab_1, has_overalls_1),
+        None,                                                                       # grey
+        has_overalls_1,                                                              # red
+        _c(_has("High Jump Boots"), _has("Pouch"), _has("Eye of the Storm")),        # green
+        _c(_has("Gold Magic"), _has("High Jump Boots"), has_grab_1, has_overalls_1), # blue
     ],
     "The Peaceful Village": [
-        None,
-        _o(_has("Flute"), _has("High Jump Boots")),
-        _c(_o(_has("Flute"), _has("High Jump Boots")), has_overalls_1),
-        _c(has_overalls_2, _has("Garlic")),
+        None,                                                                        # grey
+        _o(_has("Flute"), _has("High Jump Boots")),                                  # red
+        _c(_o(_has("Flute"), _has("High Jump Boots")), has_overalls_1),              # green
+        _c(has_overalls_2, _has("Garlic")),                                          # blue
     ],
     "The Vast Plain": [
-        None,
-        has_overalls_1,
-        _has("Magic Seeds"),
-        _c(_has("Blue Chemical"), _has("Red Chemical")),
+        None,                                                                        # grey
+        has_overalls_1,                                                              # red
+        _has("Magic Seeds"),                                                         # green
+        _c(_has("Blue Chemical"), _has("Red Chemical")),                             # blue
     ],
     "Bank of the Wild River": [
-        has_flippers_1,
-        _c(_has("Garlic"), _o(has_flippers_1, _has("High Jump Boots"))),
-        has_flippers_2,
-        _c(_has("Air Pump"), has_grab_1),
+        None,                                                                        # grey
+        _has("Garlic"),                                                              # red
+        has_flippers_2,                                                              # green
+        _c(_has("Air Pump"), has_grab_1),                                            # blue
     ],
     "The Tidal Coast": [
-        None,
-        _c(has_flippers_1, has_grab_1),
-        _c(_has("Statue"), _has("Garlic")),
-        _c(_has("Sapling of Growth"), has_flippers_1, _has("Garlic")),
+        None,                                                                        # grey
+        _c(has_flippers_1, has_grab_1),                                              # red
+        _has("Statue"),                                                              # green
+        _c(_has("Sapling of Growth"), has_flippers_1, _has("Garlic")),               # blue
     ],
     "Sea Turtle Rocks": [
-        _c(_has("Garlic"), _has("Spiked Helmet"), has_overalls_1, has_flippers_1),
-        _c(_has("Scepter"), _has("Garlic"), has_overalls_1, has_flippers_1),
-        has_overalls_2,
-        _c(_has("Night Vision Scope"), has_overalls_2, _has("High Jump Boots")),
+        _c(_has("Garlic"), _has("Spiked Helmet"), has_overalls_1, has_flippers_1),   # grey
+        _c(_has("Scepter"), _has("Garlic"), has_overalls_1, has_flippers_1),         # red
+        has_overalls_2,                                                              # green
+        _c(_has("Night Vision Scope"), has_overalls_2, _has("High Jump Boots")),     # blue
     ],
     "Desert Ruins": [
-        None,
-        None,
-        _c(_has("Spiked Helmet"), has_overalls_1),
-        _c(has_grab_1, has_overalls_2, _has("High Jump Boots")),
+        None,                                                                        # grey
+        None,                                                                        # red
+        _has("Spiked Helmet"),                                                       # green
+        _c(_o(has_overalls_2, _c(has_overalls_1, _has("Garlic"))), has_grab_1),      # blue
     ],
     "The Volcano's Base": [
-        None,
-        _has("Truck Wheel"),
-        _c(_has("Flute"), _has("Truck Wheel")),
-        _c(_has("Foot of Stone"), has_flippers_1, _has("Spiked Helmet")),
+        None,                                                                        # grey
+        _has("Truck Wheel"),                                                         # red
+        _c(_has("Flute"), _has("Truck Wheel")),                                      # green
+        _has("Foot of Stone"),                                                       # blue
     ],
     "The Pool of Rain": [
-        has_overalls_1,
-        _has("Magic Seeds"),
-        has_flippers_1,
-        _c(_has("Air Pump"), has_flippers_1),
+        has_overalls_1,                                                              # grey
+        _has("Magic Seeds"),                                                         # red
+        has_flippers_1,                                                              # green
+        _c(_has("Air Pump"), has_flippers_1),                                        # blue
     ],
     "A Town in Chaos": [
-        None,
-        _has("Spiked Helmet"),
-        _c(has_grab_2, has_overalls_2, _has("High Jump Boots")),
-        _c(_has("Electric Fan Propeller"), has_grab_1),
+        None,                                                                        # grey
+        _has("Spiked Helmet"),                                                       # red
+        _c(has_grab_2, has_overalls_2, _has("High Jump Boots")),                     # green
+        None,                                                                        # blue
     ],
     "Beneath the Waves": [
-        _c(has_flippers_1, _has("High Jump Boots")),
-        _c(has_flippers_2, has_grab_2),
-        _c(has_flippers_1, _has("Sapling of Growth"), _has("High Jump Boots")),
-        _c(has_flippers_1, has_grab_1, _has("Blue Chemical"), _has("Red Chemical"), _has("High Jump Boots")),
+        has_flippers_1,                                                              # grey
+        has_flippers_1,                                                              # red
+        _c(has_flippers_1, _has("High Jump Boots")),                                 # green
+        _c(has_flippers_1, has_grab_1, _has("High Jump Boots")),                     # blue
     ],
     "The West Crater": [
-        has_overalls_1,
-        _c(has_overalls_2, _has("Garlic")),
-        _c(_has("Fire Drencher"), _has("High Jump Boots")),
-        _c(_has("Rust Spray"), has_grab_1),
+        has_overalls_1,                                                              # grey
+        _c(has_overalls_2, _has("Garlic")),                                          # red
+        _c(_has("Fire Drencher"), _has("High Jump Boots")),                          # green
+        _has("Rust Spray"),                                                          # blue
     ],
     "The Grasslands": [
-        has_overalls_1,
-        _c(_has("Magic Seeds"), has_overalls_1),
-        _c(_has("Flute"), has_flippers_1),
-        _has("High Jump Boots"),
+        has_overalls_1,                                                              # grey
+        _c(_has("Magic Seeds"), has_overalls_1),                                     # red
+        _c(_o(_has("Flute"), _has("High Jump Boots")), has_flippers_1),              # green
+        _has("High Jump Boots"),                                                     # blue
     ],
     "The Big Bridge": [
-        None,
-        _c(has_flippers_1, has_overalls_1),
-        _c(has_flippers_1, has_grab_1, has_overalls_1),
-        _c(_has("Scepter"), has_flippers_1, _has("Garlic"), _has("Spiked Helmet")),
+        None,                                                                        # grey
+        _c(has_flippers_1, has_overalls_1),                                          # red
+        has_grab_1,                                                                  # green
+        _c(_has("Scepter"), has_flippers_1, _has("Garlic"), _has("Spiked Helmet")),  # blue
     ],
     "Tower of Revival": [
-        None,
-        _c(_has("Left Glass Eye"), _has("Right Glass Eye")),
-        _c(_has("Statue"), _has("High Jump Boots")),
+        None,                                                                        # grey
+        _c(_has("Left Glass Eye"), _has("Right Glass Eye")),                         # red
+        _c(_has("Statue"), _has("High Jump Boots")),                                 # green
         _c(_has("Golden Left Eye"), _has("Golden Right Eye"), _has("Statue"),
-           _has("Spiked Helmet"), _has("Garlic"), has_grab_2, _has("High Jump Boots")),
+           _has("Garlic"), has_grab_2, _has("High Jump Boots")),                     # blue
     ],
     "The Steep Canyon": [
-        None,
-        _has("Foot of Stone"),
-        _c(_has("Foot of Stone"), has_flippers_2, has_overalls_2, _has("High Jump Boots")),
-        _c(_has("Rust Spray"), has_overalls_1),
+        None,                                                                        # grey
+        _has("Foot of Stone"),                                                       # red
+        _c(_has("Foot of Stone"), has_flippers_2, has_overalls_2),                   # green
+        _c(_has("Rust Spray"), has_overalls_1),                                      # blue
     ],
     "Cave of Flames": [
-        has_grab_1,
-        _c(has_grab_1, _has("High Jump Boots"), has_overalls_2),
-        _has("Explosive Plunger Box"),
-        _c(_has("Rust Spray"), has_overalls_1, has_grab_1, _has("High Jump Boots")),
+        None,                                                                        # grey
+        _c(has_grab_1, _has("High Jump Boots"), has_overalls_2),                     # red
+        _has("Explosive Plunger Box"),                                               # green
+        _c(_has("Rust Spray"), has_overalls_1, has_grab_1, _has("High Jump Boots")), # blue
     ],
     "Above the Clouds": [
-        None,
-        _c(_has("High Jump Boots"), has_grab_1, _has("Spiked Helmet")),
-        _c(_has("Scissors"), _has("High Jump Boots")),
-        _c(_has("Scissors"), _has("Full Moon Gong"), _has("High Jump Boots"), has_overalls_2, has_grab_1),
+        None,                                                                        # grey
+        _c(_has("High Jump Boots"), has_grab_1, _has("Spiked Helmet")),              # red
+        _c(_has("Scissors"), _has("High Jump Boots")),                               # green
+        _c(_has("Scissors"), _has("Full Moon Gong"), _has("High Jump Boots"),
+           has_overalls_2, has_grab_1),                                              # blue
     ],
     "The Stagnant Swamp": [
-        None,
-        _c(_has("Foot of Stone"), has_overalls_1),
-        _c(_has("Foot of Stone"), _has("High Jump Boots"), has_grab_1),
-        _has("Explosive Plunger Box"),
+        None,                                                                        # grey
+        _c(_has("Foot of Stone"),
+           _o(has_overalls_1, _c(has_flippers_2, _has("High Jump Boots")))),         # red
+        _c(_has("Foot of Stone"), _has("High Jump Boots")),                          # green
+        _has("Explosive Plunger Box"),                                               # blue
     ],
     "The Frigid Sea": [
-        None,
-        has_grab_1,
-        _c(_has("Scepter"), has_flippers_1),
-        _o(_c(_has("Sun Medallion Top"), _has("Sun Medallion Bottom")), has_flippers_2),
+        None,                                                                        # grey
+        has_grab_1,                                                                  # red
+        _c(_has("Scepter"), has_flippers_1),                                         # green
+        _o(_c(_has("Sun Medallion Top"), _has("Sun Medallion Bottom")),
+           has_flippers_2),                                                          # blue
     ],
     "Castle of Illusions": [
-        _c(has_overalls_1, has_grab_1),
-        _c(_o(_c(has_grab_1, _has("Sun Medallion Top"), _has("Sun Medallion Bottom")), has_grab_2), _o(has_overalls_2, _has("High Jump Boots"))),
-        has_grab_2,
-        _c(_has("Castle Brick"), has_grab_1, has_overalls_1),
+        has_overalls_1,                                                              # grey
+        has_grab_1,                                                                  # red
+        has_grab_1,                                                                  # green
+        has_grab_1,                                                                  # blue
     ],
     "The Colossal Hole": [
-        None,
-        _c(_has("Garlic"), has_grab_1),
-        _o(_c(_has("Sun Medallion Top"), _has("Sun Medallion Bottom")), _has("High Jump Boots")),
-        _c(_has("Explosive Plunger Box"), _has("High Jump Boots")),
+        None,                                                                        # grey
+        _has("Garlic"),                                                              # red
+        _o(_c(_has("Sun Medallion Top"), _has("Sun Medallion Bottom")),
+           _has("High Jump Boots")),                                                 # green
+        _c(_has("Explosive Plunger Box"), _has("High Jump Boots")),                  # blue
     ],
     "The Warped Void": [
-        has_grab_1,
-        _has("Warp Removal Apparatus"),
-        _c(_has("Warp Removal Apparatus"), has_grab_1),
-        _c(_has("Key Card Red"), _has("Key Card Blue"), has_grab_1),
+        None,                                                                        # grey
+        _has("Warp Removal Apparatus"),                                              # red
+        _c(_has("Warp Removal Apparatus"), has_grab_1),                              # green
+        _c(_has("Key Card Red"), _has("Key Card Blue"), has_grab_1),                 # blue
     ],
     "The East Crater": [
-        _c(has_grab_1, has_overalls_2),
-        _c(_has("Fire Drencher"), has_grab_1),
-        _c(_has("Jackhammer"), has_grab_1),
-        _c(_has("Pick Axe"), has_grab_1, _has("High Jump Boots")),
+        has_grab_1,                                                                  # grey
+        _c(_has("Fire Drencher"), has_grab_1),                                       # red
+        _c(_has("Jackhammer"), has_grab_1),                                          # green
+        _c(_has("Pick Axe"), has_grab_1, _has("High Jump Boots")),                   # blue
     ],
     "Forest of Fear": [
-        None,
-        _c(_has("Mystery Handle"), has_grab_2, _has("High Jump Boots")),
-        _c(_has("Mystery Handle"), has_grab_1),
-        _has("Demon's Blood"),
+        None,                                                                        # grey
+        _c(_has("Mystery Handle"), has_grab_2),                                      # red
+        _c(_has("Mystery Handle"), has_grab_1),                                      # green
+        _has("Demon's Blood"),                                                       # blue
     ],
 }
 
