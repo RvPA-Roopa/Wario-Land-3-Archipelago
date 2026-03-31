@@ -1,4 +1,4 @@
-# Wario Land 3 — Location Logic Reference
+# Wario Land 3 — Keysanity Logic Reference
 
 > Columns: **Chest** = requirement to open the chest · **Key** = requirement to reach/pick up the key
 

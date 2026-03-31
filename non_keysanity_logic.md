@@ -1,4 +1,4 @@
-# Wario Land 3 — Chest Access Logic
+# Wario Land 3 — Non-Keysanity Logic Reference
 
 > Level unlock is always required in addition to the chest rule.
 > Combined unlock mode swaps multi-item unlocks for single combined items (noted in parens).
