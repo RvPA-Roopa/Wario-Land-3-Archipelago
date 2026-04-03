@@ -275,6 +275,7 @@ class WL3Client(BizHawkClient):
         if not self._cmd_registered and hasattr(ctx, "command_processor"):
             ctx.command_processor.commands["levels"] = lambda *_: self._show_unlocked_levels(ctx)
             ctx.command_processor.commands["skip"] = lambda *_: self._skip_messages()
+            ctx.command_processor.commands["keys"] = lambda *_: self._show_keys()
             self._cmd_registered = True
 
         # ---- Seed _checked_locs from wOpenedChests on first server connection ----
@@ -482,6 +483,26 @@ class WL3Client(BizHawkClient):
         count = len(self._msg_queue)
         self._msg_queue.clear()
         logger.info(f"[WL3] Skipped {count} queued message(s).")
+
+    def _show_keys(self) -> None:
+        """Print held keys grouped by level. Called by /keys command."""
+        COLOR_NAMES = ["Grey", "Red", "Green", "Blue"]
+        # Collect keys per level as a set of color indices
+        level_keys: dict[int, set[int]] = {}
+        for ap_id in self._cached_received:
+            if KEY_BASE_ITEM_ID <= ap_id < KEY_BASE_ITEM_ID + 100:
+                key_index = ap_id - KEY_BASE_ITEM_ID
+                level = (key_index >> 2) + 1  # 1-25
+                color = key_index & 3
+                level_keys.setdefault(level, set()).add(color)
+        if not level_keys:
+            logger.info("[WL3] No keys held.")
+            return
+        logger.info("=== Held Keys ===")
+        for level in sorted(level_keys):
+            prefix = LEVEL_NAMES[level].split(" ")[0]
+            keys_str = " | ".join(f"{COLOR_NAMES[c]} Key" for c in range(4) if c in level_keys[level])
+            logger.info(f"  {prefix} {keys_str}")
 
     async def _show_msg(self, ctx: "BizHawkClientContext", text: str) -> None:
         """Queue a message for in-game display."""

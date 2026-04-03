@@ -19,8 +19,8 @@
 
 | | Grey | Red | Green | Blue |
 |---|---|---|---|---|
-| **Chest** | None | Flute OR High Jump Boots | Overalls + (Flute OR High Jump Boots OR Hard: Overalls x2 + Garlic) | Overalls x2 (+ Garlic) |
-| **Key** | None | Flute OR High Jump Boots OR Overalls x2 | Flute OR High Jump Boots (OR Hard: Overalls x2 + Garlic) | Overalls x2 (+ Garlic) |
+| **Chest** | None | Flute OR High Jump Boots | Overalls + (Flute OR High Jump Boots) | Overalls x2 + Garlic |
+| **Key** | None | Flute OR High Jump Boots OR Overalls x2 | Flute OR High Jump Boots | Overalls x2 + Garlic |
 
 ---
 
@@ -109,8 +109,8 @@
 
 | | Grey | Red | Green | Blue |
 |---|---|---|---|---|
-| **Chest** | Flippers | Flippers | Flippers + High Jump Boots (OR Hard: no Boots) | Flippers + High Jump Boots (OR Hard: no Boots) |
-| **Key** | High Jump Boots | Flippers x2 + Spiked Helmet + Grab x2 (OR Hard: Flippers x2) | Flippers x2 | Flippers + Red Chemical + Blue Chemical |
+| **Chest** | Flippers | Flippers | Flippers + High Jump Boots | Flippers + Grab + High Jump Boots |
+| **Key** | High Jump Boots | Flippers x2 + Spiked Helmet + Grab x2 | Flippers + Sapling of Growth | Flippers + Red Chemical + Blue Chemical |
 
 ---
 
