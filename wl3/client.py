@@ -553,20 +553,17 @@ class WL3Client(BizHawkClient):
             row += bytearray([0x54] * 12)  # pad to 32
             tilemap += row
 
-        # Look up best palette for current level
+        # Read palette from ROM's MsgPalPerLevel table
         try:
-            w_level = (await read(ctx.bizhawk_ctx, [(0xC0D4, 1, "System Bus")]))[0][0]
-            owlevel = (w_level >> 3)  # 0-24
+            data = await read(ctx.bizhawk_ctx, [
+                (0xC0D4, 1, "System Bus"),  # wLevel
+                (0x1FB2, 25, "System Bus"), # MsgPalPerLevel (25 bytes in ROM bank 0)
+            ])
+            owlevel = data[0][0] >> 3  # 0-24
+            pal_table = data[1]
+            pal = pal_table[owlevel] if owlevel < len(pal_table) else 4
         except (RequestFailedError, IndexError):
-            owlevel = 0
-        # Per-level palette (can be tuned per level later)
-        MSG_PAL_PER_LEVEL = [
-            4, 4, 4, 4, 4, 4,  # N1-N6
-            4, 4, 4, 4, 4, 4,  # W1-W6
-            4, 4, 4, 4, 4, 4,  # S1-S6
-            4, 4, 4, 4, 4, 4, 4,  # E1-E7
-        ]
-        pal = MSG_PAL_PER_LEVEL[owlevel] if owlevel < len(MSG_PAL_PER_LEVEL) else 4
+            pal = 4
         attr_byte = 0x88 | pal  # BG priority + VRAM bank 1 + palette
         attr_row = bytes([attr_byte] * 32)
         attrs = attr_row * num_rows
@@ -671,19 +668,19 @@ class WL3Client(BizHawkClient):
                 key_index = ap_id - KEY_BASE_ITEM_ID
                 key_inventory[key_index >> 2] |= 1 << (key_index & 3)
         try:
-            # OR with current WRAM to preserve ROM-written bits not yet detected
+            # OR with current WRAM to preserve ROM-written bits
             cur = (await read(ctx.bizhawk_ctx, [
-                (ADDR_LEVEL_KEYS_WRAM, 25, "WRAM"),
                 (ADDR_KEY_INVENTORY_WRAM, 25, "WRAM"),
             ]))
             for i in range(25):
-                level_keys[i] |= cur[0][i]
-                key_inventory[i] |= cur[1][i]
+                key_inventory[i] |= cur[0][i]
         except RequestFailedError:
             pass
         try:
+            # Only write wKeyInventory (AP-received keys).
+            # wLevelKeys is managed by the ROM's SaveKeyToInventory —
+            # writing it from the client races with the ROM and can overwrite bits.
             await write(ctx.bizhawk_ctx, [
-                (ADDR_LEVEL_KEYS_WRAM,    bytes(level_keys),    "WRAM"),
                 (ADDR_KEY_INVENTORY_WRAM, bytes(key_inventory), "WRAM"),
             ])
         except RequestFailedError:

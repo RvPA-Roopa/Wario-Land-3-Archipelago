@@ -180,7 +180,7 @@
 | | Grey | Red | Green | Blue |
 |---|---|---|---|---|
 | **Chest** | None | High Jump Boots + Grab + Spiked Helmet | Scissors + High Jump Boots | Scissors + Full Moon Gong + High Jump Boots + Overalls x2 + Grab |
-| **Key** | None | High Jump Boots + Grab + Spiked Helmet | Scissors + High Jump Boots | Scissors + Full Moon Gong + High Jump Boots |
+| **Key** | None | High Jump Boots + Grab + Spiked Helmet | Scissors + High Jump Boots | Scissors + High Jump Boots |
 
 ---
 

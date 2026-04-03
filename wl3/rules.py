@@ -415,7 +415,7 @@ KEY_RULES: dict = {
         None,
         _c(_has("High Jump Boots"), has_grab_1, _has("Spiked Helmet")),
         _c(_has("Scissors"), _has("High Jump Boots")),
-        _c(_has("Scissors"), _has("Full Moon Gong"), _has("High Jump Boots")),
+        _c(_has("Scissors"), _has("High Jump Boots")),
     ],
     "The Stagnant Swamp": [
         None,
