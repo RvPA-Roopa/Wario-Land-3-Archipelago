@@ -199,9 +199,10 @@ class WL3World(World):
     }
 
     item_name_groups = {
-        "Grab":     {"Progressive Grab"},
-        "Flippers": {"Progressive Flippers"},
-        "Overalls": {"Progressive Overalls"},
+        "Grab":      {"Progressive Grab"},
+        "Flippers":  {"Progressive Flippers"},
+        "Overalls":  {"Progressive Overalls"},
+        "Music Box": {"Red Music Box", "Blue Music Box", "Yellow Music Box", "Green Music Box", "Gold Music Box"},
     }
 
     # ------------------------------------------------------------------

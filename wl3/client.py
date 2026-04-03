@@ -162,6 +162,7 @@ class WL3Client(BizHawkClient):
 
     game          = "Wario Land 3"
     system        = "GBC"
+
     patch_suffix  = ".apwl3"
 
     def __init__(self) -> None:
@@ -273,6 +274,7 @@ class WL3Client(BizHawkClient):
         # Register /levels command once
         if not self._cmd_registered and hasattr(ctx, "command_processor"):
             ctx.command_processor.commands["levels"] = lambda *_: self._show_unlocked_levels(ctx)
+            ctx.command_processor.commands["skip"] = lambda *_: self._skip_messages()
             self._cmd_registered = True
 
         # ---- Seed _checked_locs from wOpenedChests on first server connection ----
@@ -313,8 +315,7 @@ class WL3Client(BizHawkClient):
                     self._prog_counts[net_item.item] = self._prog_counts.get(net_item.item, 0) + 1
 
         # ---- Grant any newly received items ----
-        # Track how many we need to catch up — only show messages for single new items
-        pending = len(ctx.items_received) - self._items_handled
+        # ---- Grant any newly received items ----
         while self._items_handled < len(ctx.items_received):
             net_item = ctx.items_received[self._items_handled]
             ap_id = net_item.item
@@ -335,9 +336,8 @@ class WL3Client(BizHawkClient):
                 except Exception:
                     pass
             self._items_handled += 1
-            pending -= 1
 
-        # Keep cache in sync with full server list (covers reconnect/reset cases)
+        # Keep cache in sync with full server list
         for net_item in ctx.items_received:
             self._cached_received.add(net_item.item)
 
@@ -476,6 +476,12 @@ class WL3Client(BizHawkClient):
         item_name = info["item"]
         player_name = ctx.player_names.get(info["player"], f"P{info['player']}") if ctx.player_names else f"P{info['player']}"
         await self._show_msg(ctx, f"SENT {item_name} TO {player_name}")
+
+    def _skip_messages(self) -> None:
+        """Clear the message queue. Called by /skip command."""
+        count = len(self._msg_queue)
+        self._msg_queue.clear()
+        logger.info(f"[WL3] Skipped {count} queued message(s).")
 
     async def _show_msg(self, ctx: "BizHawkClientContext", text: str) -> None:
         """Queue a message for in-game display."""
