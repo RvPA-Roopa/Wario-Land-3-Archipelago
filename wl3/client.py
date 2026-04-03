@@ -88,14 +88,14 @@ ADDR_CHEST_AP_KEY   = 0x2E58   # wChestAPKey (WRAM domain, bank 2 $DE58): chest-
 # Use the "WRAM" domain (all 32 KB across all banks) for reliable bank-2 access.
 # GBC WRAM layout: bank 0 at offset 0x0000, bank 1 at 0x1000, bank 2 at 0x2000, …
 ADDR_TREASURES_WRAM     = 0x2000   # WRAM domain offset for wTreasuresCollected (bank 2, 0xD000)
-ADDR_UNLOCKED_LEVELS_WRAM = 0x2E00 # WRAM domain offset for wUnlockedLevels    (bank 2, 0xDE00)
-ADDR_OPENED_CHESTS_WRAM   = 0x2E19 # WRAM domain offset for wOpenedChests      (bank 2, 0xDE19)
-ADDR_LEVEL_KEYS_WRAM      = 0x2E26 # WRAM domain offset for wLevelKeys         (bank 2, 0xDE26)
-ADDR_KEY_INVENTORY_WRAM   = 0x2E3F # WRAM domain offset for wKeyInventory      (bank 2, 0xDE3F)
-ADDR_MSG_BUFFER_WRAM      = 0x2E58 # wMsgBuffer (96 bytes, 3 rows of font tile indices)
-ADDR_MSG_TIMER_WRAM       = 0x2EB8 # wMsgTimer (1 byte)
-ADDR_MSG_READY_WRAM       = 0x2EB9 # wMsgReady (1 byte, set to 1 to trigger)
-ADDR_MSG_ROWS_WRAM        = 0x2EBB # wMsgRows (1 byte, 1-3)
+ADDR_UNLOCKED_LEVELS_WRAM = 0x1163 # WRAM domain offset for wUnlockedLevels    (bank 1, 0xD163)
+ADDR_OPENED_CHESTS_WRAM   = 0x2E00 # WRAM domain offset for wOpenedChests      (bank 2, 0xDE00)
+ADDR_LEVEL_KEYS_WRAM      = 0x117C # WRAM domain offset for wLevelKeys         (bank 1, 0xD17C)
+ADDR_KEY_INVENTORY_WRAM   = 0x1195 # WRAM domain offset for wKeyInventory      (bank 1, 0xD195)
+ADDR_MSG_BUFFER_WRAM      = 0x11AE # wMsgBuffer (96 bytes)
+ADDR_MSG_TIMER_WRAM       = 0x120E # wMsgTimer (1 byte)
+ADDR_MSG_READY_WRAM       = 0x120F # wMsgReady (1 byte, set to 1 to trigger)
+ADDR_MSG_ROWS_WRAM        = 0x1211 # wMsgRows (1 byte, 1-3)
 
 KEY_BASE_LOC_ID  = 7_770_400        # AP location ID = KEY_BASE_LOC_ID + (owlevel-1)*4 + color
 KEY_BASE_ITEM_ID = BASE_ITEM_ID + 300  # 7_770_300
