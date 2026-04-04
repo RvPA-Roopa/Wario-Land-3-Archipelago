@@ -495,11 +495,17 @@ def set_rules(world: "WL3World") -> None:
         chest_rules = CHEST_RULES.get(loc_data.level_name)
         chest_rule  = chest_rules[loc_data.color_index] if chest_rules else None
 
-        # Simple & Full keysanity: chests require the matching key item.
         if keysanity:
+            # Keysanity: chests require the matching key item (separate from key access)
             key_item = f"{loc_data.level_name} {COLOR_NAMES[loc_data.color_index]} Key"
             key_item_rule = _has(key_item)
             chest_rule = _c(chest_rule, key_item_rule) if chest_rule is not None else key_item_rule
+        else:
+            # Vanilla: combine key access + chest access (must reach both in same level)
+            key_rules = KEY_RULES.get(loc_data.level_name)
+            key_rule = key_rules[loc_data.color_index] if key_rules else None
+            if key_rule is not None:
+                chest_rule = _c(chest_rule, key_rule) if chest_rule is not None else key_rule
 
         if level_rule is not None and chest_rule is not None:
             mw.get_location(loc_name, player).access_rule = \
