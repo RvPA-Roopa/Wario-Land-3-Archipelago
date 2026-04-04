@@ -409,6 +409,8 @@ class WL3Client(BizHawkClient):
                 out.append(0x4A + ord(ch) - ord('0'))
             elif ch == '-':
                 out.append(0x55)  # dash tile
+            elif ch == '&':
+                out.append(0x56)  # ampersand tile
             else:
                 out.append(0x54)  # space for any unknown char
         return bytes(out)
@@ -457,9 +459,10 @@ class WL3Client(BizHawkClient):
             '9':[0x70,0x88,0x88,0x78,0x08,0x70,0x00,0x00],
             ' ':[0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00],
             '-':[0x00,0x00,0x00,0xF8,0x00,0x00,0x00,0x00],
+            '&':[0x60,0x90,0x60,0xA8,0x90,0x68,0x00,0x00],
         }
         out = bytearray()
-        for ch in 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789 -':
+        for ch in 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789 -&':
             for row in P[ch]:
                 out.append(0xFF)        # lo plane: all set
                 out.append(row ^ 0xFF)  # hi plane: inverted (text=0→color1, bg=1→color3)
