@@ -518,7 +518,7 @@ class WL3Client(BizHawkClient):
         if hasattr(self, '_last_msg_time') and now - self._last_msg_time < 4.5:
             return
         try:
-            # Must be in level (state 2) and past init (substate >= 2)
+            # Must be in level (state 2), past init (substate >= 2), not Temple
             state_data = await read(ctx.bizhawk_ctx, [
                 (0xC09B, 1, "System Bus"),               # wState
                 (0xC09C, 1, "System Bus"),               # wSubState
@@ -527,6 +527,13 @@ class WL3Client(BizHawkClient):
             sub_state = state_data[1][0]
             if game_state != 2 or sub_state < 2:
                 return
+            # Suppress messages in Temple: check wOWLevel (bank 2)
+            try:
+                owlevel = (await read(ctx.bizhawk_ctx, [(0x200F, 1, "WRAM")]))[0][0]
+                if owlevel == 0:
+                    return  # Temple — suppress messages
+            except RequestFailedError:
+                pass
         except RequestFailedError:
             return
 
