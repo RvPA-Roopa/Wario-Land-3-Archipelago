@@ -10,6 +10,10 @@
 
 ---
 
+>HUGE SHOUTOUTS to snackerfork for the awesome AP logo, lizzietwoshoes for separating chest/key logic (and logic help in general), and ivory for helping with logic too!
+
+---
+
 ## What is this?
 
 A randomizer for **Wario Land 3** built on the [Archipelago](https://archipelago.gg) multiworld framework. Currently, all 100 treasure chests across 25 levels are shuffled into the item pool. All locked levels start with a Red blinking node, and will turn white once they are available to play (when you find their level unlock).
