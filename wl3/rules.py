@@ -398,7 +398,7 @@ KEY_RULES: dict = {
     "Tower of Revival": [
         None,                                                                        # grey
         _c(_has("Left Glass Eye"), _has("Right Glass Eye")),                         # red
-        has("Statue"),                                                               # green
+        _has("Statue"),                                                              # green
         _c(_has("Statue"), _has("Golden Left Eye"), _has("Golden Right Eye")),       # blue
     ],
     "The Steep Canyon": [
