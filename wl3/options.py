@@ -91,18 +91,21 @@ class MusicShuffle(Choice):
     default = 0
 
 
-class PaletteShuffle(Choice):
-    """Randomize colors in the game.
-    Enemies: randomizes enemy sprite palettes.
-    Wario: randomizes Wario's outline/overalls color.
-    Both: randomizes enemies and Wario.
-    """
-    display_name = "Palette Shuffle"
-    option_off      = 0
-    option_enemies  = 1
-    option_wario    = 2
-    option_both     = 3
+class EnemyPaletteShuffle(Toggle):
+    """Randomize enemy sprite palettes."""
+    display_name = "Enemy Palette Shuffle"
     default = 0
+
+class WarioOverallsShuffle(Toggle):
+    """Randomize Wario's overalls/outline color. (This will affect some other in-game colors)"""
+    display_name = "Wario Overalls Shuffle"
+    default = 0
+
+class WarioShirtShuffle(Toggle):
+    """Randomize Wario's shirt/highlight color. (This affects all the white of Wario, including his hat and eyes)"""
+    display_name = "Wario Shirt Shuffle"
+    default = 0
+
 
 
 class CombinedLevelUnlocks(Toggle):
@@ -118,12 +121,10 @@ class CombinedLevelUnlocks(Toggle):
 class KeyShuffle(Choice):
     """Controls how the 100 level keys (4 per level × 25 levels) are handled.
     Vanilla: Each key location gives its matching key for that level.
-    Simple: Keys are shuffled among key locations only (keys stay at key spots).
     Full: Keys and treasures are shuffled together across all 200 locations.
     """
     display_name = "Key Shuffle"
     option_vanilla = 0
-    option_simple = 1
     option_full = 2
     default = 0
 
@@ -154,5 +155,7 @@ class WL3Options(PerGameCommonOptions):
     start_with_magnifying_glass:  StartWithMagnifyingGlass
     # Cosmetics
     music_shuffle:                MusicShuffle
-    palette_shuffle:              PaletteShuffle
+    enemy_palette_shuffle:        EnemyPaletteShuffle
+    wario_overalls_shuffle:       WarioOverallsShuffle
+    wario_shirt_shuffle:          WarioShirtShuffle
 

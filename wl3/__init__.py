@@ -33,7 +33,8 @@ from .locations import BASE_LOC_ID, KEY_LOCATION_TABLE, LOCATION_TABLE, WL3Locat
 from Options import OptionGroup
 from .options import (WL3Options, MusicBoxShuffle, KeyShuffle,
                       GolfPrice, GolfBuilding, StartWithMagnifyingGlass,
-                      MusicShuffle, PaletteShuffle)
+                      MusicShuffle, EnemyPaletteShuffle,
+                      WarioOverallsShuffle, WarioShirtShuffle)
 from .regions import create_regions
 from .rom import WL3ProcedurePatch, write_tokens
 from .rules import MUSIC_BOXES, set_rules
@@ -163,7 +164,8 @@ class WL3WebWorld(WebWorld):
     ]
     option_groups = [
         OptionGroup("Quality of Life", [GolfPrice, GolfBuilding, StartWithMagnifyingGlass]),
-        OptionGroup("Cosmetics", [MusicShuffle, PaletteShuffle]),
+        OptionGroup("Cosmetics", [MusicShuffle, EnemyPaletteShuffle,
+                                   WarioOverallsShuffle, WarioShirtShuffle]),
     ]
 
 
@@ -275,9 +277,6 @@ class WL3World(World):
         if self.options.key_shuffle != KeyShuffle.option_vanilla:
             for name in KEY_ITEM_TABLE:
                 items.append(self.create_item(name))
-            # Simple: mark keys as local BEFORE generate_basic processes them
-            if self.options.key_shuffle == KeyShuffle.option_simple:
-                self.options.local_items.value.update(KEY_ITEM_TABLE.keys())
 
         self.multiworld.itempool += items
 
@@ -310,20 +309,6 @@ class WL3World(World):
                 item = WL3Item(key_item_name, ItemClassification.progression,
                                KEY_ITEM_TABLE[key_item_name].ap_id, self.player)
                 loc.place_locked_item(item)
-        elif ks == KeyShuffle.option_simple:
-            # Keys shuffled among key locations only.
-            # local_items (set in create_items) keeps keys in own world.
-            # item_rules force keys to key locations, not chests.
-            for loc_name in KEY_LOCATION_TABLE:
-                loc = self.multiworld.get_location(loc_name, self.player)
-                loc.item_rule = lambda item, p=self.player: (
-                    item.player == p and item.name in KEY_ITEM_TABLE
-                )
-            for loc_name in LOCATION_TABLE:
-                loc = self.multiworld.get_location(loc_name, self.player)
-                loc.item_rule = lambda item, p=self.player: (
-                    item.player != p or item.name not in KEY_ITEM_TABLE
-                )
         # Full: keys are in the pool and placed freely by AP.
 
         mode = self.options.music_box_shuffle
