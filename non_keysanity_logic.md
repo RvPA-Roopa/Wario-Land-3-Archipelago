@@ -1,6 +1,7 @@
 # Wario Land 3 — Non-Keysanity Logic Reference
 
 > Level unlock is always required in addition to the chest rule.
+> Chest requirements include both key access and chest access combined.
 > Combined unlock mode swaps multi-item unlocks for single combined items (noted in parens).
 
 ---
@@ -11,9 +12,9 @@
 | Chest | Requirements |
 |-------|-------------|
 | Grey  | *(none)* |
-| Red   | Overalls x1 |
+| Red   | Overalls |
 | Green | High Jump Boots + Pouch + Eye of the Storm |
-| Blue  | Gold Magic + High Jump Boots + Grab x1 + Overalls x1 |
+| Blue  | Gold Magic + High Jump Boots + Grab + Overalls |
 
 ---
 
@@ -24,7 +25,7 @@
 |-------|-------------|
 | Grey  | *(none)* |
 | Red   | Flute OR High Jump Boots |
-| Green | (Flute OR High Jump Boots) + Overalls x1 |
+| Green | Overalls + (Flute OR High Jump Boots) |
 | Blue  | Overalls x2 + Garlic |
 
 ---
@@ -35,7 +36,7 @@
 | Chest | Requirements |
 |-------|-------------|
 | Grey  | *(none)* |
-| Red   | Overalls x1 |
+| Red   | Overalls |
 | Green | Magic Seeds |
 | Blue  | Blue Chemical + Red Chemical |
 
@@ -46,10 +47,10 @@
 
 | Chest | Requirements |
 |-------|-------------|
-| Grey  | Flippers x1 |
-| Red   | Garlic + (Flippers x1 OR High Jump Boots) |
+| Grey  | *(none)* |
+| Red   | Garlic |
 | Green | Flippers x2 |
-| Blue  | Air Pump + Grab x1 |
+| Blue  | Air Pump + Grab |
 
 ---
 
@@ -59,9 +60,9 @@
 | Chest | Requirements |
 |-------|-------------|
 | Grey  | *(none)* |
-| Red   | Flippers x1 + Grab x1 |
-| Green | Statue + Garlic |
-| Blue  | Sapling of Growth + Flippers x1 + Garlic |
+| Red   | Grab + Flippers |
+| Green | Statue |
+| Blue  | Flippers + Garlic + Sapling of Growth |
 
 ---
 
@@ -70,10 +71,10 @@
 
 | Chest | Requirements |
 |-------|-------------|
-| Grey  | Garlic + Spiked Helmet + Overalls x1 + Flippers x1 |
-| Red   | Scepter + Garlic + Overalls x1 + Flippers x1 |
+| Grey  | Garlic + Spiked Helmet + Overalls + Flippers |
+| Red   | Scepter + Garlic + Overalls + Flippers |
 | Green | Overalls x2 |
-| Blue  | Night Vision Scope + Overalls x2 + High Jump Boots |
+| Blue  | Overalls x2 + High Jump Boots + Night Vision Scope |
 
 ---
 
@@ -84,8 +85,8 @@
 |-------|-------------|
 | Grey  | *(none)* |
 | Red   | *(none)* |
-| Green | Spiked Helmet + Overalls x1 |
-| Blue  | Grab x1 + Overalls x2 + High Jump Boots |
+| Green | Spiked Helmet + Overalls |
+| Blue  | (Overalls x2 OR (Overalls + Garlic)) + Grab |
 
 ---
 
@@ -96,8 +97,8 @@
 |-------|-------------|
 | Grey  | *(none)* |
 | Red   | Truck Wheel |
-| Green | Flute + Truck Wheel |
-| Blue  | Foot of Stone + Flippers x1 + Spiked Helmet |
+| Green | Truck Wheel + Flute |
+| Blue  | Foot of Stone |
 
 ---
 
@@ -106,10 +107,10 @@
 
 | Chest | Requirements |
 |-------|-------------|
-| Grey  | Overalls x1 |
+| Grey  | Overalls |
 | Red   | Magic Seeds |
-| Green | Flippers x1 |
-| Blue  | Air Pump + Flippers x1 |
+| Green | Flippers |
+| Blue  | Air Pump + Flippers |
 
 ---
 
@@ -121,7 +122,7 @@
 | Grey  | *(none)* |
 | Red   | Spiked Helmet |
 | Green | Grab x2 + Overalls x2 + High Jump Boots |
-| Blue  | Electric Fan Propeller + Grab x1 |
+| Blue  | Electric Fan Propeller + Grab |
 
 ---
 
@@ -130,10 +131,10 @@
 
 | Chest | Requirements |
 |-------|-------------|
-| Grey  | Flippers x1 + High Jump Boots |
-| Red   | Flippers x2 + Grab x2 |
-| Green | Flippers x1 + Sapling of Growth + High Jump Boots |
-| Blue  | Flippers x1 + Grab x1 + Blue Chemical + Red Chemical + High Jump Boots |
+| Grey  | Flippers + High Jump Boots |
+| Red   | Flippers |
+| Green | Flippers + Sapling of Growth + High Jump Boots |
+| Blue  | Flippers + Grab + High Jump Boots + Red Chemical + Blue Chemical |
 
 ---
 
@@ -142,10 +143,10 @@
 
 | Chest | Requirements |
 |-------|-------------|
-| Grey  | Overalls x1 |
-| Red   | Overalls x2 + Garlic |
+| Grey  | Overalls |
+| Red   | Overalls x2 + Garlic + Overalls + Grab |
 | Green | Fire Drencher + High Jump Boots |
-| Blue  | Rust Spray + Grab x1 |
+| Blue  | Rust Spray + Grab |
 
 ---
 
@@ -154,9 +155,9 @@
 
 | Chest | Requirements |
 |-------|-------------|
-| Grey  | Overalls x1 |
-| Red   | Magic Seeds + Overalls x1 |
-| Green | Flute + Flippers x1 |
+| Grey  | Overalls |
+| Red   | Overalls + Magic Seeds |
+| Green | (Flute OR High Jump Boots) + Flippers |
 | Blue  | High Jump Boots |
 
 ---
@@ -167,9 +168,9 @@
 | Chest | Requirements |
 |-------|-------------|
 | Grey  | *(none)* |
-| Red   | Flippers x1 + Overalls x1 |
-| Green | Flippers x1 + Grab x1 + Overalls x1 |
-| Blue  | Scepter + Flippers x1 + Garlic + Spiked Helmet |
+| Red   | Overalls + Flippers |
+| Green | Overalls + Flippers + Grab |
+| Blue  | Scepter + Flippers + Garlic + Spiked Helmet |
 
 ---
 
@@ -181,7 +182,7 @@
 | Grey  | *(none)* |
 | Red   | Left Glass Eye + Right Glass Eye |
 | Green | Statue + High Jump Boots |
-| Blue  | Golden Left Eye + Golden Right Eye + Statue + Spiked Helmet + Garlic + Grab x2 + High Jump Boots |
+| Blue  | Statue + High Jump Boots + Golden Left Eye + Golden Right Eye + Garlic + Grab x2 |
 
 ---
 
@@ -192,8 +193,8 @@
 |-------|-------------|
 | Grey  | *(none)* |
 | Red   | Foot of Stone |
-| Green | Foot of Stone + Flippers x2 + Overalls x2 + High Jump Boots |
-| Blue  | Rust Spray + Overalls x1 |
+| Green | Foot of Stone + Flippers x2 + Overalls x2 |
+| Blue  | Rust Spray + Overalls |
 
 ---
 
@@ -202,10 +203,10 @@
 
 | Chest | Requirements |
 |-------|-------------|
-| Grey  | Grab x1 |
-| Red   | Grab x1 + High Jump Boots + Overalls x2 |
+| Grey  | Grab |
+| Red   | Grab + High Jump Boots + Overalls x2 |
 | Green | Explosive Plunger Box |
-| Blue  | Rust Spray + Overalls x1 + Grab x1 + High Jump Boots |
+| Blue  | Rust Spray + Overalls + Grab + High Jump Boots |
 
 ---
 
@@ -215,9 +216,9 @@
 | Chest | Requirements |
 |-------|-------------|
 | Grey  | *(none)* |
-| Red   | High Jump Boots + Grab x1 + Spiked Helmet |
+| Red   | High Jump Boots + Grab + Spiked Helmet |
 | Green | Scissors + High Jump Boots |
-| Blue  | Scissors + Full Moon Gong + High Jump Boots + Overalls x2 + Grab x1 |
+| Blue  | Scissors + High Jump Boots + Overalls x2 + Grab |
 
 ---
 
@@ -227,8 +228,8 @@
 | Chest | Requirements |
 |-------|-------------|
 | Grey  | *(none)* |
-| Red   | Foot of Stone + Overalls x1 |
-| Green | Foot of Stone + High Jump Boots + Grab x1 |
+| Red   | Foot of Stone + (Overalls OR (Flippers x2 + High Jump Boots)) |
+| Green | Foot of Stone + Grab + High Jump Boots |
 | Blue  | Explosive Plunger Box |
 
 ---
@@ -239,8 +240,8 @@
 | Chest | Requirements |
 |-------|-------------|
 | Grey  | *(none)* |
-| Red   | Grab x1 |
-| Green | Scepter + Flippers x1 |
+| Red   | Grab |
+| Green | Scepter + Flippers |
 | Blue  | (Sun Medallion Top + Sun Medallion Bottom) OR Flippers x2 |
 
 ---
@@ -250,10 +251,10 @@
 
 | Chest | Requirements |
 |-------|-------------|
-| Grey  | Overalls x1 + Grab x1 |
-| Red   | ((Grab x1 + Sun Medallion Top + Sun Medallion Bottom) OR Grab x2) + (Overalls x2 OR High Jump Boots) |
-| Green | Grab x2 |
-| Blue  | Castle Brick + Grab x1 + Overalls x1 |
+| Grey  | Overalls + Grab |
+| Red   | Grab + ((Grab + Sun Medallion Top + Sun Medallion Bottom) OR Grab x2) + (Overalls x2 OR High Jump Boots) |
+| Green | Grab + Grab x2 |
+| Blue  | Grab + Castle Brick + Overalls |
 
 ---
 
@@ -263,7 +264,7 @@
 | Chest | Requirements |
 |-------|-------------|
 | Grey  | *(none)* |
-| Red   | Garlic + Grab x1 |
+| Red   | Garlic + Grab |
 | Green | (Sun Medallion Top + Sun Medallion Bottom) OR High Jump Boots |
 | Blue  | Explosive Plunger Box + High Jump Boots |
 
@@ -274,10 +275,10 @@
 
 | Chest | Requirements |
 |-------|-------------|
-| Grey  | Grab x1 |
+| Grey  | Grab |
 | Red   | Warp Removal Apparatus |
-| Green | Warp Removal Apparatus + Grab x1 |
-| Blue  | Key Card Red + Key Card Blue + Grab x1 |
+| Green | Warp Removal Apparatus + Grab |
+| Blue  | Key Card Red + Key Card Blue + Grab |
 
 ---
 
@@ -286,10 +287,10 @@
 
 | Chest | Requirements |
 |-------|-------------|
-| Grey  | Grab x1 + Overalls x2 |
-| Red   | Fire Drencher + Grab x1 |
-| Green | Jackhammer + Grab x1 |
-| Blue  | Pick Axe + Grab x1 + High Jump Boots |
+| Grey  | Grab + Overalls x2 |
+| Red   | Fire Drencher + Grab |
+| Green | Jackhammer + Grab |
+| Blue  | Pickaxe + Grab + High Jump Boots |
 
 ---
 
@@ -300,7 +301,7 @@
 |-------|-------------|
 | Grey  | *(none)* |
 | Red   | Mystery Handle + Grab x2 + High Jump Boots |
-| Green | Mystery Handle + Grab x1 |
+| Green | Mystery Handle + Grab |
 | Blue  | Demon's Blood |
 
 ---
