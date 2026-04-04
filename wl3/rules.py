@@ -147,7 +147,7 @@ def _has(item):
 CHEST_RULES: dict = {
     "Out of the Woods": [
         None,                                                                        # grey
-        _o(has_overalls_1, _has("Garlic")),                                          # red
+        has_overalls_1,                                          # red
         _c(_has("Pouch"), _has("Eye of the Storm")),                                 # green
         _c(_has("Gold Magic"), _has("High Jump Boots"), has_grab_1, has_overalls_1), # blue
     ],
@@ -311,7 +311,7 @@ CHEST_RULES: dict = {
 KEY_RULES: dict = {
     "Out of the Woods": [
         None,                                                                        # grey
-        _o(has_overalls_1, _has("Garlic")),                                          # red
+        has_overalls_1,                                                          # red
         _has("High Jump Boots"),                                                     # green
         _c(_has("Gold Magic"), _has("High Jump Boots")),                             # blue
     ],
