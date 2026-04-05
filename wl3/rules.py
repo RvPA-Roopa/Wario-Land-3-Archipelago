@@ -147,7 +147,7 @@ def _has(item):
 CHEST_RULES: dict = {
     "Out of the Woods": [
         None,                                                                        # grey
-        has_overalls_1,                                          # red
+        has_overalls_1,                                                              # red
         _c(_has("Pouch"), _has("Eye of the Storm")),                                 # green
         _c(_has("Gold Magic"), _has("High Jump Boots"), has_grab_1, has_overalls_1), # blue
     ],
@@ -311,13 +311,13 @@ CHEST_RULES: dict = {
 KEY_RULES: dict = {
     "Out of the Woods": [
         None,                                                                        # grey
-        has_overalls_1,                                                          # red
+        has_overalls_1,                                                              # red
         _has("High Jump Boots"),                                                     # green
         _c(_has("Gold Magic"), _has("High Jump Boots")),                             # blue
     ],
     "The Peaceful Village": [
         None,                                                                        # grey
-        _o(_has("Flute"), _has("High Jump Boots")),                                  # red
+        _o(_has("Flute"), _has("High Jump Boots"), has_overalls_2),                  # red
         _o(_has("Flute"), _has("High Jump Boots")),                                  # green
         _c(has_overalls_2, _has("Garlic")),                                          # blue
     ],
@@ -373,7 +373,7 @@ KEY_RULES: dict = {
     ],
     "Beneath the Waves": [
         _has("High Jump Boots"),                                                     # grey
-        has_flippers_2,                                                              # red
+        _c(has_flippers_2, _has("Spiked Helmet"), has_grab_2),                       # red
         _c(has_flippers_1, _has("Sapling of Growth")),                               # green
         _c(has_flippers_1, _has("Red Chemical"), _has("Blue Chemical")),             # blue
     ],
@@ -392,7 +392,7 @@ KEY_RULES: dict = {
     "The Big Bridge": [
         None,                                                                        # grey
         _c(has_overalls_1, has_flippers_1),                                          # red
-        _c(has_flippers_1, _o(_c(has_overalls_1, has_grab_1), has_overalls_2)),      # green
+        _c(has_flippers_1, has_overalls_1, has_grab_1),                              # green
         _c(has_flippers_1, _has("Garlic")),                                          # blue
     ],
     "Tower of Revival": [
