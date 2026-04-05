@@ -24,18 +24,22 @@ A randomizer for **Wario Land 3** built on the [Archipelago](https://archipelago
 - Progressive Overalls/Grab/Flippers. You SHOULD always receive the first tier of these items! Abilities are also immediately granted, so they should work even if you receive them while in-level.
 - LOTS of cutscene skips. You can immediately start playing your game and not wait 5 minutes through intro cutscenes. Also, all cutscenes after treasures/abilities have been cut.
 - The entire map has been opened to help a bit with logic. The levels will be locked (notated with a red blinking dot) until you get each levels unlock (i.e. Tablets for W1). This helps the game feel less linear.
-- I've taken vanilla Gems out of the game (they were treasures that didn't have any affect on the game). They are now used to notate others items.
+- I've taken vanilla Gems out of the game (they were treasures that didn't have any affect on the game). They are replaced by the Archipelago item, to notate others items.
    - Red Gems are progression items.
    - Blue Gems are useful items.
    - Green Gems are filler items.
+   - In Keysanity, the color palette is based on the key that the Archipelago item is replacing. This is a limitation of the game.
 - The option to combine level unlocks to one item has been added (i.e. For W1, you only need "Tablets" instead of each of the two tablets). This helps with generation, seed variety, and keeps the massive amount of progression items down. This is the suggested option. All extra items have been changed to filler (Crests that act as coins). If you do want to play without combined-items, there will be a several pre-fill items placed in your game to help with seed generation.
 - The game SHOULD sync all your items if you play offline then reconnect. This needs a bit more testing, but should be working.
-- There's nothing that notates that you've received an item in-game. I could set this up as an option, though. You can receive items in-level or overworld, you will receive the item regardless. You'll need to refresh the overworld for the red dots to disappear, but even if they are on the level it's accessible if you have the item(s).
+- When you receive or send an item within a level, a message will show at the bottom of the screen. If you receive one in the overworld, it will show when you next enter a level. "/skip" can be used in the Bizhawk Client to cancel all messages in the queue (e.g. after a release or when re-opening the client).
+- When you receive an item in the overworld, if it unlocks a new level, the red dots will not disappear until you refresh the map, but the level will still be accessible if you try to enter it.
 - You SHOULD be able to play this game solo offline completely (with the exception of start_inventory, in which you'll need to connect once). Offline play needs more testing, so please feel free to try this out!
 - Rudy cutscene will show the Music Boxes you've collected instead of all 5 (not important but a neat feature!)
 - Crests have also been taken out of the game, they now act as Coin items (this helps with the lack of filler items in this game).
 - Quick key pickups (down to 1 second). I'm not against adding the vanilla option and instant pickup as QoL, let me know opinions on this!
 - Quick treasure pickup. (Also not against adding vanilla pickups back in, just give me opinions on this!)
+- Keys are persistent - if you collect a key, and then leave the level, you will still have the key. This affects the logic for three chests compared to the vanilla game: N5 Bank of the Wild River Grey and Red Chests, and S3 Tower of Revival Green Chest.
+- Choosing the "Action Help" option in the menu will take you instead to the "Collected Treasures" screen.
 ---
 
 ## Requirements
@@ -99,18 +103,26 @@ Have fun!! You will run into bugs, as this game is in a testing phase currently.
 | **Music Boxes Required** | How many of the 5 music boxes must be collected before the Temple opens (0–5) |
 | **Music Box Shuffle** | Whether music boxes can only appear at boss chests or anywhere in the multiworld |
 | **Start with Axe** | Grants the Axe at the start, opening 3 early locations in Out of the Woods. It's suggested to use this option to help more easily generate seeds. |
+| **Random Level Starts** | Grants the required items for a selected number of levels at the start. |
 | **Combined Level Unlocks** | Combines multi-item level unlocks (e.g. Blue Tablet + Green Tablet → Tablets) into single items for more seed variety |
+| **Key Shuffle** | Whether keys are in their vanilla positions, or shuffled among the item pool |
 | **Golf Price** | Vanilla / Cheap / Free mini-game pricing |
 | **Golf Building** | Whether the Golf Building requires all 7 crayons or is always open (always free to play) |
 | **Start with Magnifying Glass** | Grants the Magnifying Glass at the start (reveals chest collection status on the overworld map) |
 | **Music Shuffle** | Randomize level music: vanilla / split day-night / fully random |
-| **Palette Shuffle** | Randomize enemy sprite palettes |
+| **Palette Shuffle** | Randomize various sprite palettes |
 
 ---
 
 ## Known Quirks
 
 These are known visual or logic oddities. Please report anything else you notice.
+
+**Keysanity Spawn Issues**
+Sometimes treasures will not spawn when they are at a key location. This can be fixed by exiting and re-entering the level. 
+
+**Item Message Bleed**
+When receiving or sending an item, the text message may affect other sprites in the current room. This can be fixed by exiting and re-entering the room.
 
 **Ability Issues**
 - Currently being worked on, but when you have specific abilities, enemies will assume you have Garlic (flying off the screen/destroying heavy enemies). I'm still working on getting this fixed, but I don't currently see any logic issues with it while I figure this out. If you do find some logic issues, PLEASE let me know!
@@ -120,8 +132,19 @@ These are known visual or logic oddities. Please report anything else you notice
 **Large Non-Cracked Blocks require Garlic + Tier 2 Overalls**
 The Peaceful Village Blue Chest and The West Crater Red Chest both require Tier 2 Overalls AND Garlic. This is due to how large non-cracked blocks handle collision — it may be vanilla behavior, but it's not fully confirmed. If you find any other chests or blocks with this issue, please report them.
 
+**Small Non-Cracked Blocks can be broken with Garlic + Tier 1 Overalls**
+If you have Garlic and Tier 1 Overalls, some checks can be made early due to a bug with progressive abilities. This does not affect logic, you will be able to collect Tier 2 Overalls before being required to ground pound uncracked blocks.
+
+**Omodon Visual Issues**
+Omodons (the enemies carried by a flying robot that can flatten Wario) haved a very glitched sprite when they are being picked up off of the ground. This is a visual issue only and does not affect gameplay
+
 **N3 (The Vast Plain at Night) — Chemical background glitch**
 If you have the blue or red chemical item, the stalks in this level will produce a glitched-looking background. This is a visual issue only and does not affect gameplay.
+
+**N5 Sea Turtle Rocks issues**
+- The boss fight against Scowler contains some glitched blocks. This makes the fight slightly more difficult.
+
+- The room with the door to the Blue Chest room will sometimes appear lit without Night Vision Goggles. This is only visual, Night Vision Goggles are still required to enter the door.
 
 **W5 (Beneath the waves)— Octopi and the chemical pathway**
 With the blue or red chemical, octopi will grow and appear to open the underwater pathway. However, the path remains physically blocked unless you also have the Sapling of Growth — it just looks open. You cannot swim through it.
