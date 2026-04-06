@@ -73,7 +73,8 @@ START_WITH_MAG_GLASS_OFFSET      = 0x080ED5   # StartWithMagnifyingGlassOpt byte
 GOLF_PRICE_OPT_OFFSET            = 0x003A00   # GolfPriceOpt byte in Home bank
 GOLF_BUILDING_OPT_OFFSET         = 0x003A01   # GolfBuildingOpt byte in Home bank
 DISABLE_PAL_CYCLE_OFFSET         = 0x003A02   # DisablePalCycleOpt byte in Home bank
-COMBINED_COMPANION_TABLE_OFFSET  = 0x003A03   # CombinedCompanionTable (101 bytes, home bank)
+I_HATE_GOLF_OFFSET               = 0x003A03   # AutoWinGolfOpt byte in Home bank
+COMBINED_COMPANION_TABLE_OFFSET  = 0x003A04   # CombinedCompanionTable (101 bytes, home bank)
 TREASURE_OB_PALS_OFFSET          = 0x09ACBA   # TreasureOBPals table (indexed by treasure ID)
 
 # Combined-item companion chains: collecting key → also grant value (chained).
@@ -335,6 +336,10 @@ def write_tokens(world: "WL3World", patch: WL3ProcedurePatch) -> None:
     golf_building = int(world.options.golf_building)
     patch.write_token(APTokenTypes.WRITE, GOLF_BUILDING_OPT_OFFSET,
                       bytes([golf_building]))
+
+    i_hate_golf = int(world.options.i_hate_golf)
+    patch.write_token(APTokenTypes.WRITE, I_HATE_GOLF_OFFSET,
+                      bytes([i_hate_golf]))
 
     # --- combined item companion table ---
     if int(world.options.combined_level_unlocks):

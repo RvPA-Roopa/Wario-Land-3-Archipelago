@@ -79,6 +79,14 @@ class GolfBuilding(Choice):
     default = 0
 
 
+class IHateGolf(Toggle):
+    """Automatically win the golf mini-game as soon as it starts.
+    The hole is immediately cleared without having to play.
+    Does not work correctly with the Golf Building"""
+    display_name = "I Hate Golf"
+    default = 0
+
+
 class MusicShuffle(Choice):
     """Randomize the background music played in each level.
     Split: Day and night music are shuffled within their own groups (day with day, night with night).
@@ -175,6 +183,7 @@ class WL3Options(PerGameCommonOptions):
     # QoL
     golf_price:                   GolfPrice
     golf_building:                GolfBuilding
+    i_hate_golf:                  IHateGolf
     start_with_magnifying_glass:  StartWithMagnifyingGlass
     reduce_flashing:              ReduceFlashing
     # Cosmetics

@@ -32,7 +32,8 @@ from .items import (
 from .locations import BASE_LOC_ID, KEY_LOCATION_TABLE, LOCATION_TABLE, WL3LocationData
 from Options import OptionGroup
 from .options import (WL3Options, MusicBoxShuffle, KeyShuffle,
-                      GolfPrice, GolfBuilding, StartWithMagnifyingGlass,
+                      GolfPrice, GolfBuilding, IHateGolf,
+                      StartWithMagnifyingGlass, ReduceFlashing,
                       MusicShuffle, EnemyPaletteShuffle, LevelBGPaletteShuffle,
                       WarioOverallsShuffle, WarioShirtShuffle)
 from .regions import create_regions
@@ -163,7 +164,8 @@ class WL3WebWorld(WebWorld):
         )
     ]
     option_groups = [
-        OptionGroup("Quality of Life", [GolfPrice, GolfBuilding, StartWithMagnifyingGlass]),
+        OptionGroup("Quality of Life", [GolfPrice, GolfBuilding, IHateGolf,
+                                       StartWithMagnifyingGlass, ReduceFlashing]),
         OptionGroup("Cosmetics", [MusicShuffle, EnemyPaletteShuffle,
                                   LevelBGPaletteShuffle,
                                    WarioOverallsShuffle, WarioShirtShuffle]),
