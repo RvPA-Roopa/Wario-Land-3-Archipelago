@@ -65,6 +65,7 @@ def _build_key_portrait() -> bytes:
             out.append(hi)
     return bytes(out)
 
+
 KEY_PORTRAIT_TILES = _build_key_portrait()
 LEVEL_MUSIC_OFFSET               = 0x03FE40   # LevelMusic table (25 levels × 16 bytes = 400 bytes)
 MUSIC_BOXES_REQUIRED_OFFSET      = 0x080EEB   # MusicBoxesRequired byte in Bank 20
@@ -324,6 +325,35 @@ def write_tokens(world: "WL3World", patch: WL3ProcedurePatch) -> None:
                 chunk = data[i * 8 : (i + 1) * 8]
                 result.extend(_recolor_palette(chunk, world.random.random))
             patch.write_token(APTokenTypes.WRITE, offset, bytes(result))
+
+    def _load_json_table(filename: str):
+        """Load a palette table either from disk or from the .apworld archive."""
+        here = os.path.dirname(os.path.abspath(__file__))
+        table_path = os.path.join(here, "data", filename)
+        if os.path.exists(table_path):
+            with open(table_path) as f:
+                return json.load(f)
+        archive = getattr(__loader__, "archive", None)
+        if archive is None:
+            raise FileNotFoundError(f"Cannot locate {filename}")
+        with zipfile.ZipFile(archive) as zf:
+            return json.loads(zf.read(f"wl3/data/{filename}"))
+
+    def _apply_bg_table(bg_table):
+        for entry in bg_table:
+            offset = entry["offset"]
+            data = base64.b64decode(entry["data"])
+            result = bytearray()
+            for i in range(len(data) // 8):
+                chunk = data[i * 8 : (i + 1) * 8]
+                new_chunk = _recolor_palette(chunk, world.random.random)
+                result.extend(new_chunk)
+            patch.write_token(APTokenTypes.WRITE, offset, bytes(result))
+
+    # --- level/room BG palette shuffle ---
+    if world.options.level_bg_palette_shuffle:
+        level_bg_table = _load_json_table("level_bg_palette_table.json")
+        _apply_bg_table(level_bg_table)
 
     # Wario palette offsets (color 3 = overalls/outline in each variant)
     WARIO_OVERALLS_OFFSETS = [

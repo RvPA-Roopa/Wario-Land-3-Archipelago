@@ -96,6 +96,20 @@ class EnemyPaletteShuffle(Toggle):
     display_name = "Enemy Palette Shuffle"
     default = 0
 
+
+class LevelBGPaletteShuffle(Choice):
+    """Randomize level/room background (BG) palettes.
+    Off: no changes
+    Simple: Changes palettes slightly less aggressively
+    Full: Fully randomizes background palettes without restrictions
+    """
+    display_name = "Level/Room BG Palette Shuffle"
+    option_off = 0
+    option_simple = 1
+    option_full = 2
+    default = 0
+
+
 class WarioOverallsShuffle(Toggle):
     """Randomize Wario's overalls/outline color. (This will affect some other in-game colors)"""
     display_name = "Wario Overalls Shuffle"
@@ -120,8 +134,8 @@ class CombinedLevelUnlocks(Toggle):
 
 class KeyShuffle(Choice):
     """Controls how the 100 level keys (4 per level × 25 levels) are handled.
-    Vanilla: Each key location gives its matching key for that level.
-    Full: Keys and treasures are shuffled together across all 200 locations.
+    Vanilla: Each key location is vanilla
+    Full: Keys and treasures are shuffled together across all 200 locations. (This adds 100 checks)
     """
     display_name = "Key Shuffle"
     option_vanilla = 0
@@ -156,6 +170,7 @@ class WL3Options(PerGameCommonOptions):
     # Cosmetics
     music_shuffle:                MusicShuffle
     enemy_palette_shuffle:        EnemyPaletteShuffle
+    level_bg_palette_shuffle:     LevelBGPaletteShuffle
     wario_overalls_shuffle:       WarioOverallsShuffle
     wario_shirt_shuffle:          WarioShirtShuffle
 
