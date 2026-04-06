@@ -680,7 +680,9 @@ class WL3Client(BizHawkClient):
             if 0 <= loc_index < 100:
                 opened[loc_index >> 3] |= 1 << (loc_index & 7)
         try:
-            await write(ctx.bizhawk_ctx, [(ADDR_OPENED_CHESTS_WRAM, bytes(opened), "WRAM")])
+            cur = (await read(ctx.bizhawk_ctx, [(ADDR_OPENED_CHESTS_WRAM, 13, "WRAM")]))[0]
+            if bytes(opened) != bytes(cur):
+                await write(ctx.bizhawk_ctx, [(ADDR_OPENED_CHESTS_WRAM, bytes(opened), "WRAM")])
         except RequestFailedError:
             pass
 
@@ -711,15 +713,12 @@ class WL3Client(BizHawkClient):
             ]))
             for i in range(25):
                 key_inventory[i] |= cur[0][i]
-        except RequestFailedError:
-            pass
-        try:
-            # Only write wKeyInventory (AP-received keys).
-            # wLevelKeys is managed by the ROM's SaveKeyToInventory —
-            # writing it from the client races with the ROM and can overwrite bits.
-            await write(ctx.bizhawk_ctx, [
-                (ADDR_KEY_INVENTORY_WRAM, bytes(key_inventory), "WRAM"),
-            ])
+            # Only write if data changed — avoids constant WRAM writes
+            # that may interfere with ROM during bank switches
+            if bytes(key_inventory) != bytes(cur[0]):
+                await write(ctx.bizhawk_ctx, [
+                    (ADDR_KEY_INVENTORY_WRAM, bytes(key_inventory), "WRAM"),
+                ])
         except RequestFailedError:
             pass
 
