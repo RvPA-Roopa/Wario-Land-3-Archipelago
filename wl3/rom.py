@@ -65,15 +65,15 @@ def _build_key_portrait() -> bytes:
             out.append(hi)
     return bytes(out)
 
-
 KEY_PORTRAIT_TILES = _build_key_portrait()
 LEVEL_MUSIC_OFFSET               = 0x03FE40   # LevelMusic table (25 levels × 16 bytes = 400 bytes)
 MUSIC_BOXES_REQUIRED_OFFSET      = 0x080EEB   # MusicBoxesRequired byte in Bank 20
 START_WITH_AXE_OFFSET            = 0x080ED4   # StartWithAxeOpt byte in Bank 20
-START_WITH_MAG_GLASS_OFFSET      = 0x080EED   # StartWithMagnifyingGlassOpt byte in Bank 20
+START_WITH_MAG_GLASS_OFFSET      = 0x080ED5   # StartWithMagnifyingGlassOpt byte in Bank 20
 GOLF_PRICE_OPT_OFFSET            = 0x003A00   # GolfPriceOpt byte in Home bank
 GOLF_BUILDING_OPT_OFFSET         = 0x003A01   # GolfBuildingOpt byte in Home bank
-COMBINED_COMPANION_TABLE_OFFSET  = 0x003A02   # CombinedCompanionTable (101 bytes, home bank)
+DISABLE_PAL_CYCLE_OFFSET         = 0x003A02   # DisablePalCycleOpt byte in Home bank
+COMBINED_COMPANION_TABLE_OFFSET  = 0x003A03   # CombinedCompanionTable (101 bytes, home bank)
 TREASURE_OB_PALS_OFFSET          = 0x09ACBA   # TreasureOBPals table (indexed by treasure ID)
 
 # Combined-item companion chains: collecting key → also grant value (chained).
@@ -219,6 +219,67 @@ def _recolor_palette(data: bytes, rand) -> bytes:
     return bytes(out)
 
 
+def _recolor_palette_bg_simple(data: bytes, rand) -> bytes:
+    """Apply a small, conservative hue shift to an 8-byte GBC palette.
+
+    Very dark colors (v < 0.12) and near-gray colors (s < 0.25) are left
+    unchanged to preserve outlines and subtle background tints. Saturated
+    colors are hue-rotated by a small shared offset to keep scenes coherent.
+    """
+    # Make the simple mode extremely mild: very small hue adjustments.
+    HUE_RANGE = 0.01  # maximum rotation in either direction (fraction of 1.0)
+    hue_rotate = (rand() - 0.5) * (HUE_RANGE * 2)
+    out = bytearray(len(data))
+    # Use slightly stricter thresholds so fewer colors are modified.
+    for i in range(len(data) // 2):
+        color = data[i * 2] | (data[i * 2 + 1] << 8)
+        r, g, b = _gbc_to_floats(color)
+        h, s, v = colorsys.rgb_to_hsv(r, g, b)
+        if v < 0.18:
+            # keep very dark (outlines)
+            pass
+        elif s < 0.35:
+            # keep near-gray/background tints for consistency
+            pass
+        else:
+            # apply only a very small hue rotation
+            h = (h + hue_rotate) % 1.0
+        r, g, b = colorsys.hsv_to_rgb(h, s, v)
+        new = _floats_to_gbc(r, g, b)
+        out[i * 2]     = new & 0xFF
+        out[i * 2 + 1] = (new >> 8) & 0xFF
+    return bytes(out)
+
+
+def _shift_one_palette_color(chunk: bytes, rand) -> bytes:
+    """Shift a single, non-dark, non-gray color within an 8-byte palette by a very small hue."""
+    out = bytearray(chunk)
+    # find a candidate color to shift: first color with v>=0.15 and s>=0.15
+    target = None
+    vals = []
+    for i in range(4):
+        color = chunk[i*2] | (chunk[i*2+1] << 8)
+        r, g, b = _gbc_to_floats(color)
+        h, s, v = colorsys.rgb_to_hsv(r, g, b)
+        vals.append((h, s, v, color))
+        if target is None and v >= 0.15 and s >= 0.15:
+            target = i
+    if target is None:
+        # fallback to second color (index 1) if no suitable candidate
+        target = 1 if len(vals) > 1 else 0
+
+    h, s, v, orig = vals[target]
+    # very small hue shift
+    HUE_RANGE = 0.005
+    hue_rotate = (rand() - 0.5) * (HUE_RANGE * 2)
+    h = (h + hue_rotate) % 1.0
+    r, g, b = colorsys.hsv_to_rgb(h, s, v)
+    new = _floats_to_gbc(r, g, b)
+    out[target * 2] = new & 0xFF
+    out[target * 2 + 1] = (new >> 8) & 0xFF
+    return bytes(out)
+
+
 def write_tokens(world: "WL3World", patch: WL3ProcedurePatch) -> None:
     """Write the randomized chest table, key pool, and options into the patch."""
     chest_assignments = list(world._build_chest_assignments())
@@ -303,6 +364,14 @@ def write_tokens(world: "WL3World", patch: WL3ProcedurePatch) -> None:
         patch.write_token(APTokenTypes.WRITE, LEVEL_MUSIC_OFFSET,
                           _build_level_music_table(zip(pool[:25], pool[25:])))
 
+    # --- disable palette cycling when any palette shuffle or reduce flashing is active ---
+    if (world.options.reduce_flashing or
+            world.options.enemy_palette_shuffle or
+            world.options.level_bg_palette_shuffle or
+            world.options.wario_overalls_shuffle or
+            world.options.wario_shirt_shuffle):
+        patch.write_token(APTokenTypes.WRITE, DISABLE_PAL_CYCLE_OFFSET, bytes([1]))
+
     # --- palette shuffle ---
     if world.options.enemy_palette_shuffle:
         here = os.path.dirname(os.path.abspath(__file__))
@@ -326,34 +395,52 @@ def write_tokens(world: "WL3World", patch: WL3ProcedurePatch) -> None:
                 result.extend(_recolor_palette(chunk, world.random.random))
             patch.write_token(APTokenTypes.WRITE, offset, bytes(result))
 
-    def _load_json_table(filename: str):
-        """Load a palette table either from disk or from the .apworld archive."""
+    # --- level / room BG palette shuffle (simple or full) ---
+    level_bg_mode = int(world.options.level_bg_palette_shuffle)
+    if level_bg_mode != 0:
         here = os.path.dirname(os.path.abspath(__file__))
-        table_path = os.path.join(here, "data", filename)
+        table_path = os.path.join(here, "data", "level_bg_palette_table.json")
         if os.path.exists(table_path):
             with open(table_path) as f:
-                return json.load(f)
-        archive = getattr(__loader__, "archive", None)
-        if archive is None:
-            raise FileNotFoundError(f"Cannot locate {filename}")
-        with zipfile.ZipFile(archive) as zf:
-            return json.loads(zf.read(f"wl3/data/{filename}"))
+                bg_table = json.load(f)
+        else:
+            # fallback to generic palette_table.json if level-specific not present
+            table_path = os.path.join(here, "data", "palette_table.json")
+            if os.path.exists(table_path):
+                with open(table_path) as f:
+                    bg_table = json.load(f)
+            else:
+                archive = getattr(__loader__, "archive", None)
+                if archive is None:
+                    raise FileNotFoundError("Cannot locate level_bg_palette_table.json or palette_table.json")
+                with zipfile.ZipFile(archive) as zf:
+                    if "wl3/data/level_bg_palette_table.json" in zf.namelist():
+                        bg_table = json.loads(zf.read("wl3/data/level_bg_palette_table.json"))
+                    else:
+                        bg_table = json.loads(zf.read("wl3/data/palette_table.json"))
 
-    def _apply_bg_table(bg_table):
+        # Normal per-block processing (simple or full recolors applied per-palette)
         for entry in bg_table:
             offset = entry["offset"]
             data = base64.b64decode(entry["data"])
             result = bytearray()
-            for i in range(len(data) // 8):
-                chunk = data[i * 8 : (i + 1) * 8]
-                new_chunk = _recolor_palette(chunk, world.random.random)
-                result.extend(new_chunk)
-            patch.write_token(APTokenTypes.WRITE, offset, bytes(result))
+            count = len(data) // 8
+            if level_bg_mode == 1:
+                num = min(count, 2)
+                chosen = set(world.random.sample(range(count), num))
+            else:
+                chosen = None
 
-    # --- level/room BG palette shuffle ---
-    if world.options.level_bg_palette_shuffle:
-        level_bg_table = _load_json_table("level_bg_palette_table.json")
-        _apply_bg_table(level_bg_table)
+            for i in range(count):
+                chunk = data[i * 8 : (i + 1) * 8]
+                if level_bg_mode == 2:
+                    result.extend(_recolor_palette(chunk, world.random.random))
+                elif level_bg_mode == 1 and (i in chosen):
+                    # instead of recoloring entire palette, shift one color slightly
+                    result.extend(_shift_one_palette_color(chunk, world.random.random))
+                else:
+                    result.extend(chunk)
+            patch.write_token(APTokenTypes.WRITE, offset, bytes(result))
 
     # Wario palette offsets (color 3 = overalls/outline in each variant)
     WARIO_OVERALLS_OFFSETS = [

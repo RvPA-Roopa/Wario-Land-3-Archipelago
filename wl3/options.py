@@ -154,6 +154,15 @@ class StartWithMagnifyingGlass(Toggle):
     default = 1
 
 
+class ReduceFlashing(Toggle):
+    """Disables flashing/blinking background palette cycling in certain rooms
+    (e.g. underground areas, Warped Void). Recommended for photosensitivity.
+    This option is automatically on if any palette shuffle is active, since palette 
+    cycling can be very visually jarring when combined with random palettes."""
+    display_name = "Reduce Flashing"
+    default = 0
+
+
 @dataclass
 class WL3Options(PerGameCommonOptions):
     # starting_area:          StartingArea
@@ -167,6 +176,7 @@ class WL3Options(PerGameCommonOptions):
     golf_price:                   GolfPrice
     golf_building:                GolfBuilding
     start_with_magnifying_glass:  StartWithMagnifyingGlass
+    reduce_flashing:              ReduceFlashing
     # Cosmetics
     music_shuffle:                MusicShuffle
     enemy_palette_shuffle:        EnemyPaletteShuffle
