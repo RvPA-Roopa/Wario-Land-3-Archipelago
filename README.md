@@ -141,12 +141,12 @@ Omodons (the enemies carried by a flying robot that can flatten Wario) haved a v
 **N3 (The Vast Plain at Night) — Chemical background glitch**
 If you have the blue or red chemical item, the stalks in this level will produce a glitched-looking background. This is a visual issue only and does not affect gameplay.
 
-**N5 Sea Turtle Rocks issues**
+**N5 (Sea Turtle Rocks) issues**
 - The boss fight against Scowler contains some glitched blocks. This makes the fight slightly more difficult.
 
 - The room with the door to the Blue Chest room will sometimes appear lit without Night Vision Goggles. This is only visual, Night Vision Goggles are still required to enter the door.
 
-**W5 (Beneath the waves)— Octopi and the chemical pathway**
+**W5 (Beneath the waves) — Octopi and the chemical pathway**
 With the blue or red chemical, octopi will grow and appear to open the underwater pathway. However, the path remains physically blocked unless you also have the Sapling of Growth — it just looks open. You cannot swim through it.
 
 **S3 (Tower of Revival) — Visual issues**
@@ -156,6 +156,9 @@ The Tower of Revival level has some graphical roughness, but all mechanics work 
 
 **S5 (Cave of Flames) — Visual Issues**
 Cave of Flames rust blocks show up as non-breakable blocks if you just have rust spray but not explosive plunger box, due to the graphic set per variant. This is only visual, you can break these blocks.
+
+**E5 (The Warped Void) issues**
+When holding the barrel needed to access the Green Key, it is possible that the enemies that shake the screen will affect Wario in midair. If this is the case, instead of carrying the barrel, bump it along the bottom by walking into it while Wario is crouched.
 
 ---
 
