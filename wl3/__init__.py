@@ -35,7 +35,7 @@ from .options import (WL3Options, MusicBoxShuffle, KeyShuffle,
                       GolfPrice, GolfBuilding, IHateGolf,
                       StartWithMagnifyingGlass, ReduceFlashing,
                       MusicShuffle, EnemyPaletteShuffle, LevelBGPaletteShuffle,
-                      WarioOverallsShuffle, WarioShirtShuffle)
+                      WarioOverallsShuffle, WarioShirtShuffle, DifficultyOptions, MinorGlitches)
 from .regions import create_regions
 from .rom import WL3ProcedurePatch, write_tokens
 from .rules import MUSIC_BOXES, set_rules

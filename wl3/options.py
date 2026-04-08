@@ -23,7 +23,7 @@ class DifficultyOptions(Choice):
     display_name = "Difficulty Options"
     option_standard = 0
     option_knowledge_checks = 1
-    option_hard-tricks = 2
+    option_hard_tricks = 2
     default = 0
 
 
