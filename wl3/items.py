@@ -223,6 +223,46 @@ _REGULAR: List[tuple] = [
     (0x64, ItemClassification.filler,      "Pink Crayon"),
 ]
 
+# ---------------------------------------------------------------------------
+# Trap items — ap_id = BASE_ITEM_ID + 400 + trap_id
+# tier_ids[0] is the ROM-side TRAP_* constant written to wPendingTrap.
+# ---------------------------------------------------------------------------
+
+TRAP_BASE_ITEM_ID = BASE_ITEM_ID + 400  # 7_770_400
+
+TRAP_ITEMS: Dict[str, WL3ItemData] = {
+    "Fire Trap": WL3ItemData(
+        ap_id=TRAP_BASE_ITEM_ID + 0x01,
+        classification=ItemClassification.trap,
+        tier_ids=[0x01],  # TRAP_FIRE
+    ),
+    "Yarn Trap": WL3ItemData(
+        ap_id=TRAP_BASE_ITEM_ID + 0x02,
+        classification=ItemClassification.trap,
+        tier_ids=[0x02],  # TRAP_YARN — Ball-O-String Wario
+    ),
+    "Bouncy Trap": WL3ItemData(
+        ap_id=TRAP_BASE_ITEM_ID + 0x03,
+        classification=ItemClassification.trap,
+        tier_ids=[0x03],  # TRAP_BOUNCY
+    ),
+    "Electric Trap": WL3ItemData(
+        ap_id=TRAP_BASE_ITEM_ID + 0x04,
+        classification=ItemClassification.trap,
+        tier_ids=[0x04],  # TRAP_ELECTRIC
+    ),
+    "Ice Skate Trap": WL3ItemData(
+        ap_id=TRAP_BASE_ITEM_ID + 0x05,
+        classification=ItemClassification.trap,
+        tier_ids=[0x05],  # TRAP_ICE_SKATE
+    ),
+}
+
+# Set of all trap AP IDs — used by _build_chest_assignments to force a
+# red-gem visual instead of grabbing tier_ids[0] (which is a TRAP_* constant,
+# not a real treasure ID).
+TRAP_AP_IDS_SET: set = {item.ap_id for item in TRAP_ITEMS.values()}
+
 TREASURE_TABLE: Dict[str, WL3ItemData] = {
     name: WL3ItemData(
         ap_id=BASE_ITEM_ID + tid,
@@ -236,8 +276,8 @@ TREASURE_TABLE: Dict[str, WL3ItemData] = {
 _used = {item.tier_ids[0] for item in TREASURE_TABLE.values()}
 assert not (_used & _PROGRESSIVE_TREASURE_IDS), "Progressive treasure IDs must not overlap regular table"
 
-# Combined lookup: name → data (regular + progressive + combined)
-ITEM_TABLE: Dict[str, WL3ItemData] = {**TREASURE_TABLE, **PROGRESSIVE_ITEMS, **COMBINED_ITEMS}
+# Combined lookup: name → data (regular + progressive + combined + traps)
+ITEM_TABLE: Dict[str, WL3ItemData] = {**TREASURE_TABLE, **PROGRESSIVE_ITEMS, **COMBINED_ITEMS, **TRAP_ITEMS}
 
 # Reverse lookup by AP ID
 ID_TO_ITEM: Dict[int, WL3ItemData] = {item.ap_id: item for item in ITEM_TABLE.values()}
