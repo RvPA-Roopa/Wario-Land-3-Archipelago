@@ -26,6 +26,8 @@ from .items import (
     KEY_ITEM_TABLE,
     PROGRESSIVE_COUNTS,
     PROGRESSIVE_ITEMS,
+    TRAP_AP_IDS_SET,
+    TRAP_ITEMS,
     TREASURE_TABLE,
     WL3ItemData,
 )
@@ -33,7 +35,7 @@ from .locations import BASE_LOC_ID, KEY_LOCATION_TABLE, LOCATION_TABLE, WL3Locat
 from Options import OptionGroup
 from .options import (WL3Options, MusicBoxShuffle, KeyShuffle,
                       GolfPrice, GolfBuilding, IHateGolf,
-                      StartWithMagnifyingGlass, ReduceFlashing,
+                      StartWithMagnifyingGlass, ReduceFlashing, NonStopChests, TrapFill,
                       MusicShuffle, EnemyPaletteShuffle, LevelBGPaletteShuffle,
                       WarioOverallsShuffle, WarioShirtShuffle, DifficultyOptions, MinorGlitches)
 from .regions import create_regions
@@ -165,7 +167,8 @@ class WL3WebWorld(WebWorld):
     ]
     option_groups = [
         OptionGroup("Quality of Life", [GolfPrice, GolfBuilding, IHateGolf,
-                                       StartWithMagnifyingGlass, ReduceFlashing]),
+                                       StartWithMagnifyingGlass, ReduceFlashing,
+                                       NonStopChests, TrapFill]),
         OptionGroup("Cosmetics", [MusicShuffle, EnemyPaletteShuffle,
                                   LevelBGPaletteShuffle,
                                    WarioOverallsShuffle, WarioShirtShuffle]),
@@ -273,6 +276,21 @@ class WL3World(World):
                 items.append(self.create_item(name))
 
         assert len(items) == 100, f"Expected 100 items, got {len(items)}"
+
+        # Trap replacement: swap a % of filler items for random trap items.
+        trap_pct = int(self.options.trap_fill)
+        if trap_pct > 0 and TRAP_ITEMS:
+            filler_indices = [
+                i for i, it in enumerate(items)
+                if it.classification == ItemClassification.filler
+            ]
+            num_traps = (len(filler_indices) * trap_pct + 50) // 100
+            if num_traps > 0:
+                victim_indices = self.random.sample(filler_indices, num_traps)
+                trap_names = list(TRAP_ITEMS.keys())
+                for idx in victim_indices:
+                    trap_name = self.random.choice(trap_names)
+                    items[idx] = self.create_item(trap_name)
 
         # Key shuffle: add all 100 key items to the pool
         # Simple: keys are local + restricted to key locations via item_rules
@@ -443,6 +461,12 @@ class WL3World(World):
                 # whose tile graphics are patched with a key portrait by write_tokens.
                 if item.name in KEY_ITEM_TABLE:
                     chest_table[loc_data.loc_index] = 0x65  # TREASURE_DUMMY → key icon
+                continue
+
+            # Trap items: show as red gem. tier_ids[0] is a TRAP_* constant,
+            # NOT a treasure ID, so we must never write it to the chest table.
+            if item_data.ap_id in TRAP_AP_IDS_SET:
+                chest_table[loc_data.loc_index] = 0x4E  # Red Gem
                 continue
 
             if item.name in PROGRESSIVE_ITEMS:

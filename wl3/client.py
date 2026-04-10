@@ -96,6 +96,16 @@ ADDR_MSG_BUFFER_WRAM      = 0x11AE # wMsgBuffer (96 bytes)
 ADDR_MSG_TIMER_WRAM       = 0x120E # wMsgTimer (1 byte)
 ADDR_MSG_READY_WRAM       = 0x120F # wMsgReady (1 byte, set to 1 to trigger)
 ADDR_MSG_ROWS_WRAM        = 0x1211 # wMsgRows (1 byte, 1-3)
+ADDR_PENDING_TRAP_WRAM    = 0x121A # wPendingTrap (1 byte — AP trap queue, bank 1 0xD21A)
+
+# AP item ID → ROM trap ID (TRAP_* constants in wario_constants.asm)
+TRAP_AP_IDS: dict[int, int] = {
+    BASE_ITEM_ID + 400 + 0x01: 0x01,  # Fire Trap     → TRAP_FIRE
+    BASE_ITEM_ID + 400 + 0x02: 0x02,  # Yarn Trap     → TRAP_YARN
+    BASE_ITEM_ID + 400 + 0x03: 0x03,  # Bouncy Trap   → TRAP_BOUNCY
+    BASE_ITEM_ID + 400 + 0x04: 0x04,  # Electric Trap → TRAP_ELECTRIC
+    BASE_ITEM_ID + 400 + 0x05: 0x05,  # Ice Skate Trap → TRAP_ICE_SKATE
+}
 
 KEY_BASE_LOC_ID  = 7_770_400        # AP location ID = KEY_BASE_LOC_ID + (owlevel-1)*4 + color
 KEY_BASE_ITEM_ID = BASE_ITEM_ID + 300  # 7_770_300
@@ -169,6 +179,7 @@ class WL3Client(BizHawkClient):
         super().__init__()
         self._prev_end_screen:  int   = 0
         self._prev_level_keys:  bytes = bytes(25)
+        self._prev_opened_chests: bytes = bytes(13)
         self._checked_locs:     set   = set()
         self._items_handled:    int  = 0
         self._cached_received:  set  = set()   # AP IDs received; kept between disconnects
@@ -182,6 +193,7 @@ class WL3Client(BizHawkClient):
         self._msg_queue:        list = []       # queued messages to display one at a time
         self._saved_pal7:      bytes = None    # saved BG palette 7 to restore after message
         self._loc_items:       dict = {}       # loc_id → {"item": name, "player": slot}
+        self._trap_queue:      list = []       # pending ROM trap IDs waiting for a safe frame
 
     # ------------------------------------------------------------------
     # validate_rom — called every poll cycle until it returns True
@@ -254,6 +266,29 @@ class WL3Client(BizHawkClient):
                             logger.debug(f"[WL3] Key pickup — L{byte_idx+1} {color_name} → AP loc {loc_id}")
                             await self._show_sent_msg(ctx, loc_id)
             self._prev_level_keys = bytes(lk_raw)
+        except RequestFailedError:
+            pass
+
+        # ---- Detect chest pickups via wOpenedChests (non-stop mode fallback) ----
+        # In non-stop mode wLevelEndScreen is cleared same-frame, so the rising-edge
+        # check above may miss it. Also detect newly set bits in wOpenedChests.
+        try:
+            oc_raw = (await read(ctx.bizhawk_ctx, [(ADDR_OPENED_CHESTS_WRAM, 13, "WRAM")]))[0]
+            for byte_idx in range(13):
+                new_bits = (~self._prev_opened_chests[byte_idx]) & oc_raw[byte_idx] & 0xFF
+                if new_bits:
+                    for bit in range(8):
+                        if new_bits & (1 << bit):
+                            loc_index = byte_idx * 8 + bit
+                            if loc_index < 100:
+                                loc_id = BASE_LOC_ID + loc_index
+                                if loc_id not in self._checked_locs:
+                                    self._checked_locs.add(loc_id)
+                                    owlevel = loc_index // 4 + 1
+                                    color_name = ("Grey", "Red", "Green", "Blue")[loc_index & 3]
+                                    logger.debug(f"[WL3] wOpenedChests new bit — L{owlevel} {color_name} → AP loc {loc_id}")
+                                    await self._show_sent_msg(ctx, loc_id)
+            self._prev_opened_chests = bytes(oc_raw)
         except RequestFailedError:
             pass
 
@@ -358,6 +393,17 @@ class WL3Client(BizHawkClient):
             except RequestFailedError:
                 pass
 
+        # ---- Flush any queued traps (only when ROM slot is empty) ----
+        if self._trap_queue:
+            try:
+                cur = (await read(ctx.bizhawk_ctx, [(ADDR_PENDING_TRAP_WRAM, 1, "WRAM")]))[0][0]
+                if cur == 0:
+                    trap_id = self._trap_queue.pop(0)
+                    await write(ctx.bizhawk_ctx, [(ADDR_PENDING_TRAP_WRAM, bytes([trap_id]), "WRAM")])
+                    logger.debug(f"[WL3] Wrote trap 0x{trap_id:02X} to wPendingTrap")
+            except RequestFailedError:
+                pass
+
         # ---- Update opened-chest bitmask in WRAM ----
         await self._update_opened_chests(ctx)
 
@@ -367,6 +413,11 @@ class WL3Client(BizHawkClient):
 
     async def _grant_item(self, ctx: "BizHawkClientContext", ap_id: int) -> None:
         """Resolve an AP item ID to treasure ID(s) and apply them to the game."""
+        if ap_id in TRAP_AP_IDS:
+            trap_id = TRAP_AP_IDS[ap_id]
+            self._trap_queue.append(trap_id)
+            logger.debug(f"[WL3] Trap AP {ap_id} queued → ROM trap 0x{trap_id:02X}")
+            return
         if ap_id in PROGRESSIVE_ITEMS:
             # ROM fully handles progressive ability progression via treasure_clear.asm.
             # Client must not write these bits — doing so before a chest is opened
@@ -681,8 +732,10 @@ class WL3Client(BizHawkClient):
                 opened[loc_index >> 3] |= 1 << (loc_index & 7)
         try:
             cur = (await read(ctx.bizhawk_ctx, [(ADDR_OPENED_CHESTS_WRAM, 13, "WRAM")]))[0]
-            if bytes(opened) != bytes(cur):
-                await write(ctx.bizhawk_ctx, [(ADDR_OPENED_CHESTS_WRAM, bytes(opened), "WRAM")])
+            # OR-merge: preserve any bits the ROM set locally (e.g. non-stop chests)
+            merged = bytes(a | b for a, b in zip(cur, opened))
+            if merged != bytes(cur):
+                await write(ctx.bizhawk_ctx, [(ADDR_OPENED_CHESTS_WRAM, merged, "WRAM")])
         except RequestFailedError:
             pass
 

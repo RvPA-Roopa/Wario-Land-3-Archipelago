@@ -68,13 +68,14 @@ def _build_key_portrait() -> bytes:
 KEY_PORTRAIT_TILES = _build_key_portrait()
 LEVEL_MUSIC_OFFSET               = 0x03FE40   # LevelMusic table (25 levels × 16 bytes = 400 bytes)
 MUSIC_BOXES_REQUIRED_OFFSET      = 0x080EEB   # MusicBoxesRequired byte in Bank 20
-START_WITH_AXE_OFFSET            = 0x080ED4   # StartWithAxeOpt byte in Bank 20
-START_WITH_MAG_GLASS_OFFSET      = 0x080ED5   # StartWithMagnifyingGlassOpt byte in Bank 20
+START_WITH_AXE_OFFSET            = 0x080EEC   # StartWithAxeOpt byte in Bank 20
+START_WITH_MAG_GLASS_OFFSET      = 0x080EED   # StartWithMagnifyingGlassOpt byte in Bank 20
 GOLF_PRICE_OPT_OFFSET            = 0x003A00   # GolfPriceOpt byte in Home bank
 GOLF_BUILDING_OPT_OFFSET         = 0x003A01   # GolfBuildingOpt byte in Home bank
 DISABLE_PAL_CYCLE_OFFSET         = 0x003A02   # DisablePalCycleOpt byte in Home bank
 I_HATE_GOLF_OFFSET               = 0x003A03   # AutoWinGolfOpt byte in Home bank
-COMBINED_COMPANION_TABLE_OFFSET  = 0x003A04   # CombinedCompanionTable (101 bytes, home bank)
+NON_STOP_CHESTS_OFFSET           = 0x003A04   # NonStopChestsOpt byte in Home bank
+COMBINED_COMPANION_TABLE_OFFSET  = 0x003A05   # CombinedCompanionTable (101 bytes, home bank)
 TREASURE_OB_PALS_OFFSET          = 0x09ACBA   # TreasureOBPals table (indexed by treasure ID)
 
 # Combined-item companion chains: collecting key → also grant value (chained).
@@ -188,16 +189,21 @@ def _floats_to_gbc(r: float, g: float, b: float) -> int:
     """(r, g, b) 0.0–1.0 floats → 15-bit GBC color."""
     return round(r * 31) | (round(g * 31) << 5) | (round(b * 31) << 10)
 
-def _recolor_palette(data: bytes, rand) -> bytes:
+def _recolor_palette(data: bytes, rand, fixed_hue_rotate: float = None) -> bytes:
     """Recolor an 8-byte GBC palette.
 
     Near-grayscale colors (s < 0.25) each get an independent random hue at
     high saturation.  Saturated colors (s >= 0.25) are all hue-rotated by a
     single shared random offset so their relative color relationships are
     preserved.  Very dark colors (v < 0.15) are left unchanged.
+
+    If `fixed_hue_rotate` is provided, it is used as the shared rotation
+    instead of a fresh random value — this lets multiple palettes in a
+    palette-cycle group share a hue so cycle frames stay coherent.
     """
     GRAY_THRESHOLD = 0.25
-    hue_rotate = rand()  # one shared rotation for saturated colors in this palette
+    grouped = fixed_hue_rotate is not None
+    hue_rotate = fixed_hue_rotate if grouped else rand()
     out = bytearray(len(data))
     for i in range(len(data) // 2):
         color = data[i * 2] | (data[i * 2 + 1] << 8)
@@ -206,9 +212,14 @@ def _recolor_palette(data: bytes, rand) -> bytes:
         if v < 0.15:
             pass  # dark/outline colors — leave unchanged
         elif s < GRAY_THRESHOLD:
-            # near-white / light-gray: assign a random hue at moderate saturation
-            # (toned down to avoid intense hue shifts on glow effects sharing palette 0)
-            h = rand()
+            # near-white / light-gray: assign a hue at moderate saturation.
+            # For grouped (palette-cycle) entries we derive the hue from the
+            # group rotation + color slot so every cycle frame's grayscale
+            # pixels share the same tint (no strobing on Above the Clouds day).
+            if grouped:
+                h = (hue_rotate + i * 0.13) % 1.0
+            else:
+                h = rand()
             s = 0.45
         else:
             # saturated colors: rotate hue by shared offset
@@ -341,6 +352,10 @@ def write_tokens(world: "WL3World", patch: WL3ProcedurePatch) -> None:
     patch.write_token(APTokenTypes.WRITE, I_HATE_GOLF_OFFSET,
                       bytes([i_hate_golf]))
 
+    non_stop_chests = int(world.options.non_stop_chests)
+    patch.write_token(APTokenTypes.WRITE, NON_STOP_CHESTS_OFFSET,
+                      bytes([non_stop_chests]))
+
     # --- combined item companion table ---
     if int(world.options.combined_level_unlocks):
         companion_table = bytearray(101)
@@ -424,6 +439,11 @@ def write_tokens(world: "WL3World", patch: WL3ProcedurePatch) -> None:
                     else:
                         bg_table = json.loads(zf.read("wl3/data/palette_table.json"))
 
+        # Per-cycle-group shared hue rotation: palettes that belong to the
+        # same room palette cycle (e.g. Above the Clouds lightning flash) all
+        # get the same hue offset so cycle frames don't strobe random colors.
+        group_hue_cache: dict = {}
+
         # Normal per-block processing (simple or full recolors applied per-palette)
         for entry in bg_table:
             offset = entry["offset"]
@@ -436,10 +456,18 @@ def write_tokens(world: "WL3World", patch: WL3ProcedurePatch) -> None:
             else:
                 chosen = None
 
+            group = entry.get("group")
+            if group is not None:
+                if group not in group_hue_cache:
+                    group_hue_cache[group] = world.random.random()
+                group_hue = group_hue_cache[group]
+            else:
+                group_hue = None
+
             for i in range(count):
                 chunk = data[i * 8 : (i + 1) * 8]
                 if level_bg_mode == 2:
-                    result.extend(_recolor_palette(chunk, world.random.random))
+                    result.extend(_recolor_palette(chunk, world.random.random, fixed_hue_rotate=group_hue))
                 elif level_bg_mode == 1 and (i in chosen):
                     # instead of recoloring entire palette, shift one color slightly
                     result.extend(_shift_one_palette_color(chunk, world.random.random))
