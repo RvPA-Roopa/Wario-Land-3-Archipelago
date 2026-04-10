@@ -162,6 +162,14 @@ class StartWithMagnifyingGlass(Toggle):
     default = 1
 
 
+class NonStopChests(Toggle):
+    """Stay in the level after opening a treasure chest instead of exiting to
+    the overworld. The treasure is still marked collected and saved. Music box
+    chests still exit to play the music-box ceremony."""
+    display_name = "Non-Stop Chests"
+    default = 0
+
+
 class TrapFill(Range):
     """Percentage of filler items replaced with traps (currently: Fire Trap).
     When a trap is received, Wario is set on fire the next safe frame.
@@ -197,6 +205,7 @@ class WL3Options(PerGameCommonOptions):
     i_hate_golf:                  IHateGolf
     start_with_magnifying_glass:  StartWithMagnifyingGlass
     reduce_flashing:              ReduceFlashing
+    non_stop_chests:              NonStopChests
     trap_fill:                    TrapFill
     # Cosmetics
     music_shuffle:                MusicShuffle
