@@ -466,6 +466,8 @@ KEY_RULES: dict = {
     ],
 }
 
+NoRule = object()
+
 CHEST_RULES_KNOWLEDGE: dict = {
     "Out of the Woods": [
         None,                                                                        # grey
@@ -480,7 +482,12 @@ CHEST_RULES_HARD: dict = {
 }
 
 CHEST_RULES_GLITCHED: dict = {
-
+    "The Peaceful Village": [
+        None,                                                                        # grey
+        NoRule,                                                                      # red
+        None,                                                                        # green
+        None,                                                                        # blue
+    ]
 }
 
 KEY_RULES_KNOWLEDGE: dict = {
@@ -500,7 +507,13 @@ KEY_RULES_GLITCHED: dict = {
     "Out of the Woods": [
         None,                                                                        # grey
         None,                                                                        # red
-        "None",                                                                      # green
+        NoRule,                                                                      # green
+        None,                                                                        # blue
+    ],
+    "The Peaceful Village": [
+        None,                                                                        # grey
+        None,                                                                        # red
+        None,                                                                        # green
         None,                                                                        # blue
     ]
 }
@@ -522,53 +535,59 @@ def set_rules(world: "WL3World") -> None:
 
     # Override certain level requirements depending on difficulty
     if difficulty > 0:
-        for level in CHEST_RULES_KNOWLEDGE:
-            for rule in CHEST_RULES_KNOWLEDGE[level]:
-                if rule:
-                    if rule == "None":
-                        chest_logic[level][rule] = None                        
-                    else:
-                        chest_logic[level][rule] = CHEST_RULES_KNOWLEDGE[level][rule]
-        for level in KEY_RULES_KNOWLEDGE:
-            for rule in KEY_RULES_KNOWLEDGE[level]:
-                if rule:
-                    if rule == "None":
-                        key_logic[level][rule] = None                        
-                    else:
-                        key_logic[level][rule] = KEY_RULES_KNOWLEDGE[level][rule]
+        for level, rules in CHEST_RULES_KNOWLEDGE.items():
+            for i, rule in enumerate(rules):
+                if not rule:
+                    continue
+                if rule is NoRule:  #Erase current rules, can't use None because that means no changes
+                    chest_logic[level][i] = None                        
+                else:
+                    chest_logic[level][i] = rule
+        for level, rules in KEY_RULES_KNOWLEDGE.items():
+            for i, rule in enumerate(rules):
+                if not rule:
+                    continue
+                if rule is NoRule:  #Erase current rules, can't use None because that means no changes
+                    key_logic[level][i] = None                        
+                else:
+                    key_logic[level][i] = rule
     if difficulty > 1:
-        for level in CHEST_RULES_HARD:
-            for rule in CHEST_RULES_HARD[level]:
-                if rule:
-                    if rule == "None":
-                        chest_logic[level][rule] = None                        
-                    else:
-                        chest_logic[level][rule] = CHEST_RULES_HARD[level][rule]
-        for level in KEY_RULES_HARD:
-            for rule in KEY_RULES_HARD[level]:
-                if rule:
-                    if rule == "None":
-                        key_logic[level][rule] = None                        
-                    else:
-                        key_logic[level][rule] = KEY_RULES_HARD[level][rule]
+        for level, rules in CHEST_RULES_HARD.items():
+            for i, rule in enumerate(rules):
+                if not rule:
+                    continue
+                if rule is NoRule:  #Erase current rules, can't use None because that means no changes
+                    chest_logic[level][i] = None                        
+                else:
+                    chest_logic[level][i] = rule
+        for level, rules in KEY_RULES_HARD.items():
+            for i, rule in enumerate(rules):
+                if not rule:
+                    continue
+                if rule is NoRule:  #Erase current rules, can't use None because that means no changes
+                    key_logic[level][i] = None                        
+                else:
+                    key_logic[level][i] = rule
 
 
     # Override certain level requirements if glitches are in logic
     if glitches:
-        for level in CHEST_RULES_GLITCHED:
-            for rule in CHEST_RULES_GLITCHED[level]:
-                if rule:
-                    if rule == "None":
-                        chest_logic[level][rule] = None                        
-                    else:
-                        chest_logic[level][rule] = CHEST_RULES_GLITCHED[level][rule]
-        for level in KEY_RULES_GLITCHED:
-            for rule in KEY_RULES_GLITCHED[level]:
-                if rule:
-                    if rule == "None":
-                        key_logic[level][rule] = None                        
-                    else:
-                        key_logic[level][rule] = KEY_RULES_GLITCHED[level][rule]
+        for level, rules in CHEST_RULES_GLITCHED.items():
+            for i, rule in enumerate(rules):
+                if not rule:
+                    continue
+                if rule is NoRule:  #Erase current rules, can't use None because that means no changes
+                    chest_logic[level][i] = None                        
+                else:
+                    chest_logic[level][i] = rule
+        for level, rules in KEY_RULES_GLITCHED.items():
+            for i, rule in enumerate(rules):
+                if not rule:
+                    continue
+                if rule is NoRule:  #Erase current rules, can't use None because that means no changes
+                    key_logic[level][i] = None                        
+                else:
+                    key_logic[level][i] = rule
 
 
     # Override multi-item unlock predicates when combined mode is on
