@@ -392,7 +392,7 @@ KEY_RULES: dict = {
     "The Big Bridge": [
         None,                                                                        # grey
         _c(has_overalls_1, has_flippers_1),                                          # red
-        _c(has_flippers_1, _o(_c(has_overalls_1, has_grab_1), has_overalls_2)),      # green
+        _c(has_flippers_1, has_overalls_1, has_grab_1),                              # green
         _c(has_flippers_1, _has("Garlic")),                                          # blue
     ],
     "Tower of Revival": [
@@ -474,19 +474,54 @@ CHEST_RULES_KNOWLEDGE: dict = {
         _o(has_overalls_1, _has("Garlic")),                                          # red
         None,                                                                        # green
         None,                                                                        # blue
+    ],
+    "The Peaceful Village": [
+        None,                                                                        # grey
+        _o(_c(has_overalls_2, _has("Garlic")),_has("Flute"),_has("High Jump Boots")),# red
+        _o(_c(has_overalls_2, _has("Garlic")),_has("Flute"),_has("High Jump Boots")),# green
+        None,                                                                        # blue
+    ],
+    "Desert Ruins": [
+        None,                                                                        # grey
+        None,                                                                        # red
+        None,                                                                        # green
+        _o(_c(has_grab_1,has_overalls_2),_c(has_overalls_2,_has("High Jump Boots"))),# blue
+    ],
+    "Above the Clouds": [
+        None,                                                                        # grey
+        _c(_has("High Jump Boots"), _has("Spiked Helmet")),                          # red
+        None,                                                                        # green
+        None,                                                                        # blue
     ]
 }
 
 CHEST_RULES_HARD: dict = {
-
+    "Beneath the Waves": [
+        None,                                                                        # grey
+        has_flippers_1,                                                              # red
+        _c(has_flippers_1, has_grab_1),                                              # green
+        _c(has_flippers_1, has_grab_1),                                              # blue
+    ]
 }
 
 CHEST_RULES_GLITCHED: dict = {
     "The Peaceful Village": [
         None,                                                                        # grey
         NoRule,                                                                      # red
-        None,                                                                        # green
+        has_overalls_1,                                                              # green
         None,                                                                        # blue
+    ],
+    "The Tidal Coast": [
+        None,                                                                        # grey
+        None,                                                                        # red
+        NoRule,                                                                      # green
+        None,                                                                        # blue
+    ],
+    "The Grasslands": [
+        None,                                                                        # grey
+        None,                                                                        # red
+        None,                                                                      # green
+        NoRule,                                                                        # blue
     ]
 }
 
@@ -496,10 +531,53 @@ KEY_RULES_KNOWLEDGE: dict = {
         _o(has_overalls_1, _has("Garlic")),                                          # red
         None,                                                                        # green
         None,                                                                        # blue
-    ]
+    ],
+    "The Peaceful Village": [
+        None,                                                                        # grey
+        NoRule,                                                                      # red
+        _o(_c(has_overalls_2, _has("Garlic")),_has("Flute"),_has("High Jump Boots")),# green
+        None,                                                                        # blue
+    ],
+    "Desert Ruins": [
+        None,                                                                        # grey
+        None,                                                                        # red
+        _o(_c(_has("Spiked Helmet", has_overalls_1)),_has("Garlic")),                # green
+        None,                                                                        # blue
+    ],
+        "Beneath the Waves": [
+        None,                                                                        # grey
+        has_flippers_2,                                                              # red
+        None,                                                                        # green
+        None,                                                                        # blue
+    ],
+        "The Big Bridge": [
+        None,                                                                        # grey
+        None,                                                                        # red
+        _c(has_flippers_1, _o(_c(has_overalls_1, has_grab_1), has_overalls_2)),      # green
+        None,                                                                        # blue
+    ],
+    
 }
 
 KEY_RULES_HARD: dict = {
+    "A Town in Chaos": [
+        None,                                                                        # grey
+        None,                                                                        # red
+        _c(has_grab_2, has_overalls_2),                                              # green
+        None,                                                                        # blue
+    ],
+    "Above the Clouds": [
+        None,                                                                        # grey
+        _c(_has("High Jump Boots"), has_grab_1),                                     # red
+        None,                                                                        # green
+        None,                                                                        # blue
+    ],
+    "The East Crater": [
+        has_grab_1,                                                                  # grey
+        None,                                                                        # red
+        None,                                                                        # green
+        None,                                                                        # blue
+    ],
 
 }
 
@@ -512,7 +590,25 @@ KEY_RULES_GLITCHED: dict = {
     ],
     "The Peaceful Village": [
         None,                                                                        # grey
+        NoRule,                                                                      # red
+        NoRule,                                                                      # green
+        None,                                                                        # blue
+    ],
+    "The Grasslands": [
+        None,                                                                        # grey
         None,                                                                        # red
+        None,                                                                        # green
+        NoRule,                                                                      # blue
+    ],
+    "Cave of Flames": [
+        None,                                                                        # grey
+        NoRule,                                                                      # red
+        None,                                                                        # green
+        None,                                                                        # blue
+    ],
+    "Castle of Illusions": [
+        None,                                                                        # grey
+        _o(has_overalls_2, _has("High Jump Boots")),                                 # red
         None,                                                                        # green
         None,                                                                        # blue
     ]
