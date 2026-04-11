@@ -29,7 +29,7 @@ from typing import TYPE_CHECKING, List
 from BaseClasses import CollectionState, LocationProgressType
 
 from .locations import COLOR_NAMES, KEY_LOCATION_TABLE, LOCATION_TABLE
-from .options import KeyShuffle
+from .options import (KeyShuffle, DifficultyOptions, MinorGlitches)
 
 if TYPE_CHECKING:
     from . import WL3World
@@ -147,7 +147,7 @@ def _has(item):
 CHEST_RULES: dict = {
     "Out of the Woods": [
         None,                                                                        # grey
-        has_overalls_1,                                                              # red
+        has_overalls_1,                                          # red
         _c(_has("Pouch"), _has("Eye of the Storm")),                                 # green
         _c(_has("Gold Magic"), _has("High Jump Boots"), has_grab_1, has_overalls_1), # blue
     ],
@@ -466,6 +466,154 @@ KEY_RULES: dict = {
     ],
 }
 
+NoRule = object()
+
+CHEST_RULES_KNOWLEDGE: dict = {
+    "Out of the Woods": [
+        None,                                                                        # grey
+        _o(has_overalls_1, _has("Garlic")),                                          # red
+        None,                                                                        # green
+        None,                                                                        # blue
+    ],
+    "The Peaceful Village": [
+        None,                                                                        # grey
+        _o(_c(has_overalls_2, _has("Garlic")),_has("Flute"),_has("High Jump Boots")),# red
+        _o(_c(has_overalls_2, _has("Garlic")),_has("Flute"),_has("High Jump Boots")),# green
+        None,                                                                        # blue
+    ],
+    "Desert Ruins": [
+        None,                                                                        # grey
+        None,                                                                        # red
+        None,                                                                        # green
+        _o(_c(has_grab_1,has_overalls_2),_c(has_overalls_2,_has("High Jump Boots"))),# blue
+    ],
+    "Above the Clouds": [
+        None,                                                                        # grey
+        _c(_has("High Jump Boots"), _has("Spiked Helmet")),                          # red
+        None,                                                                        # green
+        None,                                                                        # blue
+    ]
+}
+
+CHEST_RULES_HARD: dict = {
+    "Beneath the Waves": [
+        None,                                                                        # grey
+        has_flippers_1,                                                              # red
+        _c(has_flippers_1, has_grab_1),                                              # green
+        _c(has_flippers_1, has_grab_1),                                              # blue
+    ]
+}
+
+CHEST_RULES_GLITCHED: dict = {
+    "The Peaceful Village": [
+        None,                                                                        # grey
+        NoRule,                                                                      # red
+        has_overalls_1,                                                              # green
+        None,                                                                        # blue
+    ],
+    "The Tidal Coast": [
+        None,                                                                        # grey
+        None,                                                                        # red
+        NoRule,                                                                      # green
+        None,                                                                        # blue
+    ],
+    "The Grasslands": [
+        None,                                                                        # grey
+        None,                                                                        # red
+        None,                                                                      # green
+        NoRule,                                                                        # blue
+    ]
+}
+
+KEY_RULES_KNOWLEDGE: dict = {
+    "Out of the Woods": [
+        None,                                                                        # grey
+        _o(has_overalls_1, _has("Garlic")),                                          # red
+        None,                                                                        # green
+        None,                                                                        # blue
+    ],
+    "The Peaceful Village": [
+        None,                                                                        # grey
+        NoRule,                                                                      # red
+        _o(_c(has_overalls_2, _has("Garlic")),_has("Flute"),_has("High Jump Boots")),# green
+        None,                                                                        # blue
+    ],
+    "Desert Ruins": [
+        None,                                                                        # grey
+        None,                                                                        # red
+        _o(_c(_has("Spiked Helmet"), has_overalls_1),_has("Garlic")),                # green
+        None,                                                                        # blue
+    ],
+        "Beneath the Waves": [
+        None,                                                                        # grey
+        has_flippers_2,                                                              # red
+        None,                                                                        # green
+        None,                                                                        # blue
+    ],
+        "The Big Bridge": [
+        None,                                                                        # grey
+        None,                                                                        # red
+        _c(has_flippers_1, _o(_c(has_overalls_1, has_grab_1), has_overalls_2)),      # green
+        None,                                                                        # blue
+    ],
+    
+}
+
+KEY_RULES_HARD: dict = {
+    "A Town in Chaos": [
+        None,                                                                        # grey
+        None,                                                                        # red
+        _c(has_grab_2, has_overalls_2),                                              # green
+        None,                                                                        # blue
+    ],
+    "Above the Clouds": [
+        None,                                                                        # grey
+        _c(_has("High Jump Boots"), has_grab_1),                                     # red
+        None,                                                                        # green
+        None,                                                                        # blue
+    ],
+    "The East Crater": [
+        has_grab_1,                                                                  # grey
+        None,                                                                        # red
+        None,                                                                        # green
+        None,                                                                        # blue
+    ],
+
+}
+
+KEY_RULES_GLITCHED: dict = {
+    "Out of the Woods": [
+        None,                                                                        # grey
+        None,                                                                        # red
+        NoRule,                                                                      # green
+        None,                                                                        # blue
+    ],
+    "The Peaceful Village": [
+        None,                                                                        # grey
+        NoRule,                                                                      # red
+        NoRule,                                                                      # green
+        None,                                                                        # blue
+    ],
+    "The Grasslands": [
+        None,                                                                        # grey
+        None,                                                                        # red
+        None,                                                                        # green
+        NoRule,                                                                      # blue
+    ],
+    "Cave of Flames": [
+        None,                                                                        # grey
+        NoRule,                                                                      # red
+        None,                                                                        # green
+        None,                                                                        # blue
+    ],
+    "Castle of Illusions": [
+        None,                                                                        # grey
+        _o(has_overalls_2, _has("High Jump Boots")),                                 # red
+        None,                                                                        # green
+        None,                                                                        # blue
+    ]
+}
+
 
 # ---------------------------------------------------------------------------
 # Main rule-setting function — called from WL3World.set_rules()
@@ -475,6 +623,68 @@ def set_rules(world: "WL3World") -> None:
     player  = world.player
     mw      = world.multiworld
     combined = bool(world.options.combined_level_unlocks)
+    difficulty = int(world.options.difficulty)
+    glitches = bool(world.options.minor_glitches)
+    chest_logic = dict(CHEST_RULES)
+    key_logic = dict(KEY_RULES)
+
+
+    # Override certain level requirements depending on difficulty
+    if difficulty > 0:
+        for level, rules in CHEST_RULES_KNOWLEDGE.items():
+            for i, rule in enumerate(rules):
+                if not rule:
+                    continue
+                if rule is NoRule:  #Erase current rules, can't use None because that means no changes
+                    chest_logic[level][i] = None                        
+                else:
+                    chest_logic[level][i] = rule
+        for level, rules in KEY_RULES_KNOWLEDGE.items():
+            for i, rule in enumerate(rules):
+                if not rule:
+                    continue
+                if rule is NoRule:  #Erase current rules, can't use None because that means no changes
+                    key_logic[level][i] = None                        
+                else:
+                    key_logic[level][i] = rule
+    if difficulty > 1:
+        for level, rules in CHEST_RULES_HARD.items():
+            for i, rule in enumerate(rules):
+                if not rule:
+                    continue
+                if rule is NoRule:  #Erase current rules, can't use None because that means no changes
+                    chest_logic[level][i] = None                        
+                else:
+                    chest_logic[level][i] = rule
+        for level, rules in KEY_RULES_HARD.items():
+            for i, rule in enumerate(rules):
+                if not rule:
+                    continue
+                if rule is NoRule:  #Erase current rules, can't use None because that means no changes
+                    key_logic[level][i] = None                        
+                else:
+                    key_logic[level][i] = rule
+
+
+    # Override certain level requirements if glitches are in logic
+    if glitches:
+        for level, rules in CHEST_RULES_GLITCHED.items():
+            for i, rule in enumerate(rules):
+                if not rule:
+                    continue
+                if rule is NoRule:  #Erase current rules, can't use None because that means no changes
+                    chest_logic[level][i] = None                        
+                else:
+                    chest_logic[level][i] = rule
+        for level, rules in KEY_RULES_GLITCHED.items():
+            for i, rule in enumerate(rules):
+                if not rule:
+                    continue
+                if rule is NoRule:  #Erase current rules, can't use None because that means no changes
+                    key_logic[level][i] = None                        
+                else:
+                    key_logic[level][i] = rule
+
 
     # Override multi-item unlock predicates when combined mode is on
     level_rules = dict(LEVEL_RULES)
@@ -496,7 +706,7 @@ def set_rules(world: "WL3World") -> None:
 
     for loc_name, loc_data in LOCATION_TABLE.items():
         level_rule  = level_rules.get(loc_data.level_name)
-        chest_rules = CHEST_RULES.get(loc_data.level_name)
+        chest_rules = chest_logic.get(loc_data.level_name)
         chest_rule  = chest_rules[loc_data.color_index] if chest_rules else None
 
         if keysanity:
@@ -506,7 +716,7 @@ def set_rules(world: "WL3World") -> None:
             chest_rule = _c(chest_rule, key_item_rule) if chest_rule is not None else key_item_rule
         else:
             # Vanilla: combine key access + chest access (must reach both in same level)
-            key_rules = KEY_RULES.get(loc_data.level_name)
+            key_rules = key_logic.get(loc_data.level_name)
             key_rule = key_rules[loc_data.color_index] if key_rules else None
             if key_rule is not None:
                 chest_rule = _c(chest_rule, key_rule) if chest_rule is not None else key_rule
@@ -528,7 +738,7 @@ def set_rules(world: "WL3World") -> None:
     else:
         for loc_name, loc_data in KEY_LOCATION_TABLE.items():
             level_rule = level_rules.get(loc_data.level_name)
-            key_rules  = KEY_RULES.get(loc_data.level_name)
+            key_rules  = key_logic.get(loc_data.level_name)
             key_rule   = key_rules[loc_data.color_index] if key_rules else None
 
             if level_rule is not None and key_rule is not None:
