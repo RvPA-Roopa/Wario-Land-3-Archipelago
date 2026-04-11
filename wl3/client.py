@@ -272,25 +272,35 @@ class WL3Client(BizHawkClient):
         # ---- Detect chest pickups via wOpenedChests (non-stop mode fallback) ----
         # In non-stop mode wLevelEndScreen is cleared same-frame, so the rising-edge
         # check above may miss it. Also detect newly set bits in wOpenedChests.
-        try:
-            oc_raw = (await read(ctx.bizhawk_ctx, [(ADDR_OPENED_CHESTS_WRAM, 13, "WRAM")]))[0]
-            for byte_idx in range(13):
-                new_bits = (~self._prev_opened_chests[byte_idx]) & oc_raw[byte_idx] & 0xFF
-                if new_bits:
-                    for bit in range(8):
-                        if new_bits & (1 << bit):
-                            loc_index = byte_idx * 8 + bit
-                            if loc_index < 100:
-                                loc_id = BASE_LOC_ID + loc_index
-                                if loc_id not in self._checked_locs:
-                                    self._checked_locs.add(loc_id)
-                                    owlevel = loc_index // 4 + 1
-                                    color_name = ("Grey", "Red", "Green", "Blue")[loc_index & 3]
-                                    logger.debug(f"[WL3] wOpenedChests new bit — L{owlevel} {color_name} → AP loc {loc_id}")
-                                    await self._show_sent_msg(ctx, loc_id)
-            self._prev_opened_chests = bytes(oc_raw)
-        except RequestFailedError:
-            pass
+        # Skip while in the Temple (THE_TEMPLE = $C8, wLevel>>3 = 25) — text
+        # decompression overflows into wOpenedChests at $DE00, writing garbage.
+        is_temple = w_level >= 0xC8  # THE_TEMPLE and above
+        if not is_temple:
+            try:
+                oc_raw = (await read(ctx.bizhawk_ctx, [(ADDR_OPENED_CHESTS_WRAM, 13, "WRAM")]))[0]
+                # Count new bits — if too many at once, it's Temple overflow corruption.
+                total_new = 0
+                for byte_idx in range(13):
+                    new_bits = (~self._prev_opened_chests[byte_idx]) & oc_raw[byte_idx] & 0xFF
+                    total_new += bin(new_bits).count('1')
+                if total_new <= 4:  # at most 4 chests per level
+                    for byte_idx in range(13):
+                        new_bits = (~self._prev_opened_chests[byte_idx]) & oc_raw[byte_idx] & 0xFF
+                        if new_bits:
+                            for bit in range(8):
+                                if new_bits & (1 << bit):
+                                    loc_index = byte_idx * 8 + bit
+                                    if loc_index < 100:
+                                        loc_id = BASE_LOC_ID + loc_index
+                                        if loc_id not in self._checked_locs:
+                                            self._checked_locs.add(loc_id)
+                                            owlevel = loc_index // 4 + 1
+                                            color_name = ("Grey", "Red", "Green", "Blue")[loc_index & 3]
+                                            logger.debug(f"[WL3] wOpenedChests new bit — L{owlevel} {color_name} → AP loc {loc_id}")
+                                            await self._show_sent_msg(ctx, loc_id)
+                self._prev_opened_chests = bytes(oc_raw)
+            except RequestFailedError:
+                pass
 
         # Refresh unlock flags from cache if we have any received items.
         # If cache is empty (never connected this session) the ROM handles it from SRAM.
@@ -732,10 +742,20 @@ class WL3Client(BizHawkClient):
                 opened[loc_index >> 3] |= 1 << (loc_index & 7)
         try:
             cur = (await read(ctx.bizhawk_ctx, [(ADDR_OPENED_CHESTS_WRAM, 13, "WRAM")]))[0]
-            # OR-merge: preserve any bits the ROM set locally (e.g. non-stop chests)
-            merged = bytes(a | b for a, b in zip(cur, opened))
-            if merged != bytes(cur):
-                await write(ctx.bizhawk_ctx, [(ADDR_OPENED_CHESTS_WRAM, merged, "WRAM")])
+            # Temple text decompression overflows into wOpenedChests ($DE00+),
+            # writing garbage. Skip OR-merge when in the Temple to avoid
+            # picking up corrupted bits; just write server-known state.
+            level_byte = (await read(ctx.bizhawk_ctx, [(ADDR_LEVEL, 1, "System Bus")]))[0][0]
+            is_temple = level_byte >= 0xC8
+            if is_temple:
+                # Don't merge ROM bits — just write what AP knows about.
+                if bytes(opened) != bytes(cur):
+                    await write(ctx.bizhawk_ctx, [(ADDR_OPENED_CHESTS_WRAM, bytes(opened), "WRAM")])
+            else:
+                # OR-merge: preserve any bits the ROM set locally (e.g. non-stop chests)
+                merged = bytes(a | b for a, b in zip(cur, opened))
+                if merged != bytes(cur):
+                    await write(ctx.bizhawk_ctx, [(ADDR_OPENED_CHESTS_WRAM, merged, "WRAM")])
         except RequestFailedError:
             pass
 
