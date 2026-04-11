@@ -623,7 +623,7 @@ def set_rules(world: "WL3World") -> None:
     player  = world.player
     mw      = world.multiworld
     combined = bool(world.options.combined_level_unlocks)
-    difficulty = int(world.options.difficulty_option)
+    difficulty = int(world.options.difficulty)
     glitches = bool(world.options.minor_glitches)
     chest_logic = dict(CHEST_RULES)
     key_logic = dict(KEY_RULES)
