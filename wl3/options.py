@@ -212,9 +212,9 @@ class ReduceFlashing(Toggle):
 @dataclass
 class WL3Options(PerGameCommonOptions):
     # Logic Options
-    difficulty:            DifficultyOptions
+    difficulty:                   DifficultyOptions
     minor_glitches:               MinorGlitches
-    # starting_area:          StartingArea
+    # starting_area:              StartingArea
     start_with_axe:               StartWithAxe
     random_level_starts:          RandomLevelStarts
     combined_level_unlocks:       CombinedLevelUnlocks
