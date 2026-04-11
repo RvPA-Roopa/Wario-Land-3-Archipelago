@@ -18,7 +18,7 @@ class DifficultyOptions(Choice):
     """Sets whether harder tricks and knowledge checks are necessary in logic.
     Standard: The logic assumes no extra knowledge besides what is used to beat the vanilla game.
     Knowledge Checks: The logic assumes the player will know basic shortcuts like breaking hidden blocks in walls.
-    Hard Tricks: The logic assumes that the player will know knowledge checks and be able to do more difficult tricks, like jumping off of a thrown enemy in midair.
+    Hard Tricks: The logic assumes that the player will both know knowledge checks and also be able to do more difficult tricks, like jumping off of a thrown enemy in midair.
     """
     display_name = "Difficulty Options"
     option_standard = 0
@@ -212,7 +212,7 @@ class ReduceFlashing(Toggle):
 @dataclass
 class WL3Options(PerGameCommonOptions):
     # Logic Options
-    difficulty_option:            DifficultyOptions
+    difficulty:            DifficultyOptions
     minor_glitches:               MinorGlitches
     # starting_area:          StartingArea
     start_with_axe:               StartWithAxe
