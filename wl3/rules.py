@@ -541,7 +541,7 @@ KEY_RULES_KNOWLEDGE: dict = {
     "Desert Ruins": [
         None,                                                                        # grey
         None,                                                                        # red
-        _o(_c(_has("Spiked Helmet", has_overalls_1)),_has("Garlic")),                # green
+        _o(_c(_has("Spiked Helmet"), has_overalls_1),_has("Garlic")),                # green
         None,                                                                        # blue
     ],
         "Beneath the Waves": [
