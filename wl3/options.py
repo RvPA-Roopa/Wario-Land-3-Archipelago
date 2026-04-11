@@ -28,7 +28,7 @@ class DifficultyOptions(Choice):
 
 
 class MinorGlitches(Toggle):
-    """Sets whether minor glitches may be necessary in logic."""
+    """Sets whether minor glitches, like wall jumps, may be necessary in logic."""
     display_name = "Minor Glitches"
     default = 0
 

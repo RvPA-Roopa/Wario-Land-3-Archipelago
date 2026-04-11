@@ -311,7 +311,7 @@ CHEST_RULES: dict = {
 KEY_RULES: dict = {
     "Out of the Woods": [
         None,                                                                        # grey
-        has_overalls_1,                                                          # red
+        has_overalls_1,                                                              # red
         _has("High Jump Boots"),                                                     # green
         _c(_has("Gold Magic"), _has("High Jump Boots")),                             # blue
     ],
