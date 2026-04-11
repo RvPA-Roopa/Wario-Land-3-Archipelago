@@ -38,8 +38,9 @@ def _i(tid: int) -> int:
 
 
 # Combined unlock item AP IDs → all component treasure IDs to grant
-# (active when slot_data["combined_level_unlocks"] is truthy)
+# (active when slot_data["combined_items"] selects overworld/in_level/both)
 COMBINED_GRANTS = {
+    # Overworld pairs
     BASE_ITEM_ID + 203: [0x0F, 0x10],        # Lantern & Magical Flame
     BASE_ITEM_ID + 204: [0x12, 0x13],        # Gears
     BASE_ITEM_ID + 205: [0x17, 0x1C],        # Blue Book & Magic Wand
@@ -48,6 +49,13 @@ COMBINED_GRANTS = {
     BASE_ITEM_ID + 208: [0x1F, 0x20],        # Tablets
     BASE_ITEM_ID + 209: [0x22, 0x23],        # Scroll
     BASE_ITEM_ID + 210: [0x24, 0x25, 0x26],  # Tusk Set
+    # In-level pairs
+    BASE_ITEM_ID + 211: [0x49, 0x47],        # Storm Pouch (Pouch + Eye of the Storm)
+    BASE_ITEM_ID + 212: [0x27, 0x28],        # Chemicals (Blue + Red)
+    BASE_ITEM_ID + 213: [0x43, 0x42],        # Glass Eyes (Left + Right)
+    BASE_ITEM_ID + 214: [0x41, 0x40],        # Golden Eyes (Left + Right)
+    BASE_ITEM_ID + 215: [0x45, 0x46],        # Sun Medallion (Top + Bottom)
+    BASE_ITEM_ID + 216: [0x33, 0x34],        # Key Cards (Red + Blue)
 }
 
 # Level unlock table for combined mode (single item per level)
@@ -344,8 +352,10 @@ class WL3Client(BizHawkClient):
         if pending:
             await ctx.send_msgs([{"cmd": "LocationChecks", "locations": list(pending)}])
 
-        # Track combined mode and location items from slot data
-        self._combined_unlocks = bool((ctx.slot_data or {}).get("combined_level_unlocks", 0))
+        # Track combined mode and location items from slot data.
+        # Overworld combine = 1 or 3 (both). Used to detect level-unlock mode.
+        _ci = (ctx.slot_data or {}).get("combined_items", 0)
+        self._combined_unlocks = _ci in (1, 3)
         if not self._loc_items and ctx.slot_data:
             self._loc_items = {int(k): v for k, v in (ctx.slot_data.get("loc_items") or {}).items()}
 

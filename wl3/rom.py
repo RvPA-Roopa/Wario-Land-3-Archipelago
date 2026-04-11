@@ -80,7 +80,7 @@ TREASURE_OB_PALS_OFFSET          = 0x09ACBA   # TreasureOBPals table (indexed by
 
 # Combined-item companion chains: collecting key → also grant value (chained).
 # Tusk Set: $24→$25→$26 (two hops).
-_COMPANION_PAIRS = {
+_COMPANION_PAIRS_OVERWORLD = {
     0x0F: 0x10,  # Lantern → Magical Flame
     0x12: 0x13,  # Gear 1 → Gear 2
     0x17: 0x1C,  # Blue Book → Magic Wand
@@ -90,6 +90,16 @@ _COMPANION_PAIRS = {
     0x22: 0x23,  # Top Half of Scroll → Bottom Half of Scroll
     0x24: 0x25,  # Tusk Blue → Tusk Red
     0x25: 0x26,  # Tusk Red → Green Flower (chain)
+}
+
+# In-level combined pairs.
+_COMPANION_PAIRS_IN_LEVEL = {
+    0x49: 0x47,  # Pouch → Eye of the Storm
+    0x27: 0x28,  # Blue Chemical → Red Chemical
+    0x43: 0x42,  # Left Glass Eye → Right Glass Eye
+    0x41: 0x40,  # Golden Left Eye → Golden Right Eye
+    0x45: 0x46,  # Sun Medallion Top → Sun Medallion Bottom
+    0x33: 0x34,  # Key Card Red → Key Card Blue
 }
 
 # OBPAL constants: YELLOW=4, RED=5, GREEN=6, BLUE=7
@@ -357,15 +367,24 @@ def write_tokens(world: "WL3World", patch: WL3ProcedurePatch) -> None:
                       bytes([non_stop_chests]))
 
     # --- combined item companion table ---
-    if int(world.options.combined_level_unlocks):
+    from .options import CombinedItems as _CI
+    ci_mode = int(world.options.combined_items)
+    combine_overworld = ci_mode in (_CI.option_overworld, _CI.option_both)
+    combine_in_level  = ci_mode in (_CI.option_in_level,  _CI.option_both)
+
+    if combine_overworld or combine_in_level:
         companion_table = bytearray(101)
-        for trigger, companion in _COMPANION_PAIRS.items():
-            companion_table[trigger] = companion
+        if combine_overworld:
+            for trigger, companion in _COMPANION_PAIRS_OVERWORLD.items():
+                companion_table[trigger] = companion
+        if combine_in_level:
+            for trigger, companion in _COMPANION_PAIRS_IN_LEVEL.items():
+                companion_table[trigger] = companion
         patch.write_token(APTokenTypes.WRITE, COMBINED_COMPANION_TABLE_OFFSET,
                           bytes(companion_table))
 
     # --- combined item palette overrides ---
-    if int(world.options.combined_level_unlocks):
+    if combine_overworld:
         for tid, pal in _COMBINED_PAL_OVERRIDES:
             patch.write_token(APTokenTypes.WRITE, TREASURE_OB_PALS_OFFSET + tid, bytes([pal]))
 

@@ -18,8 +18,12 @@ from worlds.LauncherComponents import Component, SuffixIdentifier, Type, compone
 from .items import (
     BASE_ITEM_ID,
     COMBINED_ITEMS,
+    COMBINED_ITEMS_OVERWORLD,
+    COMBINED_ITEMS_IN_LEVEL,
     CREST_DEFAULT_EXTRA_COUNTS,
     CREST_EXTRA_COUNTS,
+    INDIVIDUAL_OVERWORLD_NAMES,
+    INDIVIDUAL_IN_LEVEL_NAMES,
     INDIVIDUAL_MULTI_ITEM_NAMES,
     ITEM_TABLE,
     KEY_BASE_ITEM_ID,
@@ -33,7 +37,7 @@ from .items import (
 )
 from .locations import BASE_LOC_ID, KEY_LOCATION_TABLE, LOCATION_TABLE, WL3LocationData
 from Options import OptionGroup
-from .options import (WL3Options, MusicBoxShuffle, KeyShuffle,
+from .options import (WL3Options, MusicBoxShuffle, KeyShuffle, CombinedItems,
                       GolfPrice, GolfBuilding, IHateGolf,
                       StartWithMagnifyingGlass, ReduceFlashing, NonStopChests, TrapFill,
                       MusicShuffle, EnemyPaletteShuffle, LevelBGPaletteShuffle,
@@ -232,9 +236,13 @@ class WL3World(World):
             skip_items.add("Axe")
             self.multiworld.push_precollected(self.create_item("Axe"))
 
+        ci_mode = int(self.options.combined_items)
+        combine_overworld = ci_mode in (CombinedItems.option_overworld, CombinedItems.option_both)
+        combine_in_level  = ci_mode in (CombinedItems.option_in_level,  CombinedItems.option_both)
+
         random_starts = int(self.options.random_level_starts)
         if random_starts > 0:
-            eligible = RANDOM_START_ELIGIBLE_COMBINED if self.options.combined_level_unlocks else RANDOM_START_ELIGIBLE
+            eligible = RANDOM_START_ELIGIBLE_COMBINED if combine_overworld else RANDOM_START_ELIGIBLE
             count = min(random_starts, len(eligible))
             picks = self.random.sample(eligible, count)
             for group in picks:
@@ -242,38 +250,51 @@ class WL3World(World):
                     skip_items.add(name)
                     self.multiworld.push_precollected(self.create_item(name))
 
-        if self.options.combined_level_unlocks:
-            # Skip the 17 individual multi-item unlocks; add 8 combined items instead
-            for name in TREASURE_TABLE:
-                if name not in INDIVIDUAL_MULTI_ITEM_NAMES and name not in skip_items:
-                    items.append(self.create_item(name))
-            for name in COMBINED_ITEMS:
-                if name not in skip_items:
-                    items.append(self.create_item(name))
-            # Fill freed slots with extra crest copies (9 + 1 if axe removed)
-            extra = len(skip_items)
-            counts = dict(CREST_EXTRA_COUNTS)
-            counts["Clubs Crest (1 Coin)"] = counts.get("Clubs Crest (1 Coin)", 0) + extra
-            for name, count in counts.items():
-                for _ in range(count):
-                    items.append(self.create_item(name))
-        else:
-            # Default: one copy of every regular item
-            for name in TREASURE_TABLE:
-                if name not in skip_items:
-                    items.append(self.create_item(name))
-            # Extra crest copies to fill gem-freed slots
-            for name, count in CREST_DEFAULT_EXTRA_COUNTS.items():
-                for _ in range(count):
-                    items.append(self.create_item(name))
-            # Replace removed items (e.g. level_start_mode) with crests
-            for _ in range(len(skip_items)):
-                items.append(self.create_item("Clubs Crest (1 Coin)"))
+        # Determine which individuals to skip and which combineds to add.
+        skip_individuals: set = set()
+        add_combined: dict = {}
+        if combine_overworld:
+            skip_individuals |= INDIVIDUAL_OVERWORLD_NAMES
+            add_combined.update(COMBINED_ITEMS_OVERWORLD)
+        if combine_in_level:
+            skip_individuals |= INDIVIDUAL_IN_LEVEL_NAMES
+            add_combined.update(COMBINED_ITEMS_IN_LEVEL)
 
-        # Progressive items (same in both modes)
+        # Base pool: regular treasures minus anything absorbed by combines.
+        for name in TREASURE_TABLE:
+            if name in skip_individuals or name in skip_items:
+                continue
+            items.append(self.create_item(name))
+
+        # Add combined items.
+        for name in add_combined:
+            if name not in skip_items:
+                items.append(self.create_item(name))
+
+        # Progressive items (always added)
         for name, count in PROGRESSIVE_COUNTS.items():
             for _ in range(count):
                 items.append(self.create_item(name))
+
+        # Fill remaining slots to reach 100 using crests. Use the existing crest
+        # distribution tables as the starting point, then top up with Clubs Crests.
+        if combine_overworld:
+            base_counts = dict(CREST_EXTRA_COUNTS)
+        else:
+            base_counts = dict(CREST_DEFAULT_EXTRA_COUNTS)
+        base_total = sum(base_counts.values())
+        slots_remaining = 100 - len(items)
+        if slots_remaining >= base_total:
+            # Use the full distribution table; top up with extra Clubs Crests.
+            for name, count in base_counts.items():
+                for _ in range(count):
+                    items.append(self.create_item(name))
+            for _ in range(slots_remaining - base_total):
+                items.append(self.create_item("Clubs Crest (1 Coin)"))
+        else:
+            # Less slots than the table wants — just fill with Clubs Crests.
+            for _ in range(slots_remaining):
+                items.append(self.create_item("Clubs Crest (1 Coin)"))
 
         assert len(items) == 100, f"Expected 100 items, got {len(items)}"
 
@@ -353,7 +374,9 @@ class WL3World(World):
                 lock=True,
             )
 
-        if self.options.combined_level_unlocks:
+        # Overworld combines make pre-fill unnecessary (combined items naturally open
+        # progression without needing a hand-placed chain).
+        if int(self.options.combined_items) in (CombinedItems.option_overworld, CombinedItems.option_both):
             return
 
         # Bootstrap the opening chain.
@@ -546,6 +569,6 @@ class WL3World(World):
                 }
         return {
             "death_link":            False,
-            "combined_level_unlocks": int(self.options.combined_level_unlocks),
+            "combined_items":        int(self.options.combined_items),
             "loc_items":             loc_items,
         }

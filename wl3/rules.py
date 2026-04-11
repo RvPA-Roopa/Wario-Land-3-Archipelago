@@ -620,13 +620,17 @@ KEY_RULES_GLITCHED: dict = {
 # ---------------------------------------------------------------------------
 
 def set_rules(world: "WL3World") -> None:
+    from .options import CombinedItems as _CI
     player  = world.player
     mw      = world.multiworld
-    combined = bool(world.options.combined_level_unlocks)
+    ci_mode = int(world.options.combined_items)
+    combine_overworld = ci_mode in (_CI.option_overworld, _CI.option_both)
+    combine_in_level  = ci_mode in (_CI.option_in_level,  _CI.option_both)
+    combined = combine_overworld  # legacy alias for the overworld block below
     difficulty = int(world.options.difficulty)
     glitches = bool(world.options.minor_glitches)
-    chest_logic = dict(CHEST_RULES)
-    key_logic = dict(KEY_RULES)
+    chest_logic = {k: list(v) for k, v in CHEST_RULES.items()}  # deep copy for mutation
+    key_logic   = {k: list(v) for k, v in KEY_RULES.items()}
 
 
     # Override certain level requirements depending on difficulty
@@ -700,6 +704,45 @@ def set_rules(world: "WL3World") -> None:
             "The Frigid Sea":      unlock_e2c,
             "Castle of Illusions": unlock_e3c,
         })
+
+    # In-level combines: replace chest/key rules that needed individual components
+    # with rules that require the single combined item name.
+    if combine_in_level:
+        has_storm_pouch  = _has("Storm Pouch")
+        has_chemicals    = _has("Chemicals")
+        has_glass_eyes   = _has("Glass Eyes")
+        has_golden_eyes  = _has("Golden Eyes")
+        has_sun_medallion = _has("Sun Medallion")
+        has_key_cards    = _has("Key Cards")
+
+        # Pouch + Eye of the Storm → N1 green chest
+        chest_logic["Out of the Woods"][2] = has_storm_pouch
+
+        # Blue + Red Chemical → Vast Plain blue chest & key; Beneath the Waves blue chest
+        chest_logic["The Vast Plain"][3] = has_chemicals
+        key_logic["The Vast Plain"][3]   = has_chemicals
+        chest_logic["Beneath the Waves"][3] = _c(has_flippers_1, has_chemicals)
+
+        # Glass Eyes → Tower of Revival red chest & key
+        chest_logic["Tower of Revival"][1] = has_glass_eyes
+        key_logic["Tower of Revival"][1]   = has_glass_eyes
+
+        # Golden Eyes → Tower of Revival blue chest & key (combined with other requirements)
+        chest_logic["Tower of Revival"][3] = _c(has_golden_eyes, _has("Statue"),
+                                                _has("Garlic"), has_grab_2, _has("High Jump Boots"))
+        key_logic["Tower of Revival"][3]   = _c(_has("Statue"), has_golden_eyes)
+
+        # Sun Medallion → Frigid Sea blue chest/key, Colossal Hole green chest, Castle red key
+        chest_logic["The Frigid Sea"][3] = _o(has_sun_medallion, has_flippers_2)
+        key_logic["The Frigid Sea"][3]   = _o(has_sun_medallion, has_flippers_2)
+        chest_logic["The Colossal Hole"][2] = _o(has_sun_medallion, _has("High Jump Boots"))
+        key_logic["The Colossal Hole"][2]   = _o(has_sun_medallion, _has("High Jump Boots"))
+        key_logic["Castle of Illusions"][1] = _c(_o(_c(has_grab_1, has_sun_medallion), has_grab_2),
+                                                  _o(has_overalls_2, _has("High Jump Boots")))
+
+        # Key Cards → Warped Void blue chest & key
+        chest_logic["The Warped Void"][3] = _c(has_key_cards, has_grab_1)
+        key_logic["The Warped Void"][3]   = _c(has_key_cards, has_grab_1)
 
     ks = world.options.key_shuffle
     keysanity = (ks != KeyShuffle.option_vanilla)

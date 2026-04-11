@@ -150,13 +150,18 @@ class WarioShirtShuffle(Toggle):
 
 
 
-class CombinedLevelUnlocks(Toggle):
-    """With this on, combine multi-item level unlocks into single item unlocks.
-    (Blue Tablet and Green Tablet turn into "Tablets")
-    This helps create seed variety and allows for more flexible item placement.
-    With this off, pre-fill will place early level unlocks in your own game to guarantee progression.
+class CombinedItems(Choice):
+    """Controls which multi-item requirements are combined into single items.
+    Off:       No combining; multi-item requirements stay as-is.
+    Overworld: Combine items that gate level access (e.g. Blue+Green Tablet → Tablets).
+    In Level:  Combine items that gate chests/keys within a level (e.g. Blue+Red Chemical → Chemicals).
+    Both:      Combine both overworld and in-level pairs.
     """
-    display_name = "Combined Level Unlocks"
+    display_name = "Combined Items"
+    option_off       = 0
+    option_overworld = 1
+    option_in_level  = 2
+    option_both      = 3
     default = 0
 
 
@@ -218,7 +223,7 @@ class WL3Options(PerGameCommonOptions):
     # starting_area:              StartingArea
     start_with_axe:               StartWithAxe
     random_level_starts:          RandomLevelStarts
-    combined_level_unlocks:       CombinedLevelUnlocks
+    combined_items:               CombinedItems
     key_shuffle:                  KeyShuffle
     music_boxes_required:         MusicBoxesRequired
     music_box_shuffle:            MusicBoxShuffle

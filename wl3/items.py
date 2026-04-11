@@ -54,13 +54,14 @@ _PROGRESSIVE_TREASURE_IDS = {
 }
 
 # ---------------------------------------------------------------------------
-# Combined unlock items (used when CombinedLevelUnlocks option is on)
+# Combined unlock items (used when CombinedItems option is on)
 # Each replaces a group of individual items with a single AP item.
 # tier_ids[0] is the canonical chest-display treasure ID (first component).
 # The client grants all component treasure bits via COMBINED_GRANTS in client.py.
 # ---------------------------------------------------------------------------
 
-COMBINED_ITEMS: Dict[str, WL3ItemData] = {
+# Overworld pairs — gate level access.
+COMBINED_ITEMS_OVERWORLD: Dict[str, WL3ItemData] = {
     "Lantern & Magical Flame": WL3ItemData(
         ap_id=BASE_ITEM_ID + 203,
         classification=ItemClassification.progression,
@@ -103,8 +104,45 @@ COMBINED_ITEMS: Dict[str, WL3ItemData] = {
     ),
 }
 
-# The 17 individual item names replaced by the 8 combined items above.
-INDIVIDUAL_MULTI_ITEM_NAMES: Set[str] = {
+# In-level pairs — gate chests/keys within a level.
+COMBINED_ITEMS_IN_LEVEL: Dict[str, WL3ItemData] = {
+    "Storm Pouch": WL3ItemData(
+        ap_id=BASE_ITEM_ID + 211,
+        classification=ItemClassification.progression,
+        tier_ids=[0x49],   # display: Pouch; also grants Eye of the Storm (0x47)
+    ),
+    "Chemicals": WL3ItemData(
+        ap_id=BASE_ITEM_ID + 212,
+        classification=ItemClassification.progression,
+        tier_ids=[0x27],   # display: Blue Chemical; also grants Red Chemical (0x28)
+    ),
+    "Glass Eyes": WL3ItemData(
+        ap_id=BASE_ITEM_ID + 213,
+        classification=ItemClassification.progression,
+        tier_ids=[0x43],   # display: Left Glass Eye; also grants Right Glass Eye (0x42)
+    ),
+    "Golden Eyes": WL3ItemData(
+        ap_id=BASE_ITEM_ID + 214,
+        classification=ItemClassification.progression,
+        tier_ids=[0x41],   # display: Golden Left Eye; also grants Golden Right Eye (0x40)
+    ),
+    "Sun Medallion": WL3ItemData(
+        ap_id=BASE_ITEM_ID + 215,
+        classification=ItemClassification.progression,
+        tier_ids=[0x45],   # display: Sun Medallion Top; also grants Sun Medallion Bottom (0x46)
+    ),
+    "Key Cards": WL3ItemData(
+        ap_id=BASE_ITEM_ID + 216,
+        classification=ItemClassification.progression,
+        tier_ids=[0x33],   # display: Key Card Red; also grants Key Card Blue (0x34)
+    ),
+}
+
+# Combined union (for ITEM_TABLE lookup, classification, etc.)
+COMBINED_ITEMS: Dict[str, WL3ItemData] = {**COMBINED_ITEMS_OVERWORLD, **COMBINED_ITEMS_IN_LEVEL}
+
+# Individual items absorbed by overworld combines (8 combined items replace 17 individuals).
+INDIVIDUAL_OVERWORLD_NAMES: Set[str] = {
     "Lantern", "Magical Flame",
     "Gear 1", "Gear 2",
     "Blue Book", "Magic Wand",
@@ -114,6 +152,19 @@ INDIVIDUAL_MULTI_ITEM_NAMES: Set[str] = {
     "Top Half of Scroll", "Bottom Half of Scroll",
     "Tusk Blue", "Tusk Red", "Green Flower",
 }
+
+# Individual items absorbed by in-level combines (6 combined items replace 12 individuals).
+INDIVIDUAL_IN_LEVEL_NAMES: Set[str] = {
+    "Pouch", "Eye of the Storm",
+    "Blue Chemical", "Red Chemical",
+    "Left Glass Eye", "Right Glass Eye",
+    "Golden Left Eye", "Golden Right Eye",
+    "Sun Medallion Top", "Sun Medallion Bottom",
+    "Key Card Red", "Key Card Blue",
+}
+
+# Union for backwards-compat with existing code that checks "is this replaced?"
+INDIVIDUAL_MULTI_ITEM_NAMES: Set[str] = INDIVIDUAL_OVERWORLD_NAMES | INDIVIDUAL_IN_LEVEL_NAMES
 
 # ---------------------------------------------------------------------------
 # Regular (non-progressive) items — one AP item per treasure ID
