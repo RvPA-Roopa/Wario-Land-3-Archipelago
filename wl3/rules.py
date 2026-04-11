@@ -317,7 +317,7 @@ KEY_RULES: dict = {
     ],
     "The Peaceful Village": [
         None,                                                                        # grey
-        _o(_has("Flute"), _has("High Jump Boots")),                                  # red
+        _o(_has("Flute"), _has("High Jump Boots"), has_overalls_2),                  # red
         _o(_has("Flute"), _has("High Jump Boots")),                                  # green
         _c(has_overalls_2, _has("Garlic")),                                          # blue
     ],
