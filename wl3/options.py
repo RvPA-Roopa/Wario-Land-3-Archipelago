@@ -15,11 +15,12 @@ from Options import Toggle, Choice, Range, PerGameCommonOptions
 #     default = 0
 
 class DifficultyOptions(Choice):
-    """Sets whether harder tricks and knowledge checks are necessary in logic.
-    Standard: The logic assumes no extra knowledge besides what is used to beat the vanilla game.
-    Knowledge Checks: The logic assumes the player will know basic shortcuts like breaking hidden blocks in walls.
-    Hard Tricks: The logic assumes that the player will both know knowledge checks and also be able to do more difficult tricks, like jumping off of a thrown enemy in midair.
-    """
+    """Sets whether knowledge checks and/or hard tricks may be required in logic.
+    Standard: Requires no extra knowledge besides what is used to beat the vanilla game.
+    Knowledge Checks: Requires the player to know basic shortcuts, 
+    such as breaking hidden blocks in walls.
+    Hard Tricks: Everything from "knowledge checks", and also may require the player to 
+    perform more difficult tricks, such as jumping off of a thrown enemy in midair."""
     display_name = "Difficulty Options"
     option_standard = 0
     option_knowledge_checks = 1
@@ -28,7 +29,7 @@ class DifficultyOptions(Choice):
 
 
 class MinorGlitches(Toggle):
-    """Sets whether minor glitches, like wall jumps, may be necessary in logic."""
+    """Sets whether minor glitches, like wall jumps, may be required in logic."""
     display_name = "Minor Glitches"
     default = 0
 
