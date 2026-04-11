@@ -373,7 +373,7 @@ KEY_RULES: dict = {
     ],
     "Beneath the Waves": [
         _has("High Jump Boots"),                                                     # grey
-        has_flippers_2,                                                              # red
+        _c(has_flippers_2, _has("Spiked Helmet"), has_grab_2),                       # red
         _c(has_flippers_1, _has("Sapling of Growth")),                               # green
         _c(has_flippers_1, _has("Red Chemical"), _has("Blue Chemical")),             # blue
     ],
