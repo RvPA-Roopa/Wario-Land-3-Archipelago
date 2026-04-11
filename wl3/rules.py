@@ -701,8 +701,6 @@ def set_rules(world: "WL3World") -> None:
             "Castle of Illusions": unlock_e3c,
         })
 
-    
-
     ks = world.options.key_shuffle
     keysanity = (ks != KeyShuffle.option_vanilla)
 
