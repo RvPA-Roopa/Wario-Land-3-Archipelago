@@ -43,7 +43,7 @@ class StartWithAxe(Toggle):
 class RandomLevelStarts(Range):
     """Start with this many additional randomly chosen level unlock items beyond Out of the Woods.
     0: off (default)
-    1-10: that many random level unlock groups are granted at the start.
+    1-8: that many random level unlock groups are granted at the start.
     Stacks with Start with Axe (Axe is never included in the random pool).
     """
     display_name = "Random Level Starts"
@@ -189,8 +189,7 @@ class StartWithMagnifyingGlass(Toggle):
 
 class NonStopChests(Toggle):
     """Stay in the level after opening a treasure chest instead of exiting to
-    the overworld. The treasure is still marked collected and saved. Music box
-    chests still exit to play the music-box ceremony."""
+    the overworld. The treasure is still marked collected and saved."""
     display_name = "Non-Stop Chests"
     default = 0
 
