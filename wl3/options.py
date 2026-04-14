@@ -194,6 +194,14 @@ class NonStopChests(Toggle):
     default = 0
 
 
+class TransformationShuffle(Toggle):
+    """Shuffle transformation abilities (Zombie, Vampire, Fire, etc.) as items.
+    When on, you must find each Form item to use that transformation via
+    Select+button combos; the forms are placed in logic. When off, behaves as vanilla"""
+    display_name = "Transformation Shuffle"
+    default = 0
+
+
 class TrapFill(Range):
     """Percentage of filler items replaced with traps (currently: Fire Trap).
     When a trap is received, Wario is set on fire the next safe frame.
@@ -224,6 +232,7 @@ class WL3Options(PerGameCommonOptions):
     random_level_starts:          RandomLevelStarts
     combined_items:               CombinedItems
     key_shuffle:                  KeyShuffle
+    transformation_shuffle:       TransformationShuffle
     music_boxes_required:         MusicBoxesRequired
     music_box_shuffle:            MusicBoxShuffle
     # QoL

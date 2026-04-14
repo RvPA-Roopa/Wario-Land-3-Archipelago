@@ -76,6 +76,7 @@ DISABLE_PAL_CYCLE_OFFSET         = 0x003A02   # DisablePalCycleOpt byte in Home 
 I_HATE_GOLF_OFFSET               = 0x003A03   # AutoWinGolfOpt byte in Home bank
 NON_STOP_CHESTS_OFFSET           = 0x003A04   # NonStopChestsOpt byte in Home bank
 COMBINED_COMPANION_TABLE_OFFSET  = 0x003A05   # CombinedCompanionTable (101 bytes, home bank)
+TRANSFORMS_REQUIRE_ITEMS_OFFSET  = 0x003A6A   # TransformsRequireItems byte in Home bank
 TREASURE_OB_PALS_OFFSET          = 0x09ACBA   # TreasureOBPals table (indexed by treasure ID)
 
 # Combined-item companion chains: collecting key → also grant value (chained).
@@ -365,6 +366,10 @@ def write_tokens(world: "WL3World", patch: WL3ProcedurePatch) -> None:
     non_stop_chests = int(world.options.non_stop_chests)
     patch.write_token(APTokenTypes.WRITE, NON_STOP_CHESTS_OFFSET,
                       bytes([non_stop_chests]))
+
+    transformation_shuffle = int(world.options.transformation_shuffle)
+    patch.write_token(APTokenTypes.WRITE, TRANSFORMS_REQUIRE_ITEMS_OFFSET,
+                      bytes([transformation_shuffle]))
 
     # --- combined item companion table ---
     from .options import CombinedItems as _CI
