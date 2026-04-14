@@ -105,6 +105,8 @@ ADDR_MSG_TIMER_WRAM       = 0x120E # wMsgTimer (1 byte)
 ADDR_MSG_READY_WRAM       = 0x120F # wMsgReady (1 byte, set to 1 to trigger)
 ADDR_MSG_ROWS_WRAM        = 0x1211 # wMsgRows (1 byte, 1-3)
 ADDR_PENDING_TRAP_WRAM    = 0x121A # wPendingTrap (1 byte — AP trap queue, bank 1 0xD21A)
+ADDR_TRANSFORM_UNLOCKS_WRAM  = 0x121B # wTransformUnlocks  (bank 1 0xD21B)
+ADDR_TRANSFORM_UNLOCKS2_WRAM = 0x121C # wTransformUnlocks2 (bank 1 0xD21C)
 
 # AP item ID → ROM trap ID (TRAP_* constants in wario_constants.asm)
 TRAP_AP_IDS: dict[int, int] = {
@@ -114,6 +116,24 @@ TRAP_AP_IDS: dict[int, int] = {
     BASE_ITEM_ID + 400 + 0x04: 0x04,  # Electric Trap → TRAP_ELECTRIC
     BASE_ITEM_ID + 400 + 0x05: 0x05,  # Ice Skate Trap → TRAP_ICE_SKATE
 }
+
+# AP item ID → list of (byte_idx, bit_idx) pairs to set in wTransformUnlocks[n].
+# byte_idx: 0 = wTransformUnlocks, 1 = wTransformUnlocks2
+TRANSFORM_UNLOCK_AP_IDS: dict[int, list[tuple[int, int]]] = {
+    BASE_ITEM_ID + 500 +  0: [(0, 0)],  # Zombie Form
+    BASE_ITEM_ID + 500 +  2: [(0, 2)],  # Puffy Form
+    BASE_ITEM_ID + 500 +  3: [(0, 3)],  # Flat Form
+    BASE_ITEM_ID + 500 +  4: [(0, 4)],  # Invisible Form
+    BASE_ITEM_ID + 500 +  5: [(0, 5)],  # Fat Form
+    BASE_ITEM_ID + 500 +  7: [(0, 7)],  # Ice Skatin' Form
+    BASE_ITEM_ID + 500 +  8: [(1, 0)],  # Bouncy Form
+    BASE_ITEM_ID + 500 +  9: [(1, 2)],  # Yarn Form
+    BASE_ITEM_ID + 500 + 10: [(1, 3)],  # Snowman Form
+    BASE_ITEM_ID + 500 + 11: [(1, 4)],  # Fire Form
+}
+
+# Progressive Vampire: 1st receipt sets bit 1 (Vampire), 2nd sets bit 6 (Bat).
+PROGRESSIVE_VAMPIRE_AP_ID = BASE_ITEM_ID + 500 + 1
 
 KEY_BASE_LOC_ID  = 7_770_400        # AP location ID = KEY_BASE_LOC_ID + (owlevel-1)*4 + color
 KEY_BASE_ITEM_ID = BASE_ITEM_ID + 300  # 7_770_300
@@ -437,6 +457,28 @@ class WL3Client(BizHawkClient):
             trap_id = TRAP_AP_IDS[ap_id]
             self._trap_queue.append(trap_id)
             logger.debug(f"[WL3] Trap AP {ap_id} queued → ROM trap 0x{trap_id:02X}")
+            return
+        if ap_id == PROGRESSIVE_VAMPIRE_AP_ID:
+            # 1st receipt sets Vampire (bit 1); 2nd sets Bat (bit 6).
+            # Idempotent: reading current state lets reconnects/resyncs behave.
+            cur = (await read(ctx.bizhawk_ctx, [(ADDR_TRANSFORM_UNLOCKS_WRAM, 1, "WRAM")]))[0][0]
+            if not (cur & (1 << 1)):
+                new = cur | (1 << 1)
+            else:
+                new = cur | (1 << 6)
+            if new != cur:
+                await write(ctx.bizhawk_ctx, [(ADDR_TRANSFORM_UNLOCKS_WRAM, bytes([new]), "WRAM")])
+            logger.debug(f"[WL3] Progressive Vampire → wTransformUnlocks 0x{new:02X}")
+            return
+        if ap_id in TRANSFORM_UNLOCK_AP_IDS:
+            # Set one or more bits in wTransformUnlocks / wTransformUnlocks2.
+            for byte_idx, bit_idx in TRANSFORM_UNLOCK_AP_IDS[ap_id]:
+                addr = ADDR_TRANSFORM_UNLOCKS_WRAM if byte_idx == 0 else ADDR_TRANSFORM_UNLOCKS2_WRAM
+                cur = (await read(ctx.bizhawk_ctx, [(addr, 1, "WRAM")]))[0][0]
+                new = cur | (1 << bit_idx)
+                if new != cur:
+                    await write(ctx.bizhawk_ctx, [(addr, bytes([new]), "WRAM")])
+            logger.debug(f"[WL3] Transform unlock AP {ap_id} applied")
             return
         if ap_id in PROGRESSIVE_ITEMS:
             # ROM fully handles progressive ability progression via treasure_clear.asm.

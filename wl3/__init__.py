@@ -32,6 +32,10 @@ from .items import (
     PROGRESSIVE_ITEMS,
     TRAP_AP_IDS_SET,
     TRAP_ITEMS,
+    FORM_DISPLAY_TREASURE,
+    TRANSFORM_SACRIFICED_TREASURES,
+    TRANSFORM_UNLOCK_ITEMS,
+    TRANSFORM_UNLOCK_PROGRESSIVE_COUNTS,
     TREASURE_TABLE,
     WL3ItemData,
 )
@@ -236,6 +240,10 @@ class WL3World(World):
             skip_items.add("Axe")
             self.multiworld.push_precollected(self.create_item("Axe"))
 
+        # Transformation Shuffle: 12 filler treasures are replaced by Form items.
+        if self.options.transformation_shuffle:
+            skip_items |= TRANSFORM_SACRIFICED_TREASURES
+
         ci_mode = int(self.options.combined_items)
         combine_overworld = ci_mode in (CombinedItems.option_overworld, CombinedItems.option_both)
         combine_in_level  = ci_mode in (CombinedItems.option_in_level,  CombinedItems.option_both)
@@ -275,6 +283,17 @@ class WL3World(World):
         for name, count in PROGRESSIVE_COUNTS.items():
             for _ in range(count):
                 items.append(self.create_item(name))
+
+        # Transform unlock items — player-activated abilities (Select+button).
+        # All are progression; placed in logic by rules.py.
+        # When on, 12 filler treasures are removed from the pool (see
+        # TRANSFORM_SACRIFICED_TREASURES in items.py) and replaced by Forms.
+        # Progressive Vampire has 2 copies (tier 1 = Vampire, tier 2 = Bat).
+        if self.options.transformation_shuffle:
+            for name in TRANSFORM_UNLOCK_ITEMS:
+                count = TRANSFORM_UNLOCK_PROGRESSIVE_COUNTS.get(name, 1)
+                for _ in range(count):
+                    items.append(self.create_item(name))
 
         # Fill remaining slots to reach 100 using crests. Use the existing crest
         # distribution tables as the starting point, then top up with Clubs Crests.
@@ -490,6 +509,13 @@ class WL3World(World):
             # NOT a treasure ID, so we must never write it to the chest table.
             if item_data.ap_id in TRAP_AP_IDS_SET:
                 chest_table[loc_data.loc_index] = 0x4E  # Red Gem
+                continue
+
+            # Transform unlock items: tier_ids are (byte_idx, bit_idx) pairs,
+            # NOT treasure IDs. Show as the sacrificed treasure's icon so each
+            # Form has a unique visual (see FORM_DISPLAY_TREASURE).
+            if item.name in TRANSFORM_UNLOCK_ITEMS:
+                chest_table[loc_data.loc_index] = FORM_DISPLAY_TREASURE[item.name]
                 continue
 
             if item.name in PROGRESSIVE_ITEMS:
