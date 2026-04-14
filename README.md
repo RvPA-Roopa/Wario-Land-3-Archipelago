@@ -118,25 +118,11 @@ Have fun!! You will run into bugs, as this game is in a testing phase currently.
 
 These are known visual or logic oddities. Please report anything else you notice.
 
-**Keysanity Spawn Issues**
-Sometimes treasures will not spawn when they are at a key location. This can be fixed by exiting and re-entering the level. 
-
 **Item Message Bleed**
 When receiving or sending an item, the text message may affect other sprites in the current room. This can be fixed by exiting and re-entering the room.
 
-**Ability Issues**
-- Currently being worked on, but when you have specific abilities, enemies will assume you have Garlic (flying off the screen/destroying heavy enemies). I'm still working on getting this fixed, but I don't currently see any logic issues with it while I figure this out. If you do find some logic issues, PLEASE let me know!
-
-- There are some audio bugs with overalls. This doesn't affect anything, but worth noting.
-
 **Large Non-Cracked Blocks require Garlic + Tier 2 Overalls**
 The Peaceful Village Blue Chest and The West Crater Red Chest both require Tier 2 Overalls AND Garlic. This is due to how large non-cracked blocks handle collision — it may be vanilla behavior, but it's not fully confirmed. If you find any other chests or blocks with this issue, please report them.
-
-**Small Non-Cracked Blocks can be broken with Garlic + Tier 1 Overalls**
-If you have Garlic and Tier 1 Overalls, some checks can be made early due to a bug with progressive abilities. This does not affect logic, you will be able to collect Tier 2 Overalls before being required to ground pound uncracked blocks.
-
-**Omodon Visual Issues**
-Omodons (the enemies carried by a flying robot that can flatten Wario) haved a very glitched sprite when they are being picked up off of the ground. This is a visual issue only and does not affect gameplay
 
 **N3 (The Vast Plain at Night) — Chemical background glitch**
 If you have the blue or red chemical item, the stalks in this level will produce a glitched-looking background. This is a visual issue only and does not affect gameplay.
