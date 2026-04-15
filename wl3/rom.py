@@ -5,9 +5,7 @@ Procedure:
   1. apply_bsdiff4  — applies base ROM hack (original WL3 → hacked base)
   2. apply_tokens   — writes the randomized 100-byte chest table
 """
-import base64
 import colorsys
-import json
 import os
 import zipfile
 from typing import TYPE_CHECKING
@@ -417,22 +415,23 @@ def write_tokens(world: "WL3World", patch: WL3ProcedurePatch) -> None:
         patch.write_token(APTokenTypes.WRITE, DISABLE_PAL_CYCLE_OFFSET, bytes([1]))
 
     # --- palette shuffle ---
-    if world.options.enemy_palette_shuffle:
-        here = os.path.dirname(os.path.abspath(__file__))
-        table_path = os.path.join(here, "data", "palette_table.json")
-        if os.path.exists(table_path):
-            with open(table_path) as f:
-                palette_table = json.load(f)
-        else:
-            archive = getattr(__loader__, "archive", None)
-            if archive is None:
-                raise FileNotFoundError("Cannot locate palette_table.json")
-            with zipfile.ZipFile(archive) as zf:
-                palette_table = json.loads(zf.read("wl3/data/palette_table.json"))
+    # Vanilla palette bytes are NOT stored in the apworld. Offsets are inlined
+    # in palette_offsets.py; actual bytes are read from the user's own vanilla
+    # ROM here at generation time.
+    from .palette_offsets import ENEMY_PALETTES, LEVEL_BG_PALETTES
+    _vanilla_rom_cache = [None]
+    def _read_vanilla(offset: int, length: int) -> bytes:
+        if _vanilla_rom_cache[0] is None:
+            from settings import get_settings
+            opts = get_settings().wl3_options
+            rom_path = opts["rom_file"] if isinstance(opts, dict) else opts.rom_file
+            with open(rom_path, "rb") as f:
+                _vanilla_rom_cache[0] = f.read()
+        return _vanilla_rom_cache[0][offset:offset + length]
 
-        for entry in palette_table:
-            offset = entry["offset"]
-            data   = base64.b64decode(entry["data"])
+    if world.options.enemy_palette_shuffle:
+        for offset, length, _group in ENEMY_PALETTES:
+            data = _read_vanilla(offset, length)
             result = bytearray()
             for i in range(len(data) // 8):
                 chunk = data[i * 8 : (i + 1) * 8]
@@ -442,36 +441,14 @@ def write_tokens(world: "WL3World", patch: WL3ProcedurePatch) -> None:
     # --- level / room BG palette shuffle (simple or full) ---
     level_bg_mode = int(world.options.level_bg_palette_shuffle)
     if level_bg_mode != 0:
-        here = os.path.dirname(os.path.abspath(__file__))
-        table_path = os.path.join(here, "data", "level_bg_palette_table.json")
-        if os.path.exists(table_path):
-            with open(table_path) as f:
-                bg_table = json.load(f)
-        else:
-            # fallback to generic palette_table.json if level-specific not present
-            table_path = os.path.join(here, "data", "palette_table.json")
-            if os.path.exists(table_path):
-                with open(table_path) as f:
-                    bg_table = json.load(f)
-            else:
-                archive = getattr(__loader__, "archive", None)
-                if archive is None:
-                    raise FileNotFoundError("Cannot locate level_bg_palette_table.json or palette_table.json")
-                with zipfile.ZipFile(archive) as zf:
-                    if "wl3/data/level_bg_palette_table.json" in zf.namelist():
-                        bg_table = json.loads(zf.read("wl3/data/level_bg_palette_table.json"))
-                    else:
-                        bg_table = json.loads(zf.read("wl3/data/palette_table.json"))
-
         # Per-cycle-group shared hue rotation: palettes that belong to the
         # same room palette cycle (e.g. Above the Clouds lightning flash) all
         # get the same hue offset so cycle frames don't strobe random colors.
         group_hue_cache: dict = {}
 
         # Normal per-block processing (simple or full recolors applied per-palette)
-        for entry in bg_table:
-            offset = entry["offset"]
-            data = base64.b64decode(entry["data"])
+        for offset, length, group in LEVEL_BG_PALETTES:
+            data = _read_vanilla(offset, length)
             result = bytearray()
             count = len(data) // 8
             if level_bg_mode == 1:
@@ -480,7 +457,6 @@ def write_tokens(world: "WL3World", patch: WL3ProcedurePatch) -> None:
             else:
                 chosen = None
 
-            group = entry.get("group")
             if group is not None:
                 if group not in group_hue_cache:
                     group_hue_cache[group] = world.random.random()
