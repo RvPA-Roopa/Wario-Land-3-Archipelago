@@ -60,6 +60,8 @@ def has_grab_1(state, player):     return state.count("Progressive Grab", player
 def has_grab_2(state, player):     return state.count("Progressive Grab", player) >= 2
 def has_flippers_1(state, player): return state.count("Progressive Flippers", player) >= 1
 def has_flippers_2(state, player): return state.count("Progressive Flippers", player) >= 2
+def has_vampire_1(state, player): return state.count("Progressive Vampire", player) >= 1
+def has_vampire_2(state, player): return state.count("Progressive Vampire", player) >= 2
 
 
 # ---------------------------------------------------------------------------
@@ -147,158 +149,208 @@ def _has(item):
 CHEST_RULES: dict = {
     "Out of the Woods": [
         None,                                                                        # grey
-        has_overalls_1,                                          # red
-        _c(_has("Pouch"), _has("Eye of the Storm")),                                 # green
-        _c(_has("Gold Magic"), _has("High Jump Boots"), has_grab_1, has_overalls_1), # blue
+        _o(has_overalls_1, _has("Fat Form"), _has("Snowman Form")),                  # red
+        _o(_c(_has("Pouch"), _has("Eye of the Storm")), 
+           has_vampire_2, _has("Puffy Form")),                                       # green
+        _c(_has("Gold Magic"), has_grab_1, has_overalls_1,
+           _o(_has("High Jump Boots"), _has("Puffy Form"), 
+              _has("Bouncy Form"), has_vampire_2)),                                  # blue
     ],
     "The Peaceful Village": [
         None,                                                                        # grey
-        _o(_has("Flute"), _has("High Jump Boots")),                                  # red
-        _c(_o(_has("Flute"), _has("High Jump Boots")), has_overalls_1),              # green
-        _c(has_overalls_2, _has("Garlic")),                                          # blue
+        _o(_has("Flute"), _has("High Jump Boots"), _has("Bouncy Form"),
+           _has("Puffy Form"), has_vampire_2),                                       # red
+        _c(_o(_has("Flute"), _has("High Jump Boots"), _has("Bouncy Form"),
+              _has("Puffy Form"), has_vampire_2), 
+           _o(has_overalls_1, _has("Zombie Form"), 
+              _has("Fat Form"), _has("Snowman Form"))),                              # green
+        _o(_c(has_overalls_2, _has("Garlic")), _has("Fat Form")),                    # blue
     ],
     "The Vast Plain": [
         None,                                                                        # grey
-        has_overalls_1,                                                              # red
-        _has("Magic Seeds"),                                                         # green
+        _o(has_overalls_1, _has("Fat Form"), _has("Snowman Form")),                  # red
+        _o(_has("Magic Seeds"), has_vampire_2, _has("Puffy Form")),                  # green
         _c(_has("Blue Chemical"), _has("Red Chemical")),                             # blue
     ],
     "Bank of the Wild River": [
         None,                                                                        # grey
         _has("Garlic"),                                                              # red
         has_flippers_2,                                                              # green
-        _c(_has("Air Pump"), has_grab_1),                                            # blue
+        _c(_o(_has("Air Pump"), _has("Puffy Form"), has_vampire_2), 
+           _o(has_grab_1, _has("Fire Form"))),                                       # blue
     ],
     "The Tidal Coast": [
         None,                                                                        # grey
         _c(has_flippers_1, has_grab_1),                                              # red
-        _has("Statue"),                                                              # green
+        _o(_has("Statue"), _has("Bouncy Form"), _has("Puffy Form"), has_vampire_2),  # green
         _c(_has("Sapling of Growth"), has_flippers_1, _has("Garlic")),               # blue
     ],
     "Sea Turtle Rocks": [
-        _c(_has("Spiked Helmet"), has_overalls_1, has_flippers_1),                   # grey
-        _c(_has("Scepter"), has_overalls_1, has_flippers_1),                         # red
-        has_overalls_2,                                                              # green
-        _c(_has("Night Vision Scope"), has_overalls_2, _has("High Jump Boots")),     # blue
+        _c(_has("Spiked Helmet"), has_flippers_1, 
+           _o(has_overalls_1, _has("Fat Form"), _has("Snowman Form"))),              # grey
+        _c(_has("Scepter"), has_flippers_1, 
+           _o(has_overalls_1, _has("Fat Form"), _has("Snowman Form"))),              # red
+        _o(has_overalls_2, _has("Fat Form")),                                        # green
+        _c(_has("Night Vision Scope"), _o(has_overalls_2, _has("Fat Form")), 
+           _o(_has("High Jump Boots"), _has("Bouncy Form"), 
+              _has("Puffy Form"), has_vampire_2)),                                   # blue
     ],
     "Desert Ruins": [
         None,                                                                        # grey
         None,                                                                        # red
         _has("Spiked Helmet"),                                                       # green
-        _c(has_overalls_2, has_grab_1),                                              # blue
+        _c(_o(has_overalls_2, _has("Fat Form"), _c(_has("Zombie Form"), 
+                                                   _o(has_overalls_1, _has("Snowman Form")))), 
+           _o(has_grab_1, _has("Puffy Form"), _has("Bouncy Form"))),                 # blue
     ],
     "The Volcano's Base": [
         None,                                                                        # grey
-        _has("Truck Wheel"),                                                         # red
-        _c(_has("Flute"), _has("Truck Wheel")),                                      # green
+        _o(_has("Truck Wheel"), _has("Puffy Form"), has_vampire_2),                  # red
+        _o(_c(_has("Flute"), _has("Truck Wheel")),
+           _has("Puffy Form"), has_vampire_2),                                       # green
         _has("Foot of Stone"),                                                       # blue
     ],
     "The Pool of Rain": [
-        has_overalls_1,                                                              # grey
+        _o(has_overalls_1, has_vampire_2, _has("Puffy Form")),                       # grey
         _has("Magic Seeds"),                                                         # red
         has_flippers_1,                                                              # green
         _c(_has("Air Pump"), has_flippers_1),                                        # blue
     ],
     "A Town in Chaos": [
         None,                                                                        # grey
-        _has("Spiked Helmet"),                                                       # red
-        _c(has_grab_2, has_overalls_2, _has("High Jump Boots")),                     # green
+        _o(_has("Spiked Helmet"), _has("Bouncy Form"), _has("Puffy Form"), 
+           has_vampire_2),                                                           # red
+        _c(_o(has_grab_2, _has("Fire Form"), _has("Zombie Form"), _has("Ice Skatin' Form"),
+              has_vampire_1), 
+           _o(_c(has_overalls_2, _has("High Jump Boots")),
+              _has("Puffy Form"), has_vampire_2)),                                   # green
         None,                                                                        # blue
     ],
     "Beneath the Waves": [
         has_flippers_1,                                                              # grey
-        _c(has_flippers_1, _has("High Jump Boots")),                                 # red
-        _c(has_flippers_1, has_grab_1, _has("High Jump Boots")),                     # green
-        _c(has_flippers_1, has_grab_1, _has("High Jump Boots")),                     # blue
+        _c(has_flippers_1, 
+           _o(_has("High Jump Boots"), _has("Puffy Form"), has_vampire_2)),          # red
+        _c(has_flippers_1, _o(has_grab_1, _has("Yarn Form")), 
+           _o(_has("High Jump Boots"), _has("Puffy Form"), has_vampire_2)),          # green
+        _c(has_flippers_1, _o(has_grab_1, _has("Fat Form")), 
+           _o(_has("High Jump Boots"), _has("Puffy Form"), has_vampire_2)),          # blue
     ],
     "The West Crater": [
-        has_overalls_1,                                                              # grey
-        _c(has_overalls_2, _has("Garlic")),                                          # red
-        _c(_has("Fire Drencher"), _has("High Jump Boots")),                          # green
+        _o(has_overalls_1, _has("Yarn Form"), 
+           _has("Snowman Form"), _has("Fat form")),                                  # grey
+        _o(_c(has_overalls_2, _has("Garlic")), _has("Fat Form")),                    # red
+        _o(_c(_o(_has("Fire Drencher"), _has("Fire Form"), _has("Zombie Form"), has_vampire_1), 
+              _o(_has("High Jump Boots"),_has("Bouncy Form"))),
+           has_vampire_2, _has("Puffy Form")),                                       # green
         _has("Rust Spray"),                                                          # blue
     ],
     "The Grasslands": [
-        has_overalls_1,                                                              # grey
-        _c(_has("Magic Seeds"), has_overalls_1),                                     # red
-        _c(_o(_has("Flute"), _has("High Jump Boots")), has_flippers_1),              # green
-        _has("High Jump Boots"),                                                     # blue
+        _o(has_overalls_1, _has("Puffy Form"), has_vampire_2),                       # grey
+        _c(_has("Magic Seeds"), _o(has_overalls_1, _has("Zombie Form"))),            # red
+        _c(_o(_has("Flute"), _has("Puffy Form"), has_vampire_2), has_flippers_1),    # green
+        _o(_has("High Jump Boots"), _has("Bouncy Form"), 
+           _has("Puffy Form"), has_vampire_2),                                       # blue
     ],
     "The Big Bridge": [
         None,                                                                        # grey
-        _c(has_flippers_1, has_overalls_1),                                          # red
+        _c(has_flippers_1, _o(has_overalls_1, _has("Zombie Form"), 
+                              _has("Snowman Form"), _has("Fat Form"))),              # red
         has_grab_1,                                                                  # green
-        _c(_has("Scepter"), has_flippers_1, _has("Garlic"), _has("Spiked Helmet")),  # blue
+        _c(_has("Scepter"), has_flippers_1, _o(_c(_has("Garlic"), _has("Spiked Helmet")),
+                                               _has("Puffy Form"))),                 # blue
     ],
     "Tower of Revival": [
         None,                                                                        # grey
         _c(_has("Left Glass Eye"), _has("Right Glass Eye")),                         # red
-        _c(_has("Statue"), _has("High Jump Boots")),                                 # green
-        _c(_has("Golden Left Eye"), _has("Golden Right Eye"), _has("Statue"),
-           _has("Garlic"), has_grab_2, _has("High Jump Boots")),                     # blue
+        _o(_c(_has("Statue"), _has("High Jump Boots")),
+           _has("Puffy Form"), has_vampire_2),                                       # green
+        _c(_has("Golden Left Eye"), _has("Golden Right Eye"), _has("Garlic"),
+           has_grab_2, _has("Spiked Helmet"),
+           _o(_c(_has("Statue"), _has("High Jump Boots")),
+              _has("Puffy Form"), has_vampire_2)),                                   # blue
     ],
     "The Steep Canyon": [
         None,                                                                        # grey
         _has("Foot of Stone"),                                                       # red
-        _c(_has("Foot of Stone"), has_flippers_2, has_overalls_2),                   # green
-        _c(_has("Rust Spray"), has_overalls_1),                                      # blue
+        _c(_has("Foot of Stone"), has_flippers_2, 
+           _o(has_overalls_2, has_vampire_2, _has("Puffy Form"))),                   # green
+        _c(_has("Rust Spray"), _o(has_overalls_1, _has("Fat Form"), 
+                                  _has("Snowman Form"), _has("Zombie Form"))),       # blue
     ],
     "Cave of Flames": [
         None,                                                                        # grey
-        _c(has_grab_1, _has("High Jump Boots"), has_overalls_2),                     # red
+        _o(_has("Puffy Form"), _has("Bouncy Form"), has_vampire_2, 
+           _c(has_grab_1, _has("High Jump Boots"), has_overalls_2),
+           _c(_has("High Jump Boots"), _has("Fat Form"))),                           # red
         _has("Explosive Plunger Box"),                                               # green
-        _c(_has("Rust Spray"), has_overalls_1, has_grab_1, _has("High Jump Boots")), # blue
+        _c(_has("Rust Spray"), 
+           _o(has_overalls_1, _has("Fat Form"), _has("Snowman Form")), 
+           _o(_c(has_grab_1, _has("High Jump Boots")), _has("Puffy Form"),
+              _has("Bouncy Form"), has_vampire_2)),                                  # blue
     ],
     "Above the Clouds": [
         None,                                                                        # grey
-        _c(_has("High Jump Boots"), has_grab_1, _has("Spiked Helmet")),              # red
-        _c(_has("Scissors"), _has("High Jump Boots")),                               # green
+        _o(_c(_has("High Jump Boots"), has_grab_1, _has("Spiked Helmet")),
+           _has("Bouncy Form"), _has("Puffy Form"), has_vampire_2),                  # red
+        _c(_has("Scissors"), 
+           _o(_has("High Jump Boots"), _has("Puffy Form"), 
+              _has("Bouncy Form"), has_vampire_2)),                                  # green
         _c(_has("Scissors"), _has("Full Moon Gong"), _has("High Jump Boots"),
            has_overalls_2, has_grab_1),                                              # blue
     ],
     "The Stagnant Swamp": [
         None,                                                                        # grey
         _c(_has("Foot of Stone"),
-           _o(has_overalls_1, _c(has_flippers_2, _has("High Jump Boots")))),         # red
-        _c(_has("Foot of Stone"), _has("High Jump Boots")),                          # green
-        _has("Explosive Plunger Box"),                                               # blue
+           _o(has_overalls_1, has_vampire_2, 
+              _c(has_flippers_2, _has("High Jump Boots")))),                         # red
+        _c(_has("Foot of Stone"), 
+           _o(_has("High Jump Boots"), _has("Bouncy Form"),
+              _has("Puffy Form"), has_vampire_2)),                                   # green
+        _o(_has("Explosive Plunger Box"), _has("Puffy Form"), has_vampire_2),        # blue
     ],
     "The Frigid Sea": [
         None,                                                                        # grey
-        has_grab_1,                                                                  # red
+        _o(has_grab_1, has_vampire_2, _has("Puffy Form")),                           # red
         _c(_has("Scepter"), has_flippers_1),                                         # green
         _o(_c(_has("Sun Medallion Top"), _has("Sun Medallion Bottom")),
            has_flippers_2),                                                          # blue
     ],
     "Castle of Illusions": [
-        has_overalls_1,                                                              # grey
-        has_grab_1,                                                                  # red
-        has_grab_1,                                                                  # green
-        has_grab_1,                                                                  # blue
+        _o(has_overalls_1, _has("Fat Form"), _has("Snowman Form")),                  # grey
+        _o(has_grab_1, has_vampire_2, _has("Puffy Form")),                           # red
+        _o(has_grab_1, has_vampire_2, _has("Puffy Form")),                           # green
+        _o(has_grab_1, has_vampire_2, _has("Puffy Form")),                           # blue
     ],
     "The Colossal Hole": [
         None,                                                                        # grey
         _has("Garlic"),                                                              # red
         _o(_c(_has("Sun Medallion Top"), _has("Sun Medallion Bottom")),
-           _has("High Jump Boots")),                                                 # green
-        _c(_has("Explosive Plunger Box"), _has("High Jump Boots")),                  # blue
+           _has("High Jump Boots"), _has("Puffy Form"), has_vampire_2),              # green
+        _c(_has("Explosive Plunger Box"), _o(_has("High Jump Boots"), _has("Puffy Form"), 
+                                             _has("Bouncy Form"), has_vampire_2)),   # blue
     ],
     "The Warped Void": [
         None,                                                                        # grey
         _has("Warp Removal Apparatus"),                                              # red
-        _c(_has("Warp Removal Apparatus"), has_grab_1),                              # green
-        _c(_has("Key Card Red"), _has("Key Card Blue"), has_grab_1),                 # blue
+        _c(_has("Warp Removal Apparatus"), _o(has_grab_1, has_vampire_2, 
+                                              _has("Puffy Form"))),                  # green
+        _o(_c(_has("Key Card Red"), _has("Key Card Blue"), has_grab_1),
+           _has("Puffy Form"), has_vampire_2),                                       # blue
     ],
     "The East Crater": [
         has_grab_1,                                                                  # grey
-        _c(_has("Fire Drencher"), has_grab_1, has_overalls_1),                       # red
-        _c(_has("Jackhammer"), has_grab_1),                                          # green
-        _c(_has("Pick Axe"), has_grab_1, _has("High Jump Boots")),                   # blue
+        _c(_o(_has("Fire Drencher"), _has("Zombie Form"), _has("Fire Form"), has_vampire_1),
+           _o(_c(has_grab_1, has_overalls_1), _has("Fire Form"))),                   # red
+        _c(_o(_has("Jackhammer"), _has("Puffy Form"), has_vampire_2), has_grab_1),   # green
+        _c(_has("Pick Axe"), has_grab_1, _o(_has("High Jump Boots"), _has("Bouncy Form"), 
+                                            _has("Puffy Form"), has_vampire_2)),     # blue
     ],
     "Forest of Fear": [
         None,                                                                        # grey
-        _c(_has("Mystery Handle"), has_grab_2),                                      # red
+        _c(_has("Mystery Handle"), _o(has_grab_2, _has("Bouncy Form"),
+                                      _has("Puffy Form"), has_vampire_2)),           # red
         _c(_has("Mystery Handle"), has_grab_1),                                      # green
-        _has("Demon's Blood"),                                                       # blue
+        _o(_has("Demon's Blood"), _has("Zombie Form")),                              # blue
     ],
 }
 
@@ -311,56 +363,65 @@ CHEST_RULES: dict = {
 KEY_RULES: dict = {
     "Out of the Woods": [
         None,                                                                        # grey
-        has_overalls_1,                                                              # red
-        _has("High Jump Boots"),                                                     # green
-        _c(_has("Gold Magic"), _has("High Jump Boots")),                             # blue
+        _o(has_overalls_1, _has("Fat Form"), _has("Snowman Form")),                  # red
+        _o(_has("High Jump Boots"), _has("Bouncy Form"), _has("Puffy Form"), 
+           has_vampire_2),                                                           # green
+        _c(_has("Gold Magic"), _o(_has("High Jump Boots"), _has("Bouncy Form"), 
+                                  _has("Puffy Form"), has_vampire_2)),               # blue
     ],
     "The Peaceful Village": [
         None,                                                                        # grey
-        _o(_has("Flute"), _has("High Jump Boots"), has_overalls_2),                  # red
-        _o(_has("Flute"), _has("High Jump Boots")),                                  # green
-        _c(has_overalls_2, _has("Garlic")),                                          # blue
+        _o(_has("Flute"), _has("High Jump Boots"), 
+           _o(has_overalls_2, _has("Fat Form"))),                                    # red
+        _o(_has("Flute"), _has("High Jump Boots"), _has("Bouncy Form"), 
+           _has("Puffy Form"), has_vampire_2),                                       # green
+        _o(_c(has_overalls_2, _has("Garlic")), _has("Fat Form")),                    # blue
     ],
     "The Vast Plain": [
         None,                                                                        # grey
-        has_overalls_1,                                                              # red
-        _has("Magic Seeds"),                                                         # green
+        _o(has_overalls_1, _has("Fat Form"), _has("Snowmand Form")),                 # red
+        _o(_has("Magic Seeds"), has_vampire_2, _has("Puffy Form")),                  # green
         _c(_has("Blue Chemical"), _has("Red Chemical")),                             # blue
     ],
     "Bank of the Wild River": [
         None,                                                                        # grey
         _has("Garlic"),                                                              # red
         has_flippers_2,                                                              # green
-        _has("Air Pump"),                                                            # blue
+        _o(_has("Air Pump"), _has("Puffy Form"), has_vampire_2),                     # blue
     ],
     "The Tidal Coast": [
         None,                                                                        # grey
-        _c(has_grab_1, _o(has_flippers_2, _c(has_flippers_1, 
-           _has("Spiked Helmet")))),                                                 # red
+        _c(has_grab_1, _o(_has("Zombie Form"), has_flippers_2, 
+                          _c(has_flippers_1, _has("Spiked Helmet")))),               # red
         _has("Garlic"),                                                              # green
         _c(has_flippers_1, _has("Garlic"), _has("Sapling of Growth")),               # blue
     ],
     "Sea Turtle Rocks": [
-        _c(_has("Spiked Helmet"), has_overalls_1, has_flippers_1),                   # grey
-        _c(_has("Scepter"), has_overalls_1, has_flippers_1),                         # red
-        has_overalls_2,                                                              # green
-        _c(has_overalls_2, _has("High Jump Boots"), _has("Night Vision Scope")),     # blue
+        _c(_has("Spiked Helmet"), _o(has_overalls_1, _has("Fat Form"), 
+                                     _has("Snowman Form")), has_flippers_1),         # grey
+        _c(_has("Scepter"), _o(has_overalls_1, _has("Fat Form"), _has("Snowman Form")),
+            has_flippers_1),                                                         # red
+        _o(has_overalls_2, _has("Fat Form")),                                        # green
+        _c(_o(has_overalls_2, _has("Fat Form")), _has("High Jump Boots"), 
+           _has("Night Vision Scope")),                                              # blue
     ],
     "Desert Ruins": [
         None,                                                                        # grey
         None,                                                                        # red
-        _c(_has("Spiked Helmet"), has_overalls_1),                                   # green
-        has_overalls_2,                                                              # blue
+        _c(_has("Spiked Helmet"), _o(has_overalls_1, _has("Fat Form"), 
+                                     _has("Snowman Form"))),                         # green
+        _o(has_overalls_2, _has("Fat Form"), _has("Zombie Form")),                   # blue
     ],
     "The Volcano's Base": [
         None,                                                                        # grey
-        _has("Truck Wheel"),                                                         # red
-        _c(_has("Truck Wheel"), has_flippers_1),                                     # green
+        _o(_has("Truck Wheel"), _has("Flat Form"), has_vampire_2),                   # red
+        _c(_o(_has("Truck Wheel"), _has("Puffy Form"), has_vampire_2), 
+           has_flippers_1),                                                          # green
         _c(_has("Foot of Stone"), _o(has_flippers_2, _c(has_flippers_1, 
            _has("Spiked Helmet")))),                                                 # blue
     ],
     "The Pool of Rain": [
-        has_overalls_1,                                                              # grey
+        _o(has_overalls_1, has_vampire_2, _has("Puffy Form")),                       # grey
         _has("Magic Seeds"),                                                         # red
         has_flippers_1,                                                              # green
         _c(_has("Air Pump"), has_flippers_1),                                        # blue
@@ -368,7 +429,8 @@ KEY_RULES: dict = {
     "A Town in Chaos": [
         None,                                                                        # grey
         None,                                                                        # red
-        _c(has_grab_2, has_overalls_2, _has("High Jump Boots")),                     # green
+        _c(has_grab_2, _o(has_overalls_2, _has("Snowman Form")), 
+           _has("High Jump Boots")),                                                 # green
         _c(_has("Electric Fan Propeller"), has_grab_1),                              # blue
     ],
     "Beneath the Waves": [
@@ -379,90 +441,124 @@ KEY_RULES: dict = {
     ],
     "The West Crater": [
         None,                                                                        # grey
-        _c(has_overalls_1, has_grab_1),                                              # red
-        _c(_has("Fire Drencher"), _has("High Jump Boots")),                          # green
+        _c(_o(has_overalls_1, _has("Snowman Form"), _has("Yarn From"), 
+              _has("Fat Form")), has_grab_1),                                        # red
+        _o(_c(_o(_has("Fire Drencher"), _has("Fire Form"), _has("Zombie Form"), 
+              has_vampire_1), _o(_has("High Jump Boots"), _has("Bouncy Form"))), 
+            _has("Puffy Form"), has_vampire_2),                                      # green
         _c(_has("Rust Spray"), has_grab_1),                                          # blue
     ],
     "The Grasslands": [
         None,                                                                        # grey
         None,                                                                        # red
-        _o(_has("Flute"), _has("High Jump Boots")),                                  # green
-        _has("High Jump Boots"),                                                     # blue
+        _o(_has("Flute"), _has("Puffy Form"), has_vampire_2),                        # green
+        _o(_has("High Jump Boots"), _has("Bouncy Form"), _has("Puffy Form"), 
+           has_vampire_2),                                                           # blue
     ],
     "The Big Bridge": [
         None,                                                                        # grey
-        _c(has_overalls_1, has_flippers_1),                                          # red
-        _c(has_flippers_1, has_overalls_1, has_grab_1),                              # green
-        _c(has_flippers_1, _has("Garlic")),                                          # blue
+        _c(_o(has_overalls_1, _has("Zombie Form"), _has("Fat Form")), 
+           has_flippers_1),                                                          # red
+        _c(has_flippers_1, has_grab_1, 
+           _o(has_overalls_1, _has("Zombie Form"), _has("Fat Form"), 
+              _has("Snowman Form"))),                                                # green
+        _c(has_flippers_1, _o(_has("Garlic"), _has("Puffy Form"), has_vampire_2)),   # blue
     ],
     "Tower of Revival": [
         None,                                                                        # grey
         _c(_has("Left Glass Eye"), _has("Right Glass Eye")),                         # red
-        _has("Statue"),                                                              # green
-        _c(_has("Statue"), _has("Golden Left Eye"), _has("Golden Right Eye")),       # blue
+        _o(_has("Statue"), _has("Puffy Form"), has_vampire_2),                       # green
+        _c(_o(_has("Statue"), _has("Puffy Form"), has_vampire_2), 
+           _has("Golden Left Eye"), _has("Golden Right Eye")),                       # blue
     ],
     "The Steep Canyon": [
         None,                                                                        # grey
         _has("Foot of Stone"),                                                       # red
-        _c(_has("Foot of Stone"), has_flippers_2, has_overalls_2),                   # green
-        _c(_has("Rust Spray"), has_overalls_1),                                      # blue
+        _c(_has("Foot of Stone"), has_flippers_2, 
+           _o(has_overalls_2, has_vampire_2, _has("Puffy Form"), 
+              _has("Fat Form"), _has("Snowman Form"))),                              # green
+        _c(_has("Rust Spray"), _o(has_overalls_1, _has("Fat Form"), 
+                                  _has("Snowman Form"), _has("Zombie Form"))),       # blue
     ],
     "Cave of Flames": [
         has_grab_1,                                                                  # grey
-        _has("High Jump Boots"),                                                     # red
+        _o(_has("High Jump Boots"), _has("Bouncy Form"), _has("Puffy Form"), 
+           has_vampire_2),                                                           # red
         _has("Explosive Plunger Box"),                                               # green
-        _c(_has("Rust Spray"), has_overalls_1, has_grab_1, _has("High Jump Boots")), # blue
+        _c(_has("Rust Spray"), 
+           _o(has_overalls_1, _has("Snowman Form"), _has("Fat Form")), 
+           _o(_c(has_grab_1, _has("High Jump Boots")), _has("Puffy Form"), 
+              _has("Bouncy Form"), has_vampire_2)),                                  # blue
     ],
     "Above the Clouds": [
         None,                                                                        # grey
-        _c(_has("High Jump Boots"), has_grab_1, _has("Spiked Helmet")),              # red
-        _c(_has("Scissors"), _has("High Jump Boots")),                               # green
-        _c(_has("Scissors"), _has("High Jump Boots")),                               # blue
+        _o(_c(_has("High Jump Boots"), has_grab_1, _has("Spiked Helmet")), 
+           _has("Puffy Form"), has_vampire_2, _has("Bouncy Form")),                  # red
+        _c(_has("Scissors"), 
+           _o(_has("High Jump Boots"), _has("Puffy Form"), 
+              _has("Bouncy Form"), has_vampire_2)),                                  # green
+        _c(_has("Scissors"), 
+           _o(_has("High Jump Boots"), _has("Puffy Form"), 
+              _has("Bouncy Form"), has_vampire_2)),                                  # blue
     ],
     "The Stagnant Swamp": [
         None,                                                                        # grey
         _has("Foot of Stone"),                                                       # red
-        _c(_has("Foot of Stone"), has_grab_1, _has("High Jump Boots")),              # green
-        _has("Explosive Plunger Box"),                                               # blue
+        _c(_has("Foot of Stone"), _o(_c(has_grab_1, _has("High Jump Boots")),
+                                     _has("Bouncy Form"), _has("Puffy Form"),
+                                     has_vampire_2)),                                # green
+        _o(_has("Explosive Plunger Box"), _has("Puffy Form"), has_vampire_2),        # blue
     ],
     "The Frigid Sea": [
         None,                                                                        # grey
-        has_grab_1,                                                                  # red
+        _o(has_grab_1, _has("Puffy Form"), has_vampire_2),                           # red
         _c(_has("Scepter"), has_flippers_1),                                         # green
         _o(_c(_has("Sun Medallion Top"), _has("Sun Medallion Bottom")), 
            has_flippers_2),                                                          # blue
     ],
     "Castle of Illusions": [
-        has_grab_1,                                                                  # grey
-        _c(_o(_c(has_grab_1, _has("Sun Medallion Top"), _has("Sun Medallion Bottom")),
-           has_grab_2), _o(has_overalls_2, _has("High Jump Boots"))),                # red
-        has_grab_2,                                                                  # green
-        _c(_has("Castle Brick"), has_overalls_1, has_grab_1),                        # blue
+        _o(has_grab_1, has_vampire_2, _has("Puffy Form")),                           # grey
+        _o(_c(has_grab_2, _o(has_overalls_2, _has("High Jump Boots"))),
+           _has("Puffy Form"), _has("Vampire Form"), _has("Bouncy Form")),           # red
+        _o(has_grab_2, has_vampire_2, _has("Puffy Form"), _has("Bouncy Form")),      # green
+        _c(_has("Castle Brick"), 
+           _o(has_overalls_1, _has("Fat Form"), _has("Snowman Form")), 
+           _o(has_grab_1, has_vampire_2, _has("Puffy Form"))),                       # blue
     ],
     "The Colossal Hole": [
         None,                                                                        # grey
-        _c(_has("Garlic"), has_grab_1),                                              # red
-        _o(_c(_has("Sun Medallion Top"), _has("Sun Medallion Bottom")), 
-           _has("High Jump Boots")),                                                 # green
-        _c(_has("Explosive Plunger Box"), _has("High Jump Boots")),                  # blue
+        _c(_has("Garlic"), _o(has_grab_1, _has("Zombie Form"))),                     # red
+        _o(_c(_has("Sun Medallion Top"), _has("Sun Medallion Bottom")), has_vampire_2, 
+           _has("High Jump Boots"), _has("Puffy Form"), _has("Bouncy Form")),        # green
+        _c(_has("Explosive Plunger Box"), _o(_has("High Jump Boots"), _has("Bouncy Form"),
+                                             _has("Puffy Form"), has_vampire_2)),    # blue
     ],
     "The Warped Void": [
         has_grab_1,                                                                  # grey
         _has("Warp Removal Apparatus"),                                              # red
-        _c(_has("Warp Removal Apparatus"), has_grab_1),                              # green
-        _c(_has("Key Card Red"), _has("Key Card Blue"), has_grab_1),                 # blue
+        _c(_has("Warp Removal Apparatus"), _o(has_grab_1, has_vampire_2, _has("Puffy Form"),
+                                              _has("Bouncy Form"))),                 # green
+        _o(_c(_has("Key Card Red"), _has("Key Card Blue"), has_grab_1),
+           _has("Puffy Form"), has_vampire_2),                                       # blue
     ],
     "The East Crater": [
-        _c(has_grab_1, has_overalls_2),                                              # grey
-        _c(_has("Fire Drencher"), has_grab_1, has_overalls_1),                       # red
-        _c(_has("Jackhammer"), has_grab_1),                                          # green
-        _c(_has("Pick Axe"), has_grab_1, _has("High Jump Boots")),                   # blue
+        _c(_o(has_grab_1, _has("Zombie Form")),
+           _o(has_overalls_2, has_vampire_2, _has("Puffy Form"), 
+              _has("Fat Form"), _has("Snowman Form"))),                              # grey
+        _c(_o(_has("Fire Drencher"), _has("Fire Form"), _has("Zombie Form"), has_vampire_1),
+           _o(_c(has_grab_1, _o(has_overalls_1, _has("Snowman Form"), _has("Fat Form"))), 
+              _has("Zombie Form"))),                                                 # red
+        _c(has_grab_1, _o(_has("Jackhammer"), _has("Puffy Form"), has_vampire_2)),   # green
+        _c(_o(_has("High Jump Boots"), _has("Puffy Form"), _has("Bouncy Form"), has_vampire_2),
+           _has("Pick Axe"), has_grab_1),                                            # blue
     ],
     "Forest of Fear": [
         None,                                                                        # grey
-        _c(_has("Mystery Handle"), has_grab_2, _has("High Jump Boots")),             # red
+        _c(_has("Mystery Handle"), _o(_c(has_grab_2, _has("High Jump Boots")),
+                                      _has("Bouncy Form"), _has("Puffy Form"),
+                                      has_vampire_2)),                               # red
         _c(_has("Mystery Handle"), has_grab_1),                                      # green
-        _has("Demon's Blood"),                                                       # blue
+        _o(_has("Demon's Blood"), _has("Zombie Form")),                              # blue
     ],
 }
 
@@ -481,18 +577,39 @@ CHEST_RULES_KNOWLEDGE: dict = {
         _o(_c(has_overalls_2, _has("Garlic")),_has("Flute"),_has("High Jump Boots")),# green
         None,                                                                        # blue
     ],
+    "The Vast Plain": [
+        None,                                                                        # grey
+        _o(has_overalls_1, _has("Zombie Form"), _has("Fat Form"), 
+           _has("Snowman Form")),                                                    # red
+        None,                                                                        # green
+        None,                                                                        # blue
+    ],
     "Desert Ruins": [
         None,                                                                        # grey
         None,                                                                        # red
         None,                                                                        # green
         _o(_c(has_grab_1,has_overalls_2),_c(has_overalls_2,_has("High Jump Boots"))),# blue
     ],
+    "The Grasslands": [
+        None,                                                                        # grey
+        _c(_o(_has("Magic Seeds"), has_vampire_2), 
+           _o(has_overalls_1, _has("Zombie Form"))),                                 # red
+        _c(_o(_has("Flute"), _has("High Jump Boots"), 
+              _has("Puffy Form"), has_vampire_2), has_flippers_1),                   # green
+        None,                                                                        # blue
+    ],
     "Above the Clouds": [
         None,                                                                        # grey
         _c(_has("High Jump Boots"), _has("Spiked Helmet")),                          # red
         None,                                                                        # green
         None,                                                                        # blue
-    ]
+    ],
+    "The East Crater":[
+        None,                                                                        # grey
+        None,                                                                        # red
+        None,                                                                        # green
+        _c(_has("Pick Axe"), has_grab_1),                                            # blue 
+    ],
 }
 
 CHEST_RULES_HARD: dict = {
@@ -501,7 +618,15 @@ CHEST_RULES_HARD: dict = {
         has_flippers_1,                                                              # red
         _c(has_flippers_1, has_grab_1),                                              # green
         _c(has_flippers_1, has_grab_1),                                              # blue
-    ]
+    ],
+    "Above the Clouds": [
+        None,                                                                        # grey
+        None,                                                                        # red
+        None,                                                                        # green
+        _c(_has("Scissors"), _has("Full Moon Gong"), has_overalls_2, has_grab_1,
+           _o(_has("High Jump Boots"), _has("Puffy Form"), 
+              _has("Bouncy Form"), has_vampire_2)),                                  # blue
+    ],
 }
 
 CHEST_RULES_GLITCHED: dict = {
@@ -538,6 +663,13 @@ KEY_RULES_KNOWLEDGE: dict = {
         _o(_c(has_overalls_2, _has("Garlic")),_has("Flute"),_has("High Jump Boots")),# green
         None,                                                                        # blue
     ],
+    "The Vast Plain": [
+        None,                                                                        # grey
+        _o(has_overalls_1, _has("Zombie Form"), _has("Fat Form"), 
+           _has("Snowman Form")),                                                    # red
+        None,                                                                        # green
+        None,                                                                        # blue
+    ],
     "Desert Ruins": [
         None,                                                                        # grey
         None,                                                                        # red
@@ -550,11 +682,31 @@ KEY_RULES_KNOWLEDGE: dict = {
         None,                                                                        # green
         None,                                                                        # blue
     ],
+    "The Grasslands": [
+        None,                                                                        # grey
+        None,                                                                        # red
+        _o(_has("Flute"), _has("High Jump Boots")),                                  # green
+        None,                                                                        # blue
+    ],
         "The Big Bridge": [
         None,                                                                        # grey
         None,                                                                        # red
         _c(has_flippers_1, _o(_c(has_overalls_1, has_grab_1), has_overalls_2)),      # green
         None,                                                                        # blue
+    ],
+    "Castle of Illusions": [
+        None,                                                                        # grey
+        _o(_c(_o(_c(has_grab_1, _has("Sun Medallion Top"), _has("Sun Medallion Bottom")),
+              has_grab_2), _o(has_overalls_2, _has("High Jump Boots"))),
+           _has("Puffy Form"), _has("Vampire Form"), _has("Bouncy Form")),           # red
+        None,                                                                        # green
+        None,                                                                        # blue
+    ],
+    "The East Crater":[
+        None,                                                                        # grey
+        None,                                                                        # red
+        None,                                                                        # green
+        _c(_has("Pick Axe"), has_grab_1),                                            # blue 
     ],
     
 }
@@ -575,6 +727,12 @@ KEY_RULES_HARD: dict = {
     "The East Crater": [
         has_grab_1,                                                                  # grey
         None,                                                                        # red
+        None,                                                                        # green
+        None,                                                                        # blue
+    ],
+    "The Frigid Sea": [
+        None,                                                                        # grey
+        _o(has_grab_1, _has("Puffy Form"), has_vampire_2, _has("Bouncy Form")),      # red
         None,                                                                        # green
         None,                                                                        # blue
     ],
