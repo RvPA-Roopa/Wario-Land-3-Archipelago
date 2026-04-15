@@ -189,7 +189,7 @@ class StartWithMagnifyingGlass(Toggle):
 
 class NonStopChests(Toggle):
     """Stay in the level after opening a treasure chest instead of exiting to
-    the overworld. The treasure is still marked collected and saved."""
+    the overworld."""
     display_name = "Non-Stop Chests"
     default = 0
 
@@ -203,7 +203,7 @@ class TransformationShuffle(Toggle):
 
 
 class TrapFill(Range):
-    """Percentage of filler items replaced with traps (currently: Fire Trap).
+    """Percentage of filler items replaced with transformation traps.
     When a trap is received, Wario is set on fire the next safe frame.
     0 = no traps (default), 100 = every filler item is a trap.
     """
