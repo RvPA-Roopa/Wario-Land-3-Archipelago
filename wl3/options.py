@@ -14,6 +14,26 @@ from Options import Toggle, Choice, Range, PerGameCommonOptions
 #     option_east  = 3
 #     default = 0
 
+class DifficultyOptions(Choice):
+    """Sets whether knowledge checks and/or hard tricks may be required in logic.
+    Standard: Requires no extra knowledge besides what is used to beat the vanilla game.
+    Knowledge Checks: Requires the player to know basic shortcuts, 
+    such as breaking hidden blocks in walls.
+    Hard Tricks: Everything from "knowledge checks", and also may require the player to 
+    perform more difficult tricks, such as jumping off of a thrown enemy in midair."""
+    display_name = "Difficulty Options"
+    option_standard = 0
+    option_knowledge_checks = 1
+    option_hard_tricks = 2
+    default = 0
+
+
+class MinorGlitches(Toggle):
+    """Sets whether minor glitches, like wall jumps, may be required in logic."""
+    display_name = "Minor Glitches"
+    default = 0
+
+
 class StartWithAxe(Toggle):
     """Start with the Axe, immediately unlocking The Peaceful Village and The Vast Plain."""
     display_name = "Start with Axe"
@@ -23,7 +43,7 @@ class StartWithAxe(Toggle):
 class RandomLevelStarts(Range):
     """Start with this many additional randomly chosen level unlock items beyond Out of the Woods.
     0: off (default)
-    1-10: that many random level unlock groups are granted at the start.
+    1-8: that many random level unlock groups are granted at the start.
     Stacks with Start with Axe (Axe is never included in the random pool).
     """
     display_name = "Random Level Starts"
@@ -130,13 +150,18 @@ class WarioShirtShuffle(Toggle):
 
 
 
-class CombinedLevelUnlocks(Toggle):
-    """With this on, combine multi-item level unlocks into single item unlocks.
-    (Blue Tablet and Green Tablet turn into "Tablets")
-    This helps create seed variety and allows for more flexible item placement.
-    With this off, pre-fill will place early level unlocks in your own game to guarantee progression.
+class CombinedItems(Choice):
+    """Controls which multi-item requirements are combined into single items.
+    Off:       No combining; multi-item requirements stay as-is.
+    Overworld: Combine items that gate level access (e.g. Blue+Green Tablet → Tablets).
+    In Level:  Combine items that gate chests/keys within a level (e.g. Blue+Red Chemical → Chemicals).
+    Both:      Combine both overworld and in-level pairs.
     """
-    display_name = "Combined Level Unlocks"
+    display_name = "Combined Items"
+    option_off       = 0
+    option_overworld = 1
+    option_in_level  = 2
+    option_both      = 3
     default = 0
 
 
@@ -162,6 +187,32 @@ class StartWithMagnifyingGlass(Toggle):
     default = 1
 
 
+class NonStopChests(Toggle):
+    """Stay in the level after opening a treasure chest instead of exiting to
+    the overworld."""
+    display_name = "Non-Stop Chests"
+    default = 0
+
+
+class TransformationShuffle(Toggle):
+    """Shuffle transformation abilities (Zombie, Vampire, Fire, etc.) as items.
+    When on, you must find each Form item to use that transformation via
+    Select+button combos; the forms are placed in logic. When off, behaves as vanilla"""
+    display_name = "Transformation Shuffle"
+    default = 0
+
+
+class TrapFill(Range):
+    """Percentage of filler items replaced with transformation traps.
+    When a trap is received, Wario is set on fire the next safe frame.
+    0 = no traps (default), 100 = every filler item is a trap.
+    """
+    display_name = "Trap Fill %"
+    range_start = 0
+    range_end   = 100
+    default     = 0
+
+
 class ReduceFlashing(Toggle):
     """Disables flashing/blinking background palette cycling in certain rooms
     (e.g. underground areas, Warped Void). Recommended for photosensitivity.
@@ -173,11 +224,15 @@ class ReduceFlashing(Toggle):
 
 @dataclass
 class WL3Options(PerGameCommonOptions):
-    # starting_area:          StartingArea
+    # Logic Options
+    difficulty:                   DifficultyOptions
+    minor_glitches:               MinorGlitches
+    # starting_area:              StartingArea
     start_with_axe:               StartWithAxe
     random_level_starts:          RandomLevelStarts
-    combined_level_unlocks:       CombinedLevelUnlocks
+    combined_items:               CombinedItems
     key_shuffle:                  KeyShuffle
+    transformation_shuffle:       TransformationShuffle
     music_boxes_required:         MusicBoxesRequired
     music_box_shuffle:            MusicBoxShuffle
     # QoL
@@ -186,6 +241,8 @@ class WL3Options(PerGameCommonOptions):
     i_hate_golf:                  IHateGolf
     start_with_magnifying_glass:  StartWithMagnifyingGlass
     reduce_flashing:              ReduceFlashing
+    non_stop_chests:              NonStopChests
+    trap_fill:                    TrapFill
     # Cosmetics
     music_shuffle:                MusicShuffle
     enemy_palette_shuffle:        EnemyPaletteShuffle
