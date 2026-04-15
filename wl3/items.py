@@ -54,13 +54,14 @@ _PROGRESSIVE_TREASURE_IDS = {
 }
 
 # ---------------------------------------------------------------------------
-# Combined unlock items (used when CombinedLevelUnlocks option is on)
+# Combined unlock items (used when CombinedItems option is on)
 # Each replaces a group of individual items with a single AP item.
 # tier_ids[0] is the canonical chest-display treasure ID (first component).
 # The client grants all component treasure bits via COMBINED_GRANTS in client.py.
 # ---------------------------------------------------------------------------
 
-COMBINED_ITEMS: Dict[str, WL3ItemData] = {
+# Overworld pairs — gate level access.
+COMBINED_ITEMS_OVERWORLD: Dict[str, WL3ItemData] = {
     "Lantern & Magical Flame": WL3ItemData(
         ap_id=BASE_ITEM_ID + 203,
         classification=ItemClassification.progression,
@@ -103,8 +104,45 @@ COMBINED_ITEMS: Dict[str, WL3ItemData] = {
     ),
 }
 
-# The 17 individual item names replaced by the 8 combined items above.
-INDIVIDUAL_MULTI_ITEM_NAMES: Set[str] = {
+# In-level pairs — gate chests/keys within a level.
+COMBINED_ITEMS_IN_LEVEL: Dict[str, WL3ItemData] = {
+    "Storm Pouch": WL3ItemData(
+        ap_id=BASE_ITEM_ID + 211,
+        classification=ItemClassification.progression,
+        tier_ids=[0x49],   # display: Pouch; also grants Eye of the Storm (0x47)
+    ),
+    "Chemicals": WL3ItemData(
+        ap_id=BASE_ITEM_ID + 212,
+        classification=ItemClassification.progression,
+        tier_ids=[0x27],   # display: Blue Chemical; also grants Red Chemical (0x28)
+    ),
+    "Glass Eyes": WL3ItemData(
+        ap_id=BASE_ITEM_ID + 213,
+        classification=ItemClassification.progression,
+        tier_ids=[0x43],   # display: Left Glass Eye; also grants Right Glass Eye (0x42)
+    ),
+    "Golden Eyes": WL3ItemData(
+        ap_id=BASE_ITEM_ID + 214,
+        classification=ItemClassification.progression,
+        tier_ids=[0x41],   # display: Golden Left Eye; also grants Golden Right Eye (0x40)
+    ),
+    "Sun Medallion": WL3ItemData(
+        ap_id=BASE_ITEM_ID + 215,
+        classification=ItemClassification.progression,
+        tier_ids=[0x45],   # display: Sun Medallion Top; also grants Sun Medallion Bottom (0x46)
+    ),
+    "Key Cards": WL3ItemData(
+        ap_id=BASE_ITEM_ID + 216,
+        classification=ItemClassification.progression,
+        tier_ids=[0x33],   # display: Key Card Red; also grants Key Card Blue (0x34)
+    ),
+}
+
+# Combined union (for ITEM_TABLE lookup, classification, etc.)
+COMBINED_ITEMS: Dict[str, WL3ItemData] = {**COMBINED_ITEMS_OVERWORLD, **COMBINED_ITEMS_IN_LEVEL}
+
+# Individual items absorbed by overworld combines (8 combined items replace 17 individuals).
+INDIVIDUAL_OVERWORLD_NAMES: Set[str] = {
     "Lantern", "Magical Flame",
     "Gear 1", "Gear 2",
     "Blue Book", "Magic Wand",
@@ -114,6 +152,19 @@ INDIVIDUAL_MULTI_ITEM_NAMES: Set[str] = {
     "Top Half of Scroll", "Bottom Half of Scroll",
     "Tusk Blue", "Tusk Red", "Green Flower",
 }
+
+# Individual items absorbed by in-level combines (6 combined items replace 12 individuals).
+INDIVIDUAL_IN_LEVEL_NAMES: Set[str] = {
+    "Pouch", "Eye of the Storm",
+    "Blue Chemical", "Red Chemical",
+    "Left Glass Eye", "Right Glass Eye",
+    "Golden Left Eye", "Golden Right Eye",
+    "Sun Medallion Top", "Sun Medallion Bottom",
+    "Key Card Red", "Key Card Blue",
+}
+
+# Union for backwards-compat with existing code that checks "is this replaced?"
+INDIVIDUAL_MULTI_ITEM_NAMES: Set[str] = INDIVIDUAL_OVERWORLD_NAMES | INDIVIDUAL_IN_LEVEL_NAMES
 
 # ---------------------------------------------------------------------------
 # Regular (non-progressive) items — one AP item per treasure ID
@@ -223,6 +274,112 @@ _REGULAR: List[tuple] = [
     (0x64, ItemClassification.filler,      "Pink Crayon"),
 ]
 
+# ---------------------------------------------------------------------------
+# Trap items — ap_id = BASE_ITEM_ID + 400 + trap_id
+# tier_ids[0] is the ROM-side TRAP_* constant written to wPendingTrap.
+# ---------------------------------------------------------------------------
+
+TRAP_BASE_ITEM_ID = BASE_ITEM_ID + 400  # 7_770_400
+
+TRAP_ITEMS: Dict[str, WL3ItemData] = {
+    "Fire Trap": WL3ItemData(
+        ap_id=TRAP_BASE_ITEM_ID + 0x01,
+        classification=ItemClassification.trap,
+        tier_ids=[0x01],  # TRAP_FIRE
+    ),
+    "Yarn Trap": WL3ItemData(
+        ap_id=TRAP_BASE_ITEM_ID + 0x02,
+        classification=ItemClassification.trap,
+        tier_ids=[0x02],  # TRAP_YARN — Ball-O-String Wario
+    ),
+    "Bouncy Trap": WL3ItemData(
+        ap_id=TRAP_BASE_ITEM_ID + 0x03,
+        classification=ItemClassification.trap,
+        tier_ids=[0x03],  # TRAP_BOUNCY
+    ),
+    "Electric Trap": WL3ItemData(
+        ap_id=TRAP_BASE_ITEM_ID + 0x04,
+        classification=ItemClassification.trap,
+        tier_ids=[0x04],  # TRAP_ELECTRIC
+    ),
+    "Ice Skate Trap": WL3ItemData(
+        ap_id=TRAP_BASE_ITEM_ID + 0x05,
+        classification=ItemClassification.trap,
+        tier_ids=[0x05],  # TRAP_ICE_SKATE
+    ),
+}
+
+# Set of all trap AP IDs — used by _build_chest_assignments to force a
+# red-gem visual instead of grabbing tier_ids[0] (which is a TRAP_* constant,
+# not a real treasure ID).
+TRAP_AP_IDS_SET: set = {item.ap_id for item in TRAP_ITEMS.values()}
+
+# ---------------------------------------------------------------------------
+# Transform Unlock items — player-activated abilities via Select+button combos.
+# Each unlock sets one bit in wTransformUnlocks or wTransformUnlocks2.
+# tier_ids[0] = byte index (0=wTransformUnlocks, 1=wTransformUnlocks2)
+# tier_ids[1] = bit index (0-7)
+# All are progression items — will be placed in logic by rules.py.
+# ---------------------------------------------------------------------------
+
+TRANSFORM_UNLOCK_BASE_ITEM_ID = BASE_ITEM_ID + 500  # 7_770_500
+
+TRANSFORM_UNLOCK_ITEMS: Dict[str, WL3ItemData] = {
+    "Zombie Form":          WL3ItemData(ap_id=TRANSFORM_UNLOCK_BASE_ITEM_ID + 0,  classification=ItemClassification.progression, tier_ids=[0, 0]),
+    "Progressive Vampire":  WL3ItemData(ap_id=TRANSFORM_UNLOCK_BASE_ITEM_ID + 1,  classification=ItemClassification.progression, tier_ids=[0, 1, 0, 6]),  # tier 1=Vampire, tier 2=Bat (client-ordered)
+    "Puffy Form":           WL3ItemData(ap_id=TRANSFORM_UNLOCK_BASE_ITEM_ID + 2,  classification=ItemClassification.progression, tier_ids=[0, 2]),
+    "Flat Form":            WL3ItemData(ap_id=TRANSFORM_UNLOCK_BASE_ITEM_ID + 3,  classification=ItemClassification.progression, tier_ids=[0, 3]),
+    "Invisible Form":       WL3ItemData(ap_id=TRANSFORM_UNLOCK_BASE_ITEM_ID + 4,  classification=ItemClassification.progression, tier_ids=[0, 4]),
+    "Fat Form":             WL3ItemData(ap_id=TRANSFORM_UNLOCK_BASE_ITEM_ID + 5,  classification=ItemClassification.progression, tier_ids=[0, 5]),
+    "Ice Skatin' Form":     WL3ItemData(ap_id=TRANSFORM_UNLOCK_BASE_ITEM_ID + 7,  classification=ItemClassification.progression, tier_ids=[0, 7]),
+    "Bouncy Form":          WL3ItemData(ap_id=TRANSFORM_UNLOCK_BASE_ITEM_ID + 8,  classification=ItemClassification.progression, tier_ids=[1, 0]),
+    "Yarn Form":            WL3ItemData(ap_id=TRANSFORM_UNLOCK_BASE_ITEM_ID + 9,  classification=ItemClassification.progression, tier_ids=[1, 2]),
+    "Snowman Form":         WL3ItemData(ap_id=TRANSFORM_UNLOCK_BASE_ITEM_ID + 10, classification=ItemClassification.progression, tier_ids=[1, 3]),
+    "Fire Form":            WL3ItemData(ap_id=TRANSFORM_UNLOCK_BASE_ITEM_ID + 11, classification=ItemClassification.progression, tier_ids=[1, 4]),
+}
+
+# Progressive Vampire: 2 copies in the pool (tier 1 = Vampire, tier 2 = Bat).
+TRANSFORM_UNLOCK_PROGRESSIVE_COUNTS: Dict[str, int] = {
+    "Progressive Vampire": 2,
+}
+
+TRANSFORM_UNLOCK_AP_IDS_SET: set = {item.ap_id for item in TRANSFORM_UNLOCK_ITEMS.values()}
+
+# Treasures removed from the pool when Transformation Shuffle is ON.
+# Each is "replaced" by the corresponding Form item in the pool.
+TRANSFORM_SACRIFICED_TREASURES: Set[str] = {
+    "Rocket",              # → Fire Form
+    "Pocket Pet",          # → Fat Form
+    "Fighter Mannequin",   # → Flat Form
+    "Telephone",           # → Invisible Form
+    "Crown",               # → Vampire Form
+    "Earthen Figure",      # → Snowman Form
+    "Saber",               # → Zombie Form
+    "Goblet",              # → Bouncy Form
+    "Teapot",              # → Yarn Form
+    "UFO",                 # → Bat Form
+    "Minicar",             # → Ice Skatin' Form
+    "Locomotive",          # → Puffy Form
+}
+
+# Form name → in-chest display treasure ID (the sacrificed treasure's visual).
+# Used by _build_chest_assignments so each Form has a unique icon.
+# Progressive Vampire has 2 copies: both display as Crown (the sacrificed
+# treasure for Vampire); UFO is sacrificed for the 2nd copy's pool slot.
+FORM_DISPLAY_TREASURE: Dict[str, int] = {
+    "Fire Form":           0x37,  # Rocket
+    "Fat Form":            0x38,  # Pocket Pet
+    "Flat Form":           0x3c,  # Fighter Mannequin
+    "Invisible Form":      0x4b,  # Telephone
+    "Progressive Vampire": 0x4c,  # Crown
+    "Snowman Form":        0x55,  # Earthen Figure
+    "Zombie Form":          0x56,  # Saber
+    "Bouncy Form":         0x57,  # Goblet
+    "Yarn Form":           0x58,  # Teapot
+    "Ice Skatin' Form":    0x5b,  # Minicar
+    "Puffy Form":          0x5c,  # Locomotive
+}
+
 TREASURE_TABLE: Dict[str, WL3ItemData] = {
     name: WL3ItemData(
         ap_id=BASE_ITEM_ID + tid,
@@ -236,8 +393,8 @@ TREASURE_TABLE: Dict[str, WL3ItemData] = {
 _used = {item.tier_ids[0] for item in TREASURE_TABLE.values()}
 assert not (_used & _PROGRESSIVE_TREASURE_IDS), "Progressive treasure IDs must not overlap regular table"
 
-# Combined lookup: name → data (regular + progressive + combined)
-ITEM_TABLE: Dict[str, WL3ItemData] = {**TREASURE_TABLE, **PROGRESSIVE_ITEMS, **COMBINED_ITEMS}
+# Combined lookup: name → data (regular + progressive + combined + traps + transform unlocks)
+ITEM_TABLE: Dict[str, WL3ItemData] = {**TREASURE_TABLE, **PROGRESSIVE_ITEMS, **COMBINED_ITEMS, **TRAP_ITEMS, **TRANSFORM_UNLOCK_ITEMS}
 
 # Reverse lookup by AP ID
 ID_TO_ITEM: Dict[int, WL3ItemData] = {item.ap_id: item for item in ITEM_TABLE.values()}

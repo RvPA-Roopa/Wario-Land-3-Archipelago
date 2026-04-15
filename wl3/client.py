@@ -38,8 +38,9 @@ def _i(tid: int) -> int:
 
 
 # Combined unlock item AP IDs → all component treasure IDs to grant
-# (active when slot_data["combined_level_unlocks"] is truthy)
+# (active when slot_data["combined_items"] selects overworld/in_level/both)
 COMBINED_GRANTS = {
+    # Overworld pairs
     BASE_ITEM_ID + 203: [0x0F, 0x10],        # Lantern & Magical Flame
     BASE_ITEM_ID + 204: [0x12, 0x13],        # Gears
     BASE_ITEM_ID + 205: [0x17, 0x1C],        # Blue Book & Magic Wand
@@ -48,6 +49,13 @@ COMBINED_GRANTS = {
     BASE_ITEM_ID + 208: [0x1F, 0x20],        # Tablets
     BASE_ITEM_ID + 209: [0x22, 0x23],        # Scroll
     BASE_ITEM_ID + 210: [0x24, 0x25, 0x26],  # Tusk Set
+    # In-level pairs
+    BASE_ITEM_ID + 211: [0x49, 0x47],        # Storm Pouch (Pouch + Eye of the Storm)
+    BASE_ITEM_ID + 212: [0x27, 0x28],        # Chemicals (Blue + Red)
+    BASE_ITEM_ID + 213: [0x43, 0x42],        # Glass Eyes (Left + Right)
+    BASE_ITEM_ID + 214: [0x41, 0x40],        # Golden Eyes (Left + Right)
+    BASE_ITEM_ID + 215: [0x45, 0x46],        # Sun Medallion (Top + Bottom)
+    BASE_ITEM_ID + 216: [0x33, 0x34],        # Key Cards (Red + Blue)
 }
 
 # Level unlock table for combined mode (single item per level)
@@ -96,6 +104,36 @@ ADDR_MSG_BUFFER_WRAM      = 0x11AE # wMsgBuffer (96 bytes)
 ADDR_MSG_TIMER_WRAM       = 0x120E # wMsgTimer (1 byte)
 ADDR_MSG_READY_WRAM       = 0x120F # wMsgReady (1 byte, set to 1 to trigger)
 ADDR_MSG_ROWS_WRAM        = 0x1211 # wMsgRows (1 byte, 1-3)
+ADDR_PENDING_TRAP_WRAM    = 0x121A # wPendingTrap (1 byte — AP trap queue, bank 1 0xD21A)
+ADDR_TRANSFORM_UNLOCKS_WRAM  = 0x121B # wTransformUnlocks  (bank 1 0xD21B)
+ADDR_TRANSFORM_UNLOCKS2_WRAM = 0x121C # wTransformUnlocks2 (bank 1 0xD21C)
+
+# AP item ID → ROM trap ID (TRAP_* constants in wario_constants.asm)
+TRAP_AP_IDS: dict[int, int] = {
+    BASE_ITEM_ID + 400 + 0x01: 0x01,  # Fire Trap     → TRAP_FIRE
+    BASE_ITEM_ID + 400 + 0x02: 0x02,  # Yarn Trap     → TRAP_YARN
+    BASE_ITEM_ID + 400 + 0x03: 0x03,  # Bouncy Trap   → TRAP_BOUNCY
+    BASE_ITEM_ID + 400 + 0x04: 0x04,  # Electric Trap → TRAP_ELECTRIC
+    BASE_ITEM_ID + 400 + 0x05: 0x05,  # Ice Skate Trap → TRAP_ICE_SKATE
+}
+
+# AP item ID → list of (byte_idx, bit_idx) pairs to set in wTransformUnlocks[n].
+# byte_idx: 0 = wTransformUnlocks, 1 = wTransformUnlocks2
+TRANSFORM_UNLOCK_AP_IDS: dict[int, list[tuple[int, int]]] = {
+    BASE_ITEM_ID + 500 +  0: [(0, 0)],  # Zombie Form
+    BASE_ITEM_ID + 500 +  2: [(0, 2)],  # Puffy Form
+    BASE_ITEM_ID + 500 +  3: [(0, 3)],  # Flat Form
+    BASE_ITEM_ID + 500 +  4: [(0, 4)],  # Invisible Form
+    BASE_ITEM_ID + 500 +  5: [(0, 5)],  # Fat Form
+    BASE_ITEM_ID + 500 +  7: [(0, 7)],  # Ice Skatin' Form
+    BASE_ITEM_ID + 500 +  8: [(1, 0)],  # Bouncy Form
+    BASE_ITEM_ID + 500 +  9: [(1, 2)],  # Yarn Form
+    BASE_ITEM_ID + 500 + 10: [(1, 3)],  # Snowman Form
+    BASE_ITEM_ID + 500 + 11: [(1, 4)],  # Fire Form
+}
+
+# Progressive Vampire: 1st receipt sets bit 1 (Vampire), 2nd sets bit 6 (Bat).
+PROGRESSIVE_VAMPIRE_AP_ID = BASE_ITEM_ID + 500 + 1
 
 KEY_BASE_LOC_ID  = 7_770_400        # AP location ID = KEY_BASE_LOC_ID + (owlevel-1)*4 + color
 KEY_BASE_ITEM_ID = BASE_ITEM_ID + 300  # 7_770_300
@@ -169,6 +207,7 @@ class WL3Client(BizHawkClient):
         super().__init__()
         self._prev_end_screen:  int   = 0
         self._prev_level_keys:  bytes = bytes(25)
+        self._prev_opened_chests: bytes = bytes(13)
         self._checked_locs:     set   = set()
         self._items_handled:    int  = 0
         self._cached_received:  set  = set()   # AP IDs received; kept between disconnects
@@ -182,6 +221,7 @@ class WL3Client(BizHawkClient):
         self._msg_queue:        list = []       # queued messages to display one at a time
         self._saved_pal7:      bytes = None    # saved BG palette 7 to restore after message
         self._loc_items:       dict = {}       # loc_id → {"item": name, "player": slot}
+        self._trap_queue:      list = []       # pending ROM trap IDs waiting for a safe frame
 
     # ------------------------------------------------------------------
     # validate_rom — called every poll cycle until it returns True
@@ -257,6 +297,39 @@ class WL3Client(BizHawkClient):
         except RequestFailedError:
             pass
 
+        # ---- Detect chest pickups via wOpenedChests (non-stop mode fallback) ----
+        # In non-stop mode wLevelEndScreen is cleared same-frame, so the rising-edge
+        # check above may miss it. Also detect newly set bits in wOpenedChests.
+        # Skip while in the Temple (THE_TEMPLE = $C8, wLevel>>3 = 25) — text
+        # decompression overflows into wOpenedChests at $DE00, writing garbage.
+        is_temple = w_level >= 0xC8  # THE_TEMPLE and above
+        if not is_temple:
+            try:
+                oc_raw = (await read(ctx.bizhawk_ctx, [(ADDR_OPENED_CHESTS_WRAM, 13, "WRAM")]))[0]
+                # Count new bits — if too many at once, it's Temple overflow corruption.
+                total_new = 0
+                for byte_idx in range(13):
+                    new_bits = (~self._prev_opened_chests[byte_idx]) & oc_raw[byte_idx] & 0xFF
+                    total_new += bin(new_bits).count('1')
+                if total_new <= 4:  # at most 4 chests per level
+                    for byte_idx in range(13):
+                        new_bits = (~self._prev_opened_chests[byte_idx]) & oc_raw[byte_idx] & 0xFF
+                        if new_bits:
+                            for bit in range(8):
+                                if new_bits & (1 << bit):
+                                    loc_index = byte_idx * 8 + bit
+                                    if loc_index < 100:
+                                        loc_id = BASE_LOC_ID + loc_index
+                                        if loc_id not in self._checked_locs:
+                                            self._checked_locs.add(loc_id)
+                                            owlevel = loc_index // 4 + 1
+                                            color_name = ("Grey", "Red", "Green", "Blue")[loc_index & 3]
+                                            logger.debug(f"[WL3] wOpenedChests new bit — L{owlevel} {color_name} → AP loc {loc_id}")
+                                            await self._show_sent_msg(ctx, loc_id)
+                self._prev_opened_chests = bytes(oc_raw)
+            except RequestFailedError:
+                pass
+
         # Refresh unlock flags from cache if we have any received items.
         # If cache is empty (never connected this session) the ROM handles it from SRAM.
         if self._cached_received:
@@ -299,8 +372,10 @@ class WL3Client(BizHawkClient):
         if pending:
             await ctx.send_msgs([{"cmd": "LocationChecks", "locations": list(pending)}])
 
-        # Track combined mode and location items from slot data
-        self._combined_unlocks = bool((ctx.slot_data or {}).get("combined_level_unlocks", 0))
+        # Track combined mode and location items from slot data.
+        # Overworld combine = 1 or 3 (both). Used to detect level-unlock mode.
+        _ci = (ctx.slot_data or {}).get("combined_items", 0)
+        self._combined_unlocks = _ci in (1, 3)
         if not self._loc_items and ctx.slot_data:
             self._loc_items = {int(k): v for k, v in (ctx.slot_data.get("loc_items") or {}).items()}
 
@@ -358,6 +433,17 @@ class WL3Client(BizHawkClient):
             except RequestFailedError:
                 pass
 
+        # ---- Flush any queued traps (only when ROM slot is empty) ----
+        if self._trap_queue:
+            try:
+                cur = (await read(ctx.bizhawk_ctx, [(ADDR_PENDING_TRAP_WRAM, 1, "WRAM")]))[0][0]
+                if cur == 0:
+                    trap_id = self._trap_queue.pop(0)
+                    await write(ctx.bizhawk_ctx, [(ADDR_PENDING_TRAP_WRAM, bytes([trap_id]), "WRAM")])
+                    logger.debug(f"[WL3] Wrote trap 0x{trap_id:02X} to wPendingTrap")
+            except RequestFailedError:
+                pass
+
         # ---- Update opened-chest bitmask in WRAM ----
         await self._update_opened_chests(ctx)
 
@@ -367,6 +453,33 @@ class WL3Client(BizHawkClient):
 
     async def _grant_item(self, ctx: "BizHawkClientContext", ap_id: int) -> None:
         """Resolve an AP item ID to treasure ID(s) and apply them to the game."""
+        if ap_id in TRAP_AP_IDS:
+            trap_id = TRAP_AP_IDS[ap_id]
+            self._trap_queue.append(trap_id)
+            logger.debug(f"[WL3] Trap AP {ap_id} queued → ROM trap 0x{trap_id:02X}")
+            return
+        if ap_id == PROGRESSIVE_VAMPIRE_AP_ID:
+            # 1st receipt sets Vampire (bit 1); 2nd sets Bat (bit 6).
+            # Idempotent: reading current state lets reconnects/resyncs behave.
+            cur = (await read(ctx.bizhawk_ctx, [(ADDR_TRANSFORM_UNLOCKS_WRAM, 1, "WRAM")]))[0][0]
+            if not (cur & (1 << 1)):
+                new = cur | (1 << 1)
+            else:
+                new = cur | (1 << 6)
+            if new != cur:
+                await write(ctx.bizhawk_ctx, [(ADDR_TRANSFORM_UNLOCKS_WRAM, bytes([new]), "WRAM")])
+            logger.debug(f"[WL3] Progressive Vampire → wTransformUnlocks 0x{new:02X}")
+            return
+        if ap_id in TRANSFORM_UNLOCK_AP_IDS:
+            # Set one or more bits in wTransformUnlocks / wTransformUnlocks2.
+            for byte_idx, bit_idx in TRANSFORM_UNLOCK_AP_IDS[ap_id]:
+                addr = ADDR_TRANSFORM_UNLOCKS_WRAM if byte_idx == 0 else ADDR_TRANSFORM_UNLOCKS2_WRAM
+                cur = (await read(ctx.bizhawk_ctx, [(addr, 1, "WRAM")]))[0][0]
+                new = cur | (1 << bit_idx)
+                if new != cur:
+                    await write(ctx.bizhawk_ctx, [(addr, bytes([new]), "WRAM")])
+            logger.debug(f"[WL3] Transform unlock AP {ap_id} applied")
+            return
         if ap_id in PROGRESSIVE_ITEMS:
             # ROM fully handles progressive ability progression via treasure_clear.asm.
             # Client must not write these bits — doing so before a chest is opened
@@ -681,8 +794,20 @@ class WL3Client(BizHawkClient):
                 opened[loc_index >> 3] |= 1 << (loc_index & 7)
         try:
             cur = (await read(ctx.bizhawk_ctx, [(ADDR_OPENED_CHESTS_WRAM, 13, "WRAM")]))[0]
-            if bytes(opened) != bytes(cur):
-                await write(ctx.bizhawk_ctx, [(ADDR_OPENED_CHESTS_WRAM, bytes(opened), "WRAM")])
+            # Temple text decompression overflows into wOpenedChests ($DE00+),
+            # writing garbage. Skip OR-merge when in the Temple to avoid
+            # picking up corrupted bits; just write server-known state.
+            level_byte = (await read(ctx.bizhawk_ctx, [(ADDR_LEVEL, 1, "System Bus")]))[0][0]
+            is_temple = level_byte >= 0xC8
+            if is_temple:
+                # Don't merge ROM bits — just write what AP knows about.
+                if bytes(opened) != bytes(cur):
+                    await write(ctx.bizhawk_ctx, [(ADDR_OPENED_CHESTS_WRAM, bytes(opened), "WRAM")])
+            else:
+                # OR-merge: preserve any bits the ROM set locally (e.g. non-stop chests)
+                merged = bytes(a | b for a, b in zip(cur, opened))
+                if merged != bytes(cur):
+                    await write(ctx.bizhawk_ctx, [(ADDR_OPENED_CHESTS_WRAM, merged, "WRAM")])
         except RequestFailedError:
             pass
 

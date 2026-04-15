@@ -5,9 +5,7 @@ Procedure:
   1. apply_bsdiff4  — applies base ROM hack (original WL3 → hacked base)
   2. apply_tokens   — writes the randomized 100-byte chest table
 """
-import base64
 import colorsys
-import json
 import os
 import zipfile
 from typing import TYPE_CHECKING
@@ -74,12 +72,14 @@ GOLF_PRICE_OPT_OFFSET            = 0x003A00   # GolfPriceOpt byte in Home bank
 GOLF_BUILDING_OPT_OFFSET         = 0x003A01   # GolfBuildingOpt byte in Home bank
 DISABLE_PAL_CYCLE_OFFSET         = 0x003A02   # DisablePalCycleOpt byte in Home bank
 I_HATE_GOLF_OFFSET               = 0x003A03   # AutoWinGolfOpt byte in Home bank
-COMBINED_COMPANION_TABLE_OFFSET  = 0x003A04   # CombinedCompanionTable (101 bytes, home bank)
+NON_STOP_CHESTS_OFFSET           = 0x003A04   # NonStopChestsOpt byte in Home bank
+COMBINED_COMPANION_TABLE_OFFSET  = 0x003A05   # CombinedCompanionTable (101 bytes, home bank)
+TRANSFORMS_REQUIRE_ITEMS_OFFSET  = 0x003A6A   # TransformsRequireItems byte in Home bank
 TREASURE_OB_PALS_OFFSET          = 0x09ACBA   # TreasureOBPals table (indexed by treasure ID)
 
 # Combined-item companion chains: collecting key → also grant value (chained).
 # Tusk Set: $24→$25→$26 (two hops).
-_COMPANION_PAIRS = {
+_COMPANION_PAIRS_OVERWORLD = {
     0x0F: 0x10,  # Lantern → Magical Flame
     0x12: 0x13,  # Gear 1 → Gear 2
     0x17: 0x1C,  # Blue Book → Magic Wand
@@ -89,6 +89,16 @@ _COMPANION_PAIRS = {
     0x22: 0x23,  # Top Half of Scroll → Bottom Half of Scroll
     0x24: 0x25,  # Tusk Blue → Tusk Red
     0x25: 0x26,  # Tusk Red → Green Flower (chain)
+}
+
+# In-level combined pairs.
+_COMPANION_PAIRS_IN_LEVEL = {
+    0x49: 0x47,  # Pouch → Eye of the Storm
+    0x27: 0x28,  # Blue Chemical → Red Chemical
+    0x43: 0x42,  # Left Glass Eye → Right Glass Eye
+    0x41: 0x40,  # Golden Left Eye → Golden Right Eye
+    0x45: 0x46,  # Sun Medallion Top → Sun Medallion Bottom
+    0x33: 0x34,  # Key Card Red → Key Card Blue
 }
 
 # OBPAL constants: YELLOW=4, RED=5, GREEN=6, BLUE=7
@@ -351,16 +361,33 @@ def write_tokens(world: "WL3World", patch: WL3ProcedurePatch) -> None:
     patch.write_token(APTokenTypes.WRITE, I_HATE_GOLF_OFFSET,
                       bytes([i_hate_golf]))
 
+    non_stop_chests = int(world.options.non_stop_chests)
+    patch.write_token(APTokenTypes.WRITE, NON_STOP_CHESTS_OFFSET,
+                      bytes([non_stop_chests]))
+
+    transformation_shuffle = int(world.options.transformation_shuffle)
+    patch.write_token(APTokenTypes.WRITE, TRANSFORMS_REQUIRE_ITEMS_OFFSET,
+                      bytes([transformation_shuffle]))
+
     # --- combined item companion table ---
-    if int(world.options.combined_level_unlocks):
+    from .options import CombinedItems as _CI
+    ci_mode = int(world.options.combined_items)
+    combine_overworld = ci_mode in (_CI.option_overworld, _CI.option_both)
+    combine_in_level  = ci_mode in (_CI.option_in_level,  _CI.option_both)
+
+    if combine_overworld or combine_in_level:
         companion_table = bytearray(101)
-        for trigger, companion in _COMPANION_PAIRS.items():
-            companion_table[trigger] = companion
+        if combine_overworld:
+            for trigger, companion in _COMPANION_PAIRS_OVERWORLD.items():
+                companion_table[trigger] = companion
+        if combine_in_level:
+            for trigger, companion in _COMPANION_PAIRS_IN_LEVEL.items():
+                companion_table[trigger] = companion
         patch.write_token(APTokenTypes.WRITE, COMBINED_COMPANION_TABLE_OFFSET,
                           bytes(companion_table))
 
     # --- combined item palette overrides ---
-    if int(world.options.combined_level_unlocks):
+    if combine_overworld:
         for tid, pal in _COMBINED_PAL_OVERRIDES:
             patch.write_token(APTokenTypes.WRITE, TREASURE_OB_PALS_OFFSET + tid, bytes([pal]))
 
@@ -388,22 +415,23 @@ def write_tokens(world: "WL3World", patch: WL3ProcedurePatch) -> None:
         patch.write_token(APTokenTypes.WRITE, DISABLE_PAL_CYCLE_OFFSET, bytes([1]))
 
     # --- palette shuffle ---
-    if world.options.enemy_palette_shuffle:
-        here = os.path.dirname(os.path.abspath(__file__))
-        table_path = os.path.join(here, "data", "palette_table.json")
-        if os.path.exists(table_path):
-            with open(table_path) as f:
-                palette_table = json.load(f)
-        else:
-            archive = getattr(__loader__, "archive", None)
-            if archive is None:
-                raise FileNotFoundError("Cannot locate palette_table.json")
-            with zipfile.ZipFile(archive) as zf:
-                palette_table = json.loads(zf.read("wl3/data/palette_table.json"))
+    # Vanilla palette bytes are NOT stored in the apworld. Offsets are inlined
+    # in palette_offsets.py; actual bytes are read from the user's own vanilla
+    # ROM here at generation time.
+    from .palette_offsets import ENEMY_PALETTES, LEVEL_BG_PALETTES
+    _vanilla_rom_cache = [None]
+    def _read_vanilla(offset: int, length: int) -> bytes:
+        if _vanilla_rom_cache[0] is None:
+            from settings import get_settings
+            opts = get_settings().wl3_options
+            rom_path = opts["rom_file"] if isinstance(opts, dict) else opts.rom_file
+            with open(rom_path, "rb") as f:
+                _vanilla_rom_cache[0] = f.read()
+        return _vanilla_rom_cache[0][offset:offset + length]
 
-        for entry in palette_table:
-            offset = entry["offset"]
-            data   = base64.b64decode(entry["data"])
+    if world.options.enemy_palette_shuffle:
+        for offset, length, _group in ENEMY_PALETTES:
+            data = _read_vanilla(offset, length)
             result = bytearray()
             for i in range(len(data) // 8):
                 chunk = data[i * 8 : (i + 1) * 8]
@@ -413,36 +441,14 @@ def write_tokens(world: "WL3World", patch: WL3ProcedurePatch) -> None:
     # --- level / room BG palette shuffle (simple or full) ---
     level_bg_mode = int(world.options.level_bg_palette_shuffle)
     if level_bg_mode != 0:
-        here = os.path.dirname(os.path.abspath(__file__))
-        table_path = os.path.join(here, "data", "level_bg_palette_table.json")
-        if os.path.exists(table_path):
-            with open(table_path) as f:
-                bg_table = json.load(f)
-        else:
-            # fallback to generic palette_table.json if level-specific not present
-            table_path = os.path.join(here, "data", "palette_table.json")
-            if os.path.exists(table_path):
-                with open(table_path) as f:
-                    bg_table = json.load(f)
-            else:
-                archive = getattr(__loader__, "archive", None)
-                if archive is None:
-                    raise FileNotFoundError("Cannot locate level_bg_palette_table.json or palette_table.json")
-                with zipfile.ZipFile(archive) as zf:
-                    if "wl3/data/level_bg_palette_table.json" in zf.namelist():
-                        bg_table = json.loads(zf.read("wl3/data/level_bg_palette_table.json"))
-                    else:
-                        bg_table = json.loads(zf.read("wl3/data/palette_table.json"))
-
         # Per-cycle-group shared hue rotation: palettes that belong to the
         # same room palette cycle (e.g. Above the Clouds lightning flash) all
         # get the same hue offset so cycle frames don't strobe random colors.
         group_hue_cache: dict = {}
 
         # Normal per-block processing (simple or full recolors applied per-palette)
-        for entry in bg_table:
-            offset = entry["offset"]
-            data = base64.b64decode(entry["data"])
+        for offset, length, group in LEVEL_BG_PALETTES:
+            data = _read_vanilla(offset, length)
             result = bytearray()
             count = len(data) // 8
             if level_bg_mode == 1:
@@ -451,7 +457,6 @@ def write_tokens(world: "WL3World", patch: WL3ProcedurePatch) -> None:
             else:
                 chosen = None
 
-            group = entry.get("group")
             if group is not None:
                 if group not in group_hue_cache:
                     group_hue_cache[group] = world.random.random()

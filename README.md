@@ -25,9 +25,9 @@ A randomizer for **Wario Land 3** built on the [Archipelago](https://archipelago
 - LOTS of cutscene skips. You can immediately start playing your game and not wait 5 minutes through intro cutscenes. Also, all cutscenes after treasures/abilities have been cut.
 - The entire map has been opened to help a bit with logic. The levels will be locked (notated with a red blinking dot) until you get each levels unlock (i.e. Tablets for W1). This helps the game feel less linear.
 - I've taken vanilla Gems out of the game (they were treasures that didn't have any affect on the game). They are replaced by the Archipelago item, to notate others items.
-   - Red Gems are progression items.
-   - Blue Gems are useful items.
-   - Green Gems are filler items.
+   - Red AP logos are progression items.
+   - Blue AP logos are useful items.
+   - Green AP logos are filler items.
    - In Keysanity, the color palette is based on the key that the Archipelago item is replacing. This is a limitation of the game.
 - The option to combine level unlocks to one item has been added (i.e. For W1, you only need "Tablets" instead of each of the two tablets). This helps with generation, seed variety, and keeps the massive amount of progression items down. This is the suggested option. All extra items have been changed to filler (Crests that act as coins). If you do want to play without combined-items, there will be a several pre-fill items placed in your game to help with seed generation.
 - The game SHOULD sync all your items if you play offline then reconnect. This needs a bit more testing, but should be working.

@@ -18,24 +18,34 @@ from worlds.LauncherComponents import Component, SuffixIdentifier, Type, compone
 from .items import (
     BASE_ITEM_ID,
     COMBINED_ITEMS,
+    COMBINED_ITEMS_OVERWORLD,
+    COMBINED_ITEMS_IN_LEVEL,
     CREST_DEFAULT_EXTRA_COUNTS,
     CREST_EXTRA_COUNTS,
+    INDIVIDUAL_OVERWORLD_NAMES,
+    INDIVIDUAL_IN_LEVEL_NAMES,
     INDIVIDUAL_MULTI_ITEM_NAMES,
     ITEM_TABLE,
     KEY_BASE_ITEM_ID,
     KEY_ITEM_TABLE,
     PROGRESSIVE_COUNTS,
     PROGRESSIVE_ITEMS,
+    TRAP_AP_IDS_SET,
+    TRAP_ITEMS,
+    FORM_DISPLAY_TREASURE,
+    TRANSFORM_SACRIFICED_TREASURES,
+    TRANSFORM_UNLOCK_ITEMS,
+    TRANSFORM_UNLOCK_PROGRESSIVE_COUNTS,
     TREASURE_TABLE,
     WL3ItemData,
 )
 from .locations import BASE_LOC_ID, KEY_LOCATION_TABLE, LOCATION_TABLE, WL3LocationData
 from Options import OptionGroup
-from .options import (WL3Options, MusicBoxShuffle, KeyShuffle,
+from .options import (WL3Options, MusicBoxShuffle, KeyShuffle, CombinedItems,
                       GolfPrice, GolfBuilding, IHateGolf,
-                      StartWithMagnifyingGlass, ReduceFlashing,
+                      StartWithMagnifyingGlass, ReduceFlashing, NonStopChests, TrapFill,
                       MusicShuffle, EnemyPaletteShuffle, LevelBGPaletteShuffle,
-                      WarioOverallsShuffle, WarioShirtShuffle)
+                      WarioOverallsShuffle, WarioShirtShuffle, DifficultyOptions, MinorGlitches)
 from .regions import create_regions
 from .rom import WL3ProcedurePatch, write_tokens
 from .rules import MUSIC_BOXES, set_rules
@@ -165,7 +175,8 @@ class WL3WebWorld(WebWorld):
     ]
     option_groups = [
         OptionGroup("Quality of Life", [GolfPrice, GolfBuilding, IHateGolf,
-                                       StartWithMagnifyingGlass, ReduceFlashing]),
+                                       StartWithMagnifyingGlass, ReduceFlashing,
+                                       NonStopChests, TrapFill]),
         OptionGroup("Cosmetics", [MusicShuffle, EnemyPaletteShuffle,
                                   LevelBGPaletteShuffle,
                                    WarioOverallsShuffle, WarioShirtShuffle]),
@@ -229,9 +240,17 @@ class WL3World(World):
             skip_items.add("Axe")
             self.multiworld.push_precollected(self.create_item("Axe"))
 
+        # Transformation Shuffle: 12 filler treasures are replaced by Form items.
+        if self.options.transformation_shuffle:
+            skip_items |= TRANSFORM_SACRIFICED_TREASURES
+
+        ci_mode = int(self.options.combined_items)
+        combine_overworld = ci_mode in (CombinedItems.option_overworld, CombinedItems.option_both)
+        combine_in_level  = ci_mode in (CombinedItems.option_in_level,  CombinedItems.option_both)
+
         random_starts = int(self.options.random_level_starts)
         if random_starts > 0:
-            eligible = RANDOM_START_ELIGIBLE_COMBINED if self.options.combined_level_unlocks else RANDOM_START_ELIGIBLE
+            eligible = RANDOM_START_ELIGIBLE_COMBINED if combine_overworld else RANDOM_START_ELIGIBLE
             count = min(random_starts, len(eligible))
             picks = self.random.sample(eligible, count)
             for group in picks:
@@ -239,40 +258,79 @@ class WL3World(World):
                     skip_items.add(name)
                     self.multiworld.push_precollected(self.create_item(name))
 
-        if self.options.combined_level_unlocks:
-            # Skip the 17 individual multi-item unlocks; add 8 combined items instead
-            for name in TREASURE_TABLE:
-                if name not in INDIVIDUAL_MULTI_ITEM_NAMES and name not in skip_items:
-                    items.append(self.create_item(name))
-            for name in COMBINED_ITEMS:
-                if name not in skip_items:
-                    items.append(self.create_item(name))
-            # Fill freed slots with extra crest copies (9 + 1 if axe removed)
-            extra = len(skip_items)
-            counts = dict(CREST_EXTRA_COUNTS)
-            counts["Clubs Crest (1 Coin)"] = counts.get("Clubs Crest (1 Coin)", 0) + extra
-            for name, count in counts.items():
-                for _ in range(count):
-                    items.append(self.create_item(name))
-        else:
-            # Default: one copy of every regular item
-            for name in TREASURE_TABLE:
-                if name not in skip_items:
-                    items.append(self.create_item(name))
-            # Extra crest copies to fill gem-freed slots
-            for name, count in CREST_DEFAULT_EXTRA_COUNTS.items():
-                for _ in range(count):
-                    items.append(self.create_item(name))
-            # Replace removed items (e.g. level_start_mode) with crests
-            for _ in range(len(skip_items)):
-                items.append(self.create_item("Clubs Crest (1 Coin)"))
+        # Determine which individuals to skip and which combineds to add.
+        skip_individuals: set = set()
+        add_combined: dict = {}
+        if combine_overworld:
+            skip_individuals |= INDIVIDUAL_OVERWORLD_NAMES
+            add_combined.update(COMBINED_ITEMS_OVERWORLD)
+        if combine_in_level:
+            skip_individuals |= INDIVIDUAL_IN_LEVEL_NAMES
+            add_combined.update(COMBINED_ITEMS_IN_LEVEL)
 
-        # Progressive items (same in both modes)
+        # Base pool: regular treasures minus anything absorbed by combines.
+        for name in TREASURE_TABLE:
+            if name in skip_individuals or name in skip_items:
+                continue
+            items.append(self.create_item(name))
+
+        # Add combined items.
+        for name in add_combined:
+            if name not in skip_items:
+                items.append(self.create_item(name))
+
+        # Progressive items (always added)
         for name, count in PROGRESSIVE_COUNTS.items():
             for _ in range(count):
                 items.append(self.create_item(name))
 
+        # Transform unlock items — player-activated abilities (Select+button).
+        # All are progression; placed in logic by rules.py.
+        # When on, 12 filler treasures are removed from the pool (see
+        # TRANSFORM_SACRIFICED_TREASURES in items.py) and replaced by Forms.
+        # Progressive Vampire has 2 copies (tier 1 = Vampire, tier 2 = Bat).
+        if self.options.transformation_shuffle:
+            for name in TRANSFORM_UNLOCK_ITEMS:
+                count = TRANSFORM_UNLOCK_PROGRESSIVE_COUNTS.get(name, 1)
+                for _ in range(count):
+                    items.append(self.create_item(name))
+
+        # Fill remaining slots to reach 100 using crests. Use the existing crest
+        # distribution tables as the starting point, then top up with Clubs Crests.
+        if combine_overworld:
+            base_counts = dict(CREST_EXTRA_COUNTS)
+        else:
+            base_counts = dict(CREST_DEFAULT_EXTRA_COUNTS)
+        base_total = sum(base_counts.values())
+        slots_remaining = 100 - len(items)
+        if slots_remaining >= base_total:
+            # Use the full distribution table; top up with extra Clubs Crests.
+            for name, count in base_counts.items():
+                for _ in range(count):
+                    items.append(self.create_item(name))
+            for _ in range(slots_remaining - base_total):
+                items.append(self.create_item("Clubs Crest (1 Coin)"))
+        else:
+            # Less slots than the table wants — just fill with Clubs Crests.
+            for _ in range(slots_remaining):
+                items.append(self.create_item("Clubs Crest (1 Coin)"))
+
         assert len(items) == 100, f"Expected 100 items, got {len(items)}"
+
+        # Trap replacement: swap a % of filler items for random trap items.
+        trap_pct = int(self.options.trap_fill)
+        if trap_pct > 0 and TRAP_ITEMS:
+            filler_indices = [
+                i for i, it in enumerate(items)
+                if it.classification == ItemClassification.filler
+            ]
+            num_traps = (len(filler_indices) * trap_pct + 50) // 100
+            if num_traps > 0:
+                victim_indices = self.random.sample(filler_indices, num_traps)
+                trap_names = list(TRAP_ITEMS.keys())
+                for idx in victim_indices:
+                    trap_name = self.random.choice(trap_names)
+                    items[idx] = self.create_item(trap_name)
 
         # Key shuffle: add all 100 key items to the pool
         # Simple: keys are local + restricted to key locations via item_rules
@@ -335,7 +393,9 @@ class WL3World(World):
                 lock=True,
             )
 
-        if self.options.combined_level_unlocks:
+        # Overworld combines make pre-fill unnecessary (combined items naturally open
+        # progression without needing a hand-placed chain).
+        if int(self.options.combined_items) in (CombinedItems.option_overworld, CombinedItems.option_both):
             return
 
         # Bootstrap the opening chain.
@@ -445,6 +505,19 @@ class WL3World(World):
                     chest_table[loc_data.loc_index] = 0x65  # TREASURE_DUMMY → key icon
                 continue
 
+            # Trap items: show as red gem. tier_ids[0] is a TRAP_* constant,
+            # NOT a treasure ID, so we must never write it to the chest table.
+            if item_data.ap_id in TRAP_AP_IDS_SET:
+                chest_table[loc_data.loc_index] = 0x4E  # Red Gem
+                continue
+
+            # Transform unlock items: tier_ids are (byte_idx, bit_idx) pairs,
+            # NOT treasure IDs. Show as the sacrificed treasure's icon so each
+            # Form has a unique visual (see FORM_DISPLAY_TREASURE).
+            if item.name in TRANSFORM_UNLOCK_ITEMS:
+                chest_table[loc_data.loc_index] = FORM_DISPLAY_TREASURE[item.name]
+                continue
+
             if item.name in PROGRESSIVE_ITEMS:
                 progressive_placements[item.name].append(loc_data.loc_index)
             else:
@@ -522,6 +595,6 @@ class WL3World(World):
                 }
         return {
             "death_link":            False,
-            "combined_level_unlocks": int(self.options.combined_level_unlocks),
+            "combined_items":        int(self.options.combined_items),
             "loc_items":             loc_items,
         }
