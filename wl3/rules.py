@@ -340,9 +340,10 @@ CHEST_RULES: dict = {
     "The East Crater": [
         has_grab_1,                                                                  # grey
         _c(_o(_has("Fire Drencher"), _has("Zombie Form"), _has("Fire Form"), has_vampire_1),
-           _o(_c(has_grab_1, has_overalls_1), _has("Fire Form"))),                   # red
+           _o(_c(has_grab_1, has_overalls_1), _has("Fire Form")),
+           _o(_has("Zombie Form"), has_grab_1)),                                     # red
         _c(_o(_has("Jackhammer"), _has("Puffy Form"), has_vampire_2), has_grab_1),   # green
-        _c(_has("Pick Axe"), has_grab_1, _o(_has("High Jump Boots"), _has("Bouncy Form"), 
+        _c(_has("Pick Axe"), has_grab_1, _o(_has("High Jump Boots"), _has("Bouncy Form"),
                                             _has("Puffy Form"), has_vampire_2)),     # blue
     ],
     "Forest of Fear": [
@@ -543,11 +544,12 @@ KEY_RULES: dict = {
     ],
     "The East Crater": [
         _c(_o(has_grab_1, _has("Zombie Form")),
-           _o(has_overalls_2, has_vampire_2, _has("Puffy Form"), 
+           _o(has_overalls_2, has_vampire_2, _has("Puffy Form"),
               _has("Fat Form"), _has("Snowman Form"))),                              # grey
         _c(_o(_has("Fire Drencher"), _has("Fire Form"), _has("Zombie Form"), has_vampire_1),
-           _o(_c(has_grab_1, _o(has_overalls_1, _has("Snowman Form"), _has("Fat Form"))), 
-              _has("Zombie Form"))),                                                 # red
+           _o(_c(has_grab_1, _o(has_overalls_1, _has("Snowman Form"), _has("Fat Form"))),
+              _has("Zombie Form")),
+           _o(_has("Zombie Form"), has_grab_1)),                                     # red
         _c(has_grab_1, _o(_has("Jackhammer"), _has("Puffy Form"), has_vampire_2)),   # green
         _c(_o(_has("High Jump Boots"), _has("Puffy Form"), _has("Bouncy Form"), has_vampire_2),
            _has("Pick Axe"), has_grab_1),                                            # blue
