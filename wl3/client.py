@@ -447,6 +447,12 @@ class WL3Client(BizHawkClient):
         # ---- Update opened-chest bitmask in WRAM ----
         await self._update_opened_chests(ctx)
 
+        # ---- Re-sync transform unlock bits ----
+        # WRAM gets cleared when the player goes to title and reloads, wiping
+        # wTransformUnlocks/2. Rebuild the bits from cached_received every tick
+        # so reload doesn't lose progress. Idempotent — only writes if changed.
+        await self._resync_transform_unlocks(ctx)
+
     # ------------------------------------------------------------------
     # Item granting helpers
     # ------------------------------------------------------------------
@@ -771,6 +777,45 @@ class WL3Client(BizHawkClient):
             logger.debug(f"[WL3] Set treasure 0x{treasure_id:02X}: WRAM[0x{addr:04X}] 0x{cur:02X}→0x{new_val:02X}")
         except RequestFailedError as e:
             logger.warning(f"[WL3] Failed to set treasure 0x{treasure_id:02X}: {e}")
+
+    async def _resync_transform_unlocks(self, ctx: "BizHawkClientContext") -> None:
+        """Rebuild wTransformUnlocks/2 from cached_received in case the player
+        went to title and reloaded (which clears WRAM). Idempotent."""
+        # Compute target bits
+        want1 = 0
+        want2 = 0
+        prog_vamp_count = 0
+        for ap_id in self._cached_received:
+            if ap_id == PROGRESSIVE_VAMPIRE_AP_ID:
+                prog_vamp_count += 1
+                continue
+            pairs = TRANSFORM_UNLOCK_AP_IDS.get(ap_id)
+            if not pairs:
+                continue
+            for byte_idx, bit_idx in pairs:
+                if byte_idx == 0:
+                    want1 |= (1 << bit_idx)
+                else:
+                    want2 |= (1 << bit_idx)
+        # Progressive Vampire: 1st copy = bit 1 (Vampire), 2nd copy = bit 6 (Bat)
+        if prog_vamp_count >= 1:
+            want1 |= (1 << 1)
+        if prog_vamp_count >= 2:
+            want1 |= (1 << 6)
+
+        if want1 == 0 and want2 == 0:
+            return  # nothing to sync
+        try:
+            cur1 = (await read(ctx.bizhawk_ctx, [(ADDR_TRANSFORM_UNLOCKS_WRAM, 1, "WRAM")]))[0][0]
+            cur2 = (await read(ctx.bizhawk_ctx, [(ADDR_TRANSFORM_UNLOCKS2_WRAM, 1, "WRAM")]))[0][0]
+            new1 = cur1 | want1
+            new2 = cur2 | want2
+            if new1 != cur1:
+                await write(ctx.bizhawk_ctx, [(ADDR_TRANSFORM_UNLOCKS_WRAM, bytes([new1]), "WRAM")])
+            if new2 != cur2:
+                await write(ctx.bizhawk_ctx, [(ADDR_TRANSFORM_UNLOCKS2_WRAM, bytes([new2]), "WRAM")])
+        except RequestFailedError:
+            pass
 
     async def _update_opened_chests(self, ctx: "BizHawkClientContext") -> None:
         """Write wOpenedChests (13 bytes) based on which AP locations are checked.
