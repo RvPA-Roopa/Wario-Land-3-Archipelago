@@ -241,8 +241,8 @@
 
 |       | Grey | Red | Green | Blue |
 |-------|------|-----|-------|------|
-| **Chest** | Grab | (Fire Drencher OR Zombie OR Fire OR Vampire) + ((Grab + Overalls) OR Fire) | (Jackhammer OR Puffy OR Bat) + Grab | Pick Axe + Grab + (High Jump OR Bouncy OR Puffy OR Bat) |
-| **Key**   | (Grab OR Zombie) + (Overalls×2 OR Bat OR Puffy OR Fat OR Snowman) | (Fire Drencher OR Fire OR Zombie OR Vampire) + ((Grab + (Overalls OR Snowman OR Fat)) OR Zombie) | Grab + (Jackhammer OR Puffy OR Bat) | (High Jump OR Puffy OR Bouncy OR Bat) + Pick Axe + Grab |
+| **Chest** | Grab | (Fire Drencher OR Zombie OR Fire OR Vampire) + ((Grab + Overalls) OR Fire) + (Zombie OR Grab) | (Jackhammer OR Puffy OR Bat) + Grab | Pick Axe + Grab + (High Jump OR Bouncy OR Puffy OR Bat) |
+| **Key**   | (Grab OR Zombie) + (Overalls×2 OR Bat OR Puffy OR Fat OR Snowman) | (Fire Drencher OR Fire OR Zombie OR Vampire) + ((Grab + (Overalls OR Snowman OR Fat)) OR Zombie) + (Zombie OR Grab) | Grab + (Jackhammer OR Puffy OR Bat) | (High Jump OR Puffy OR Bouncy OR Bat) + Pick Axe + Grab |
 
 ---
 
