@@ -736,7 +736,7 @@ KEY_RULES_KNOWLEDGE: dict = {
     ],
         "Beneath the Waves": [
         None,                                                                        # grey
-        has_flippers_2,                                                              # red
+        _o(has_flippers_2, _has("Fat Form"), _has("Flat Form")),                     # red
         None,                                                                        # green
         None,                                                                        # blue
     ],
