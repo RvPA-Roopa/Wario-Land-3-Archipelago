@@ -579,10 +579,10 @@ CHEST_RULES_KNOWLEDGE: dict = {
     ],
     "The Peaceful Village": [
         None,                                                                        # grey
-        _o(_c(_o(has_overalls_2, _has("Zombie Form"), _has("Snowman Form")), ("Garlic")),
+        _o(_c(_o(has_overalls_2, _has("Zombie Form"), _has("Snowman Form")), _has("Garlic")),
            _has("Flute"),_has("High Jump Boots"), _has("Bouncy Form"), 
            _has("Puffy Form"), has_vampire_2),                                       # red
-        _c(_o(_c(_o(has_overalls_2, _has("Zombie Form"), _has("Snowman Form")), ("Garlic")),
+        _c(_o(_c(_o(has_overalls_2, _has("Zombie Form"), _has("Snowman Form")), _has("Garlic")),
            _has("Flute"),_has("High Jump Boots"), _has("Bouncy Form"), 
            _has("Puffy Form"), has_vampire_2), 
            _o(_has("Fat Form"), _has("Snowman Form"), 
@@ -602,8 +602,8 @@ CHEST_RULES_KNOWLEDGE: dict = {
         None,                                                                        # green
         _c(has_overalls_1, 
            _o(_has("High Jump Boots"), has_grab_1, _has("Bouncy Form"), 
-              _has("Puffy Form", has_vampire_2)),
-           _o(has_overalls_2, _has("Fat Form"), _has("Zombie Form")))                # blue
+              _has("Puffy Form"), has_vampire_2),
+           _o(has_overalls_2, _has("Fat Form"), _has("Zombie Form"))),                # blue
     ],
     "The Grasslands": [
         None,                                                                        # grey
@@ -765,7 +765,7 @@ KEY_RULES_KNOWLEDGE: dict = {
            _o(has_overalls_1, _has("Fat Form"), _has("Snowman Form")), 
            _o(has_grab_1, has_vampire_2, _has("Puffy Form"))),                       # blue
     ],
-    "The East Crater":[
+    "The East Crater": [
         None,                                                                        # grey
         None,                                                                        # red
         None,                                                                        # green
