@@ -150,7 +150,7 @@ CHEST_RULES: dict = {
     "Out of the Woods": [
         None,                                                                        # grey
         _o(has_overalls_1, _has("Fat Form"), _has("Snowman Form")),                  # red
-        _o(_c(_has("Pouch"), _has("Eye of the Storm")), 
+        _o(_c(_has("Pouch"), _has("Eye of the Storm"), _has("High Jump Boots")), 
            has_vampire_2, _has("Puffy Form")),                                       # green
         _c(_has("Gold Magic"), has_grab_1, has_overalls_1,
            _o(_has("High Jump Boots"), _has("Puffy Form"), 
@@ -199,9 +199,9 @@ CHEST_RULES: dict = {
         None,                                                                        # grey
         None,                                                                        # red
         _has("Spiked Helmet"),                                                       # green
-        _c(_o(has_overalls_2, _has("Fat Form"), _c(_has("Zombie Form"), 
-                                                   _o(has_overalls_1, _has("Snowman Form")))), 
-           _o(has_grab_1, _has("Puffy Form"), _has("Bouncy Form"))),                 # blue
+        _c(_o(has_overalls_2, _has("Fat Form"), _has("Zombie Form")), 
+           _o(has_grab_1, _has("Puffy Form"), _has("Bouncy Form"), has_vampire_2), 
+           has_overalls_1)                                                           # blue
     ],
     "The Volcano's Base": [
         None,                                                                        # grey
@@ -335,7 +335,7 @@ CHEST_RULES: dict = {
         _c(_has("Warp Removal Apparatus"), _o(has_grab_1, has_vampire_2, 
                                               _has("Puffy Form"))),                  # green
         _o(_c(_has("Key Card Red"), _has("Key Card Blue"), has_grab_1),
-           _has("Puffy Form"), has_vampire_2),                                       # blue
+           _c(_has("Warp Removal Apparatus"),_o(_has("Puffy Form"), has_vampire_2))),# blue
     ],
     "The East Crater": [
         has_grab_1,                                                                  # grey
@@ -430,9 +430,12 @@ KEY_RULES: dict = {
     "A Town in Chaos": [
         None,                                                                        # grey
         None,                                                                        # red
-        _c(has_grab_2, _o(has_overalls_2, _has("Snowman Form")), 
+        _c(_o(has_grab_2, _has("Fire Form"), _has("Zombie Form"), _has("Ice Skatin' Form"),
+              has_vampire_1), _o(has_overalls_2, _has("Snowman Form"), _has("Fat Form"),
+                          _has("Bouncy Form"), _has("Puffy Form")), 
            _has("High Jump Boots")),                                                 # green
-        _c(_has("Electric Fan Propeller"), has_grab_1),                              # blue
+        _o(_c(_has("Electric Fan Propeller"), has_grab_1), 
+           _has("Puffy Form"), has_vampire_2),                                       # blue
     ],
     "Beneath the Waves": [
         _has("High Jump Boots"),                                                     # grey
@@ -442,8 +445,8 @@ KEY_RULES: dict = {
     ],
     "The West Crater": [
         None,                                                                        # grey
-        _c(_o(has_overalls_1, _has("Snowman Form"), _has("Yarn Form"),
-              _has("Fat Form")), has_grab_1),                                        # red
+        _c(_o(has_overalls_1, _has("Snowman Form"), _has("Yarn Form"), _has("Fat Form")), 
+           _o(has_grab_1, has_vampire_2, _has("Puffy Form"), _has("Bouncy Form"))),  # red
         _o(_c(_o(_has("Fire Drencher"), _has("Fire Form"), _has("Zombie Form"), 
               has_vampire_1), _o(_has("High Jump Boots"), _has("Bouncy Form"))), 
             _has("Puffy Form"), has_vampire_2),                                      # green
@@ -520,7 +523,7 @@ KEY_RULES: dict = {
     "Castle of Illusions": [
         _o(has_grab_1, has_vampire_2, _has("Puffy Form")),                           # grey
         _o(_c(has_grab_2, _o(has_overalls_2, _has("High Jump Boots"))),
-           _has("Puffy Form"), has_vampire_2, _has("Bouncy Form")),           # red
+           _has("Puffy Form"), has_vampire_2, _has("Bouncy Form")),                  # red
         _o(has_grab_2, has_vampire_2, _has("Puffy Form"), _has("Bouncy Form")),      # green
         _c(_has("Castle Brick"), 
            _o(has_overalls_1, _has("Fat Form"), _has("Snowman Form")), 
@@ -540,7 +543,7 @@ KEY_RULES: dict = {
         _c(_has("Warp Removal Apparatus"), _o(has_grab_1, has_vampire_2, _has("Puffy Form"),
                                               _has("Bouncy Form"))),                 # green
         _o(_c(_has("Key Card Red"), _has("Key Card Blue"), has_grab_1),
-           _has("Puffy Form"), has_vampire_2),                                       # blue
+           _c(_has("Warp Removal Apparatus"),_o(_has("Puffy Form"), has_vampire_2))),# blue
     ],
     "The East Crater": [
         _c(_o(has_grab_1, _has("Zombie Form")),
@@ -569,14 +572,21 @@ NoRule = object()
 CHEST_RULES_KNOWLEDGE: dict = {
     "Out of the Woods": [
         None,                                                                        # grey
-        _o(has_overalls_1, _has("Garlic")),                                          # red
+        _o(has_overalls_1, _has("Fat Form"), _has("Snowman Form"), _has("Garlic")),  # red
         None,                                                                        # green
-        None,                                                                        # blue
+        _c(_o(_c(has_grab_1, has_overalls_1, _o(_has("High Jump Boots"), _has("Bouncy Form"))), 
+           _has("Puffy Form"), has_vampire_2), _has("Gold Magic")),                  # blue
     ],
     "The Peaceful Village": [
         None,                                                                        # grey
-        _o(_c(has_overalls_2, _has("Garlic")),_has("Flute"),_has("High Jump Boots")),# red
-        _o(_c(has_overalls_2, _has("Garlic")),_has("Flute"),_has("High Jump Boots")),# green
+        _o(_c(_o(has_overalls_2, _has("Zombie Form"), _has("Snowman Form")), _has("Garlic")),
+           _has("Flute"),_has("High Jump Boots"), _has("Bouncy Form"), 
+           _has("Puffy Form"), has_vampire_2),                                       # red
+        _c(_o(_c(_o(has_overalls_2, _has("Zombie Form"), _has("Snowman Form")), _has("Garlic")),
+           _has("Flute"),_has("High Jump Boots"), _has("Bouncy Form"), 
+           _has("Puffy Form"), has_vampire_2), 
+           _o(_has("Fat Form"), _has("Snowman Form"), 
+              has_overalls_1, _has("Zombie Form"))),                                 # green
         None,                                                                        # blue
     ],
     "The Vast Plain": [
@@ -590,12 +600,16 @@ CHEST_RULES_KNOWLEDGE: dict = {
         None,                                                                        # grey
         None,                                                                        # red
         None,                                                                        # green
-        _o(_c(has_grab_1,has_overalls_2),_c(has_overalls_2,_has("High Jump Boots"))),# blue
+        _c(has_overalls_1, 
+           _o(_has("High Jump Boots"), has_grab_1, _has("Bouncy Form"), 
+              _has("Puffy Form"), has_vampire_2),
+           _o(has_overalls_2, _has("Fat Form"), _has("Zombie Form"))),                # blue
     ],
     "The Grasslands": [
         None,                                                                        # grey
         _c(_o(_has("Magic Seeds"), has_vampire_2), 
-           _o(has_overalls_1, _has("Zombie Form"))),                                 # red
+           _o(has_overalls_1, _has("Zombie Form"), 
+              _has("Snowman Form"), _has("Fat Form"))),                              # red
         _c(_o(_has("Flute"), _has("High Jump Boots"), 
               _has("Puffy Form"), has_vampire_2), has_flippers_1),                   # green
         None,                                                                        # blue
@@ -615,6 +629,13 @@ CHEST_RULES_KNOWLEDGE: dict = {
 }
 
 CHEST_RULES_HARD: dict = {
+    "Out of the Woods": [
+        None,                                                                        # grey
+        None,                                                                        # red
+        _o(_c(_has("Pouch"), _has("Eye of the Storm")), 
+           has_vampire_2, _has("Puffy Form")),                                       # green
+        None,                                                                        # blue
+    ],
     "Beneath the Waves": [
         None,                                                                        # grey
         has_flippers_1,                                                              # red
@@ -635,7 +656,8 @@ CHEST_RULES_GLITCHED: dict = {
     "The Peaceful Village": [
         None,                                                                        # grey
         NoRule,                                                                      # red
-        has_overalls_1,                                                              # green
+        _o(has_overalls_1, _has("Zombie Form"), 
+           _has("Fat Form"), _has("Snowman Form")),                                  # green
         None,                                                                        # blue
     ],
     "The Tidal Coast": [
@@ -647,22 +669,48 @@ CHEST_RULES_GLITCHED: dict = {
     "The Grasslands": [
         None,                                                                        # grey
         None,                                                                        # red
-        None,                                                                      # green
-        NoRule,                                                                        # blue
-    ]
+        None,                                                                        # green
+        NoRule,                                                                      # blue
+    ],
+    "A Town in Chaos": [
+        None,                                                                        # grey
+        None,                                                                        # red
+        _c(_o(has_grab_2, _has("Fire Form"), _has("Zombie Form"), _has("Ice Skatin' Form"),
+              has_vampire_1), _o(has_overalls_2, _has("Spiked Helmet"), 
+                          _has("Snowman Form"), _has("Fat Form"),
+                          _has("Bouncy Form"), _has("Puffy Form")),
+           _has("High Jump Boots")),                                                 # green
+        None,                                                                        # blue
+    ],
+    "Castle of Illusion": [
+        NoRule,                                                                      # grey
+        None,                                                                        # red
+        None,                                                                        # green
+        None,                                                                        # blue
+    ],
+    "The East Crater": [
+        None,                                                                        # grey
+        _c(_o(_has("Fire Drencher"), _has("Zombie Form"), _has("Fire Form"), has_vampire_1),
+           _o(_c(has_grab_1, has_overalls_1), _has("Fire Form"))),                   # red
+        None,                                                                        # green
+        None,                                                                        # blue
+    ],
 }
 
 KEY_RULES_KNOWLEDGE: dict = {
     "Out of the Woods": [
         None,                                                                        # grey
-        _o(has_overalls_1, _has("Garlic")),                                          # red
+        _o(has_overalls_1, _has("Fat Form"), _has("Snowman Form"), _has("Garlic")),  # red
         None,                                                                        # green
         None,                                                                        # blue
     ],
     "The Peaceful Village": [
         None,                                                                        # grey
         NoRule,                                                                      # red
-        _o(_c(has_overalls_2, _has("Garlic")),_has("Flute"),_has("High Jump Boots")),# green
+        _o(_c(_o(has_overalls_2, _has("Fat Form"), _has("Snowman Form"), _has("Zombie Form")), 
+              _has("Garlic")),
+           _has("Flute"), _has("High Jump Boots"), _has("Bouncy Form"), 
+           _has("Puffy Form"), has_vampire_2),                                       # green
         None,                                                                        # blue
     ],
     "The Vast Plain": [
@@ -675,36 +723,49 @@ KEY_RULES_KNOWLEDGE: dict = {
     "Desert Ruins": [
         None,                                                                        # grey
         None,                                                                        # red
-        _o(_c(_has("Spiked Helmet"), has_overalls_1),_has("Garlic")),                # green
+        _o(_c(_has("Spiked Helmet"), _o(has_overalls_1, _has("Fat Form"), 
+                                     _has("Snowman Form"))), _has("Garlic")),        # green
         None,                                                                        # blue
+    ],
+    "The Big Bridge": [
+        None,                                                                        # grey
+        None,                                                                        # red
+        None,                                                                        # green
+        _c(_o(has_flippers_1, has_grab_1), 
+           _o(_has("Garlic"), _has("Puffy Form"), has_vampire_2)),                   # blue
     ],
         "Beneath the Waves": [
         None,                                                                        # grey
-        has_flippers_2,                                                              # red
+        _o(has_flippers_2, _has("Fat Form"), _has("Flat Form")),                     # red
         None,                                                                        # green
         None,                                                                        # blue
     ],
     "The Grasslands": [
         None,                                                                        # grey
         None,                                                                        # red
-        _o(_has("Flute"), _has("High Jump Boots")),                                  # green
+        _o(_has("Flute"), _has("High Jump Boots"), 
+           _has("Puffy Form"), has_vampire_2),                                       # green
         None,                                                                        # blue
     ],
         "The Big Bridge": [
         None,                                                                        # grey
         None,                                                                        # red
-        _c(has_flippers_1, _o(_c(has_overalls_1, has_grab_1), has_overalls_2)),      # green
+        _c(has_flippers_1, _o(_c(_o(has_overalls_1, _has("Zombie Form")), has_grab_1), 
+                              _o(has_overalls_2, _has("Fat Form"), 
+                                 _has("Snowman Form")))),                            # green
         None,                                                                        # blue
     ],
     "Castle of Illusions": [
         None,                                                                        # grey
         _o(_c(_o(_c(has_grab_1, _has("Sun Medallion Top"), _has("Sun Medallion Bottom")),
               has_grab_2), _o(has_overalls_2, _has("High Jump Boots"))),
-           _has("Puffy Form"), has_vampire_2, _has("Bouncy Form")),           # red
+           _has("Puffy Form"), has_vampire_2, _has("Bouncy Form")),                  # red
         None,                                                                        # green
-        None,                                                                        # blue
+        _c(_o(_has("Castle Brick"), has_vampire_2), 
+           _o(has_overalls_1, _has("Fat Form"), _has("Snowman Form")), 
+           _o(has_grab_1, has_vampire_2, _has("Puffy Form"))),                       # blue
     ],
-    "The East Crater":[
+    "The East Crater": [
         None,                                                                        # grey
         None,                                                                        # red
         None,                                                                        # green
@@ -717,7 +778,9 @@ KEY_RULES_HARD: dict = {
     "A Town in Chaos": [
         None,                                                                        # grey
         None,                                                                        # red
-        _c(has_grab_2, has_overalls_2),                                              # green
+        _c(_o(has_grab_2, _has("Fire Form"), _has("Zombie Form"), _has("Ice Skatin' Form"),
+              has_vampire_1), _o(has_overalls_2, _has("Snowman Form"), _has("Fat Form"),
+                                 _has("Bouncy Form"), _has("Puffy Form"))),          # green
         None,                                                                        # blue
     ],
     "Above the Clouds": [
@@ -760,6 +823,16 @@ KEY_RULES_GLITCHED: dict = {
         None,                                                                        # green
         NoRule,                                                                      # blue
     ],
+    "A Town in Chaos": [
+        None,                                                                        # grey
+        None,                                                                        # red
+        _c(_o(has_grab_2, _has("Fire Form"), _has("Zombie Form"), _has("Ice Skatin' Form"),
+              has_vampire_1), _o(has_overalls_2, _has("Spiked Helmet"), 
+                          _has("Snowman Form"), _has("Fat Form"),
+                          _has("Bouncy Form"), _has("Puffy Form")),
+           _has("High Jump Boots")),                                                 # green
+        None,                                                                        # blue
+    ],
     "Cave of Flames": [
         None,                                                                        # grey
         NoRule,                                                                      # red
@@ -768,10 +841,19 @@ KEY_RULES_GLITCHED: dict = {
     ],
     "Castle of Illusions": [
         None,                                                                        # grey
-        _o(has_overalls_2, _has("High Jump Boots")),                                 # red
+        _o(has_overalls_2, _has("High Jump Boots"),
+           _has("Bouncy Form"), _has("Puffy Form"), has_vampire_2),                  # red
         None,                                                                        # green
         None,                                                                        # blue
-    ]
+    ],
+    "The East Crater": [
+        None,                                                                        # grey
+        _c(_o(_has("Fire Drencher"), _has("Fire Form"), _has("Zombie Form"), has_vampire_1),
+           _o(_c(has_grab_1, _o(has_overalls_1, _has("Snowman Form"), _has("Fat Form"))),
+              _has("Zombie Form"))),                                                 # red
+        None,                                                                        # green
+        None,                                                                        # blue
+    ],
 }
 
 
