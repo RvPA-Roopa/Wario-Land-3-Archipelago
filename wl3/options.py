@@ -176,6 +176,20 @@ class KeyShuffle(Choice):
     default = 0
 
 
+class KeyringCount(Range):
+    """Number of levels whose 4 keys are replaced by a single Keyring item.
+    0 = off (each key is its own item).
+    1-24 = that many randomly-chosen levels get a Keyring (the other levels keep individual keys).
+    25 = every level gets a Keyring (no individual key items in the pool).
+    When above 0, Key Shuffle is forced to Full so that the remaining individual
+    keys are still shuffled.
+    """
+    display_name = "Keyring Count"
+    range_start = 0
+    range_end   = 25
+    default     = 0
+
+
 # ---------------------------------------------------------------------------
 # Quality of Life
 # ---------------------------------------------------------------------------
@@ -232,6 +246,7 @@ class WL3Options(PerGameCommonOptions):
     random_level_starts:          RandomLevelStarts
     combined_items:               CombinedItems
     key_shuffle:                  KeyShuffle
+    keyring_count:                KeyringCount
     transformation_shuffle:       TransformationShuffle
     music_boxes_required:         MusicBoxesRequired
     music_box_shuffle:            MusicBoxShuffle

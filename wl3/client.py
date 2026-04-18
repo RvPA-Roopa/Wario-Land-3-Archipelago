@@ -137,6 +137,7 @@ PROGRESSIVE_VAMPIRE_AP_ID = BASE_ITEM_ID + 500 + 1
 
 KEY_BASE_LOC_ID  = 7_770_400        # AP location ID = KEY_BASE_LOC_ID + (owlevel-1)*4 + color
 KEY_BASE_ITEM_ID = BASE_ITEM_ID + 300  # 7_770_300
+KEYRING_BASE_ITEM_ID = BASE_ITEM_ID + 700  # 7_770_700 (one per level, owlevel-1 offset)
 
 
 LEVEL_NAMES: dict[int, str] = {
@@ -506,6 +507,11 @@ class WL3Client(BizHawkClient):
             color_name = ("Grey", "Red", "Green", "Blue")[color]
             logger.debug(f"[WL3] Key item AP {ap_id} → L{owlevel_minus1+1} {color_name} key")
             await self._set_key_bit(ctx, owlevel_minus1, color)
+        elif KEYRING_BASE_ITEM_ID <= ap_id < KEYRING_BASE_ITEM_ID + 25:
+            owlevel_minus1 = ap_id - KEYRING_BASE_ITEM_ID
+            logger.debug(f"[WL3] Keyring AP {ap_id} → L{owlevel_minus1+1} (all 4 keys)")
+            for color in range(4):
+                await self._set_key_bit(ctx, owlevel_minus1, color)
             # Signal ROM to show key portrait on clear screen if a chest is active
             try:
                 cur_end = (await read(ctx.bizhawk_ctx, [(ADDR_END_SCREEN, 1, "System Bus")]))[0][0]
@@ -617,6 +623,9 @@ class WL3Client(BizHawkClient):
                 level = (key_index >> 2) + 1  # 1-25
                 color = key_index & 3
                 level_keys.setdefault(level, set()).add(color)
+            elif KEYRING_BASE_ITEM_ID <= ap_id < KEYRING_BASE_ITEM_ID + 25:
+                level = (ap_id - KEYRING_BASE_ITEM_ID) + 1
+                level_keys.setdefault(level, set()).update({0, 1, 2, 3})
         if not level_keys:
             logger.info("[WL3] No keys held.")
             return
@@ -876,6 +885,8 @@ class WL3Client(BizHawkClient):
             if KEY_BASE_ITEM_ID <= ap_id < KEY_BASE_ITEM_ID + 100:
                 key_index = ap_id - KEY_BASE_ITEM_ID
                 key_inventory[key_index >> 2] |= 1 << (key_index & 3)
+            elif KEYRING_BASE_ITEM_ID <= ap_id < KEYRING_BASE_ITEM_ID + 25:
+                key_inventory[ap_id - KEYRING_BASE_ITEM_ID] |= 0x0F
         try:
             # OR with current WRAM to preserve ROM-written bits
             cur = (await read(ctx.bizhawk_ctx, [

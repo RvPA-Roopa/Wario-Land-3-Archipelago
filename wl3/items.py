@@ -460,3 +460,35 @@ def _build_key_item_table() -> Dict[str, WL3KeyItemData]:
 
 
 KEY_ITEM_TABLE: Dict[str, WL3KeyItemData] = _build_key_item_table()
+
+
+# ---------------------------------------------------------------------------
+# Keyring items — one per level. Each keyring, when received, grants all 4
+# keys for that level. Activated by the KeyringCount option.
+# AP IDs: BASE_ITEM_ID + 700 + (owlevel - 1)
+# ---------------------------------------------------------------------------
+
+KEYRING_BASE_ITEM_ID = BASE_ITEM_ID + 700  # 7_770_700
+
+
+class WL3KeyringItemData(NamedTuple):
+    ap_id: int
+    owlevel: int
+    level_name: str
+
+
+def _build_keyring_item_table() -> Dict[str, "WL3KeyringItemData"]:
+    from .locations import LEVEL_LIST
+    table: Dict[str, WL3KeyringItemData] = {}
+    for owlevel, level_name, _region in LEVEL_LIST:
+        name = f"{level_name} Keyring"
+        ap_id = KEYRING_BASE_ITEM_ID + (owlevel - 1)
+        table[name] = WL3KeyringItemData(
+            ap_id=ap_id,
+            owlevel=owlevel,
+            level_name=level_name,
+        )
+    return table
+
+
+KEYRING_ITEM_TABLE: Dict[str, WL3KeyringItemData] = _build_keyring_item_table()

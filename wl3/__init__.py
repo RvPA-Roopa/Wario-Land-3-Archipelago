@@ -28,6 +28,8 @@ from .items import (
     ITEM_TABLE,
     KEY_BASE_ITEM_ID,
     KEY_ITEM_TABLE,
+    KEYRING_BASE_ITEM_ID,
+    KEYRING_ITEM_TABLE,
     PROGRESSIVE_COUNTS,
     PROGRESSIVE_ITEMS,
     TRAP_AP_IDS_SET,
@@ -208,6 +210,7 @@ class WL3World(World):
     item_name_to_id      = {
         **{name: data.ap_id for name, data in ITEM_TABLE.items()},
         **{name: data.ap_id for name, data in KEY_ITEM_TABLE.items()},
+        **{name: data.ap_id for name, data in KEYRING_ITEM_TABLE.items()},
     }
     location_name_to_id  = {
         **{name: data.ap_id for name, data in LOCATION_TABLE.items()},
@@ -229,8 +232,24 @@ class WL3World(World):
         if name in KEY_ITEM_TABLE:
             data = KEY_ITEM_TABLE[name]
             return WL3Item(name, ItemClassification.progression, data.ap_id, self.player)
+        if name in KEYRING_ITEM_TABLE:
+            data = KEYRING_ITEM_TABLE[name]
+            return WL3Item(name, ItemClassification.progression, data.ap_id, self.player)
         data = ITEM_TABLE[name]
         return WL3Item(name, data.classification, data.ap_id, self.player)
+
+    def generate_early(self) -> None:
+        # Pick which levels get Keyring treatment. If keyring_count > 0, force
+        # key_shuffle to Full so the non-keyringed levels' keys are still in
+        # the pool and shuffled.
+        count = int(self.options.keyring_count)
+        self.keyringed_level_names: set = set()
+        if count > 0:
+            if self.options.key_shuffle == KeyShuffle.option_vanilla:
+                self.options.key_shuffle.value = KeyShuffle.option_full
+            level_names = [data.level_name for data in KEYRING_ITEM_TABLE.values()]
+            n = min(count, len(level_names))
+            self.keyringed_level_names = set(self.random.sample(level_names, n))
 
     def create_items(self) -> None:
         items: List[WL3Item] = []
@@ -333,11 +352,18 @@ class WL3World(World):
                     items[idx] = self.create_item(trap_name)
 
         # Key shuffle: add all 100 key items to the pool
-        # Simple: keys are local + restricted to key locations via item_rules
         # Full: pool is 200 with free placement across all locations
+        # Keyring levels: skip 4 individual keys, add 1 Keyring + 3 filler instead.
         if self.options.key_shuffle != KeyShuffle.option_vanilla:
-            for name in KEY_ITEM_TABLE:
+            for name, data in KEY_ITEM_TABLE.items():
+                if data.level_name in self.keyringed_level_names:
+                    continue
                 items.append(self.create_item(name))
+            for level_name in self.keyringed_level_names:
+                items.append(self.create_item(f"{level_name} Keyring"))
+                # 3 filler items to preserve pool size (keyring replaces 4 keys)
+                for _ in range(3):
+                    items.append(self.create_item("Clubs Crest (1 Coin)"))
 
         self.multiworld.itempool += items
 
@@ -503,6 +529,9 @@ class WL3World(World):
                 # whose tile graphics are patched with a key portrait by write_tokens.
                 if item.name in KEY_ITEM_TABLE:
                     chest_table[loc_data.loc_index] = 0x65  # TREASURE_DUMMY → key icon
+                # Keyring items: show the 4-keys "keyring" icon (TREASURE_KEYRING $66).
+                elif item.name in KEYRING_ITEM_TABLE:
+                    chest_table[loc_data.loc_index] = 0x66  # TREASURE_KEYRING
                 continue
 
             # Trap items: show as red gem. tier_ids[0] is a TRAP_* constant,
@@ -572,6 +601,9 @@ class WL3World(World):
             if item.name in KEY_ITEM_TABLE:
                 key_item_data = KEY_ITEM_TABLE[item.name]
                 key_table[idx] = 0x80 + (key_item_data.owlevel - 1) * 4 + key_item_data.color_index
+            elif item.name in KEYRING_ITEM_TABLE:
+                # Keyring at a key location → show 4-keys portrait (TREASURE_KEYRING $66)
+                key_table[idx] = 0x66
             else:
                 # Own treasure at key location — ROM will safely skip inventory update
                 item_data = ITEM_TABLE.get(item.name)
