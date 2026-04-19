@@ -604,10 +604,22 @@ class WL3World(World):
             elif item.name in KEYRING_ITEM_TABLE:
                 # Keyring at a key location → show 4-keys portrait (TREASURE_KEYRING $66)
                 key_table[idx] = 0x66
+            elif item.name in TRANSFORM_UNLOCK_ITEMS:
+                # Form at a key location → use the sacrificed treasure's icon.
+                # tier_ids are (byte_idx, bit_idx), NOT a treasure ID, so we
+                # must never write tier_ids[0] for Forms.
+                key_table[idx] = FORM_DISPLAY_TREASURE[item.name]
             else:
-                # Own treasure at key location — ROM will safely skip inventory update
                 item_data = ITEM_TABLE.get(item.name)
-                key_table[idx] = item_data.tier_ids[0] if item_data else 0x4F
+                if item_data is None:
+                    key_table[idx] = 0x4F
+                elif item_data.ap_id in TRAP_AP_IDS_SET:
+                    # Trap at a key location → red gem (tier_ids[0] is a TRAP_*
+                    # constant, not a treasure ID).
+                    key_table[idx] = 0x4E
+                else:
+                    # Own treasure at key location — ROM safely skips inventory update
+                    key_table[idx] = item_data.tier_ids[0]
 
         return key_table
 

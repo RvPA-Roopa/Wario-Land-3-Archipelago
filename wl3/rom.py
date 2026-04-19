@@ -21,11 +21,38 @@ KEYSANITY_MODE_OFFSET            = 0x001AE8   # KeysanityMode (1 byte: 0=vanilla
 KEY_TABLE_OFFSET                 = 0x001AE9   # LevelKeyPool (100 bytes; ITEM_KEY_BASE + index = vanilla)
 CHEST_KEY_PAL_OFFSET             = 0x001B4D   # ChestKeyPalettes (100 bytes; $FF=not key, 4-7=palette)
 TREASURE_DUMMY_TILE_OFFSET       = 0x099940   # TreasureGfx[$65] — 64 bytes (4 tiles, 2bpp)
+TREASURE_ZOMBIE_TILE_OFFSET      = 0x0999c0   # TreasureZombieFormGfx — 64 bytes (4 tiles, 2bpp)
+# Vanilla RLE-compressed zombie enemy tileset (gfx/enemies/zombie.2bpp.rle).
+# Decompresses to 1024 bytes (64 tiles). The treasure icon is 4 tiles starting
+# at decompressed offset 384 (tiles 24-27 = zombie head in 8x16 sprite layout).
+VANILLA_ZOMBIE_RLE_OFFSET        = 0x1a8a8a
+VANILLA_ZOMBIE_RLE_LENGTH        = 824
+VANILLA_ZOMBIE_ICON_TILE_OFFSET  = 384        # byte offset within decompressed data
 TREASURE_DUMMY_PAL_OFFSET        = 0x09AD1F   # TreasureOBPals[$65] — 1 byte (palette index)
 TREASURE_GFX_BASE                = 0x098000   # TreasureGfx[0] — each entry 64 bytes
 TREASURE_PAL_BASE                = 0x09ACBA   # TreasureOBPals[0] — each entry 1 byte
 KEY_COLOR_PALS = [0x08, 0x05, 0x06, 0x07]    # OBPAL: grey, red, green, blue
 OBPAL_TREASURE_PURPLE = 0x09                  # Combined unlock items
+
+def _wl3_rle_decompress(src: bytes) -> bytes:
+    """WL3 run-length encoding. Command byte: high bit set = copy N literal
+    bytes; clear = repeat next byte N times. Terminates on end of input."""
+    out = bytearray()
+    pos = 0
+    while pos < len(src):
+        cmd = src[pos]
+        pos += 1
+        if pos >= len(src):
+            break
+        length = cmd & 0x7F
+        if cmd & 0x80:
+            out.extend(src[pos:pos + length])
+            pos += length
+        else:
+            out.extend([src[pos]] * length)
+            pos += 1
+    return bytes(out)
+
 
 def _build_key_portrait() -> bytes:
     """Generate 16x16 key icon portrait (4 tiles, 2bpp) programmatically.
@@ -303,6 +330,27 @@ def _shift_one_palette_color(chunk: bytes, rand) -> bytes:
 
 def write_tokens(world: "WL3World", patch: WL3ProcedurePatch) -> None:
     """Write the randomized chest table, key pool, and options into the patch."""
+    # Lazy loader for the user's vanilla ROM (shared across all features that
+    # read original game bytes). Keeps vanilla data out of the apworld zip.
+    _vanilla_rom_cache = [None]
+    def _read_vanilla(offset: int, length: int) -> bytes:
+        if _vanilla_rom_cache[0] is None:
+            from settings import get_settings
+            opts = get_settings().wl3_options
+            rom_path = opts["rom_file"] if isinstance(opts, dict) else opts.rom_file
+            with open(rom_path, "rb") as f:
+                _vanilla_rom_cache[0] = f.read()
+        return _vanilla_rom_cache[0][offset:offset + length]
+
+    # Extract the Zombie Form treasure icon from the user's vanilla ROM.
+    # The icon is 4 tiles (64 bytes) copied from the enemy zombie head sprite —
+    # read, decompress, and slice out tiles 24-27 of the decompressed tileset.
+    zombie_rle = _read_vanilla(VANILLA_ZOMBIE_RLE_OFFSET, VANILLA_ZOMBIE_RLE_LENGTH)
+    zombie_tiles = _wl3_rle_decompress(zombie_rle)[
+        VANILLA_ZOMBIE_ICON_TILE_OFFSET : VANILLA_ZOMBIE_ICON_TILE_OFFSET + 64
+    ]
+    patch.write_token(APTokenTypes.WRITE, TREASURE_ZOMBIE_TILE_OFFSET, zombie_tiles)
+
     chest_assignments = list(world._build_chest_assignments())
 
     key_assignments = world._build_key_assignments()
@@ -417,17 +465,8 @@ def write_tokens(world: "WL3World", patch: WL3ProcedurePatch) -> None:
     # --- palette shuffle ---
     # Vanilla palette bytes are NOT stored in the apworld. Offsets are inlined
     # in palette_offsets.py; actual bytes are read from the user's own vanilla
-    # ROM here at generation time.
+    # ROM here at generation time (via _read_vanilla defined at top of this fn).
     from .palette_offsets import ENEMY_PALETTES, LEVEL_BG_PALETTES
-    _vanilla_rom_cache = [None]
-    def _read_vanilla(offset: int, length: int) -> bytes:
-        if _vanilla_rom_cache[0] is None:
-            from settings import get_settings
-            opts = get_settings().wl3_options
-            rom_path = opts["rom_file"] if isinstance(opts, dict) else opts.rom_file
-            with open(rom_path, "rb") as f:
-                _vanilla_rom_cache[0] = f.read()
-        return _vanilla_rom_cache[0][offset:offset + length]
 
     if world.options.enemy_palette_shuffle:
         for offset, length, _group in ENEMY_PALETTES:

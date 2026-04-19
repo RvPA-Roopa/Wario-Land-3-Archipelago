@@ -373,7 +373,7 @@ FORM_DISPLAY_TREASURE: Dict[str, int] = {
     "Invisible Form":      0x4b,  # Telephone
     "Progressive Vampire": 0x4c,  # Crown
     "Snowman Form":        0x55,  # Earthen Figure
-    "Zombie Form":          0x56,  # Saber
+    "Zombie Form":          0x67,  # generated from user's rom
     "Bouncy Form":         0x57,  # Goblet
     "Yarn Form":           0x58,  # Teapot
     "Ice Skatin' Form":    0x5b,  # Minicar
