@@ -21,13 +21,23 @@ KEYSANITY_MODE_OFFSET            = 0x001AE8   # KeysanityMode (1 byte: 0=vanilla
 KEY_TABLE_OFFSET                 = 0x001AE9   # LevelKeyPool (100 bytes; ITEM_KEY_BASE + index = vanilla)
 CHEST_KEY_PAL_OFFSET             = 0x001B4D   # ChestKeyPalettes (100 bytes; $FF=not key, 4-7=palette)
 TREASURE_DUMMY_TILE_OFFSET       = 0x099940   # TreasureGfx[$65] — 64 bytes (4 tiles, 2bpp)
-TREASURE_ZOMBIE_TILE_OFFSET      = 0x0999c0   # TreasureZombieFormGfx — 64 bytes (4 tiles, 2bpp)
-# Vanilla RLE-compressed zombie enemy tileset (gfx/enemies/zombie.2bpp.rle).
-# Decompresses to 1024 bytes (64 tiles). The treasure icon is 4 tiles starting
-# at decompressed offset 384 (tiles 24-27 = zombie head in 8x16 sprite layout).
-VANILLA_ZOMBIE_RLE_OFFSET        = 0x1a8a8a
-VANILLA_ZOMBIE_RLE_LENGTH        = 824
-VANILLA_ZOMBIE_ICON_TILE_OFFSET  = 384        # byte offset within decompressed data
+TREASURE_ZOMBIE_TILE_OFFSET      = 0x0999c0   # TreasureZombieFormGfx    — 64 bytes (4 tiles, 2bpp)
+TREASURE_FIRE_TILE_OFFSET        = 0x099a00   # TreasureFireFormGfx      — 64 bytes (4 tiles, 2bpp)
+TREASURE_BAT_TILE_OFFSET         = 0x099a40   # TreasureBatFormGfx       — 64 bytes (4 tiles, 2bpp)
+TREASURE_INVISIBLE_TILE_OFFSET   = 0x099a80   # TreasureInvisibleFormGfx — 64 bytes (4 tiles, 2bpp)
+
+# Vanilla Form icon extractions. Each entry:
+#   ("sprite" | "tilemap", offset, length, crop_x, crop_y, dest_offset)
+# "sprite":  RLE-compressed 8x16 sprite-pair sheet (src/gfx/enemies/*.2bpp.rle
+#            and src/gfx/cutscenes/*.2bpp.rle). Width is 16 tiles; height is
+#            inferred from decompressed size.
+# "tilemap": uncompressed row-major 8x8 sheet (src/gfx/levels/main_tiles*.2bpp)
+FORM_ICON_EXTRACTIONS = (
+    ("sprite",  0x1a8a8a, 824,   96, 0, TREASURE_ZOMBIE_TILE_OFFSET),
+    ("sprite",  0x1aa5ac, 947,   95, 0, TREASURE_FIRE_TILE_OFFSET),
+    ("sprite",  0x1a945b, 544,   53, 0, TREASURE_BAT_TILE_OFFSET),
+    ("sprite",  0x0a5ebd, 3175,  88, 0, TREASURE_INVISIBLE_TILE_OFFSET),
+)
 TREASURE_DUMMY_PAL_OFFSET        = 0x09AD1F   # TreasureOBPals[$65] — 1 byte (palette index)
 TREASURE_GFX_BASE                = 0x098000   # TreasureGfx[0] — each entry 64 bytes
 TREASURE_PAL_BASE                = 0x09ACBA   # TreasureOBPals[0] — each entry 1 byte
@@ -52,6 +62,71 @@ def _wl3_rle_decompress(src: bytes) -> bytes:
             out.extend([src[pos]] * length)
             pos += 1
     return bytes(out)
+
+
+def _decode_2bpp_tile(tile16: bytes):
+    """Decode a 16-byte 2bpp tile into an 8x8 grid of palette indices (0-3)."""
+    grid = [[0] * 8 for _ in range(8)]
+    for y in range(8):
+        lo, hi = tile16[y * 2], tile16[y * 2 + 1]
+        for x in range(8):
+            bit = 7 - x
+            grid[y][x] = ((lo >> bit) & 1) | (((hi >> bit) & 1) << 1)
+    return grid
+
+
+def _decode_sprite_sheet(sheet_2bpp: bytes, width_tiles: int = 16):
+    """Decode an rgbgfx --interleave sheet (8x16 sprite-pair tile order).
+    Sprite (col, row) occupies tiles 2*(col+width*row) (top, y=0..7) and
+    2*(col+width*row)+1 (bottom, y=8..15). Height is inferred from sheet size.
+    Returns a pixel grid of shape (sprite_rows*16) x (width_tiles*8)."""
+    num_tiles = len(sheet_2bpp) // 16
+    sprite_rows = num_tiles // (width_tiles * 2)
+    pixels = [[0] * (width_tiles * 8) for _ in range(sprite_rows * 16)]
+    for row in range(sprite_rows):
+        for col in range(width_tiles):
+            base = 2 * (col + width_tiles * row)
+            top = _decode_2bpp_tile(sheet_2bpp[base * 16:(base + 1) * 16])
+            bot = _decode_2bpp_tile(sheet_2bpp[(base + 1) * 16:(base + 2) * 16])
+            for yy in range(8):
+                for xx in range(8):
+                    pixels[row * 16 + yy][col * 8 + xx] = top[yy][xx]
+                    pixels[row * 16 + 8 + yy][col * 8 + xx] = bot[yy][xx]
+    return pixels
+
+
+def _decode_tilemap(sheet_2bpp: bytes, width_tiles: int):
+    """Decode a plain row-major 8x8 tile sheet (no --interleave). Returns a
+    pixel grid sized (height * 8) x (width_tiles * 8), where height is derived
+    from sheet size."""
+    num_tiles = len(sheet_2bpp) // 16
+    height_tiles = num_tiles // width_tiles
+    pixels = [[0] * (width_tiles * 8) for _ in range(height_tiles * 8)]
+    for ti in range(num_tiles):
+        row, col = divmod(ti, width_tiles)
+        tile = _decode_2bpp_tile(sheet_2bpp[ti * 16:(ti + 1) * 16])
+        for yy in range(8):
+            for xx in range(8):
+                pixels[row * 8 + yy][col * 8 + xx] = tile[yy][xx]
+    return pixels
+
+
+def _encode_icon_from_pixels(pixels, crop_x: int, crop_y: int) -> bytes:
+    """Crop a 16x16 region from a pixel grid and encode as 4 tiles of 2bpp
+    in rgbgfx --interleave order (TL, BL, TR, BR). Returns 64 bytes."""
+    def encode_tile(ty: int, tx: int) -> bytes:
+        out = bytearray()
+        for y in range(8):
+            lo = hi = 0
+            for x in range(8):
+                v = pixels[crop_y + ty * 8 + y][crop_x + tx * 8 + x]
+                bit = 7 - x
+                lo |= (v & 1) << bit
+                hi |= ((v >> 1) & 1) << bit
+            out += bytes([lo, hi])
+        return bytes(out)
+
+    return encode_tile(0, 0) + encode_tile(1, 0) + encode_tile(0, 1) + encode_tile(1, 1)
 
 
 def _build_key_portrait() -> bytes:
@@ -342,14 +417,17 @@ def write_tokens(world: "WL3World", patch: WL3ProcedurePatch) -> None:
                 _vanilla_rom_cache[0] = f.read()
         return _vanilla_rom_cache[0][offset:offset + length]
 
-    # Extract the Zombie Form treasure icon from the user's vanilla ROM.
-    # The icon is 4 tiles (64 bytes) copied from the enemy zombie head sprite —
-    # read, decompress, and slice out tiles 24-27 of the decompressed tileset.
-    zombie_rle = _read_vanilla(VANILLA_ZOMBIE_RLE_OFFSET, VANILLA_ZOMBIE_RLE_LENGTH)
-    zombie_tiles = _wl3_rle_decompress(zombie_rle)[
-        VANILLA_ZOMBIE_ICON_TILE_OFFSET : VANILLA_ZOMBIE_ICON_TILE_OFFSET + 64
-    ]
-    patch.write_token(APTokenTypes.WRITE, TREASURE_ZOMBIE_TILE_OFFSET, zombie_tiles)
+    # Extract Form treasure icons from the user's vanilla ROM. Each icon is a
+    # 16x16 pixel-crop, re-encoded as 4 tiles of 2bpp. No vanilla GFX ships in
+    # the apworld — source bytes come from the user's own ROM.
+    for kind, src_offset, src_length, crop_x, crop_y, dest_offset in FORM_ICON_EXTRACTIONS:
+        raw = _read_vanilla(src_offset, src_length)
+        if kind == "sprite":
+            pixels = _decode_sprite_sheet(_wl3_rle_decompress(raw), width_tiles=16)
+        else:  # "tilemap"
+            pixels = _decode_tilemap(raw, width_tiles=16)
+        patch.write_token(APTokenTypes.WRITE, dest_offset,
+                          _encode_icon_from_pixels(pixels, crop_x, crop_y))
 
     chest_assignments = list(world._build_chest_assignments())
 
