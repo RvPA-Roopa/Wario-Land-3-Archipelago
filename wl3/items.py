@@ -367,13 +367,14 @@ TRANSFORM_SACRIFICED_TREASURES: Set[str] = {
 # Progressive Vampire has 2 copies: both display as Crown (the sacrificed
 # treasure for Vampire); UFO is sacrificed for the 2nd copy's pool slot.
 FORM_DISPLAY_TREASURE: Dict[str, int] = {
-    "Fire Form":           0x37,  # Rocket
+    "Fire Form":           0x68,  # generated from user's rom
     "Fat Form":            0x38,  # Pocket Pet
     "Flat Form":           0x3c,  # Fighter Mannequin
-    "Invisible Form":      0x4b,  # Telephone
-    "Progressive Vampire": 0x4c,  # Crown
+    "Invisible Form":      0x6a,  # generated from user's rom
+    "Progressive Vampire": 0x69,  # generated from user's rom (bat)
     "Snowman Form":        0x55,  # Earthen Figure
     "Zombie Form":          0x67,  # generated from user's rom
+    "Bat Form":            0x69,  # generated from user's rom
     "Bouncy Form":         0x57,  # Goblet
     "Yarn Form":           0x58,  # Teapot
     "Ice Skatin' Form":    0x5b,  # Minicar
