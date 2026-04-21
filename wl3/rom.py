@@ -25,18 +25,46 @@ TREASURE_ZOMBIE_TILE_OFFSET      = 0x0999c0   # TreasureZombieFormGfx    — 64 
 TREASURE_FIRE_TILE_OFFSET        = 0x099a00   # TreasureFireFormGfx      — 64 bytes (4 tiles, 2bpp)
 TREASURE_BAT_TILE_OFFSET         = 0x099a40   # TreasureBatFormGfx       — 64 bytes (4 tiles, 2bpp)
 TREASURE_INVISIBLE_TILE_OFFSET   = 0x099a80   # TreasureInvisibleFormGfx — 64 bytes (4 tiles, 2bpp)
+TREASURE_FAT_TILE_OFFSET         = 0x099ac0   # TreasureFatFormGfx       — 64 bytes (4 tiles, 2bpp)
+TREASURE_SNOWMAN_TILE_OFFSET     = 0x099b00   # TreasureSnowmanFormGfx   — 64 bytes (4 tiles, 2bpp)
+TREASURE_BOUNCY_TILE_OFFSET      = 0x099b40   # TreasureBouncyFormGfx    — 64 bytes (4 tiles, 2bpp)
+TREASURE_YARN_TILE_OFFSET        = 0x099b80   # TreasureYarnFormGfx      — 64 bytes (4 tiles, 2bpp)
+TREASURE_ICE_SKATIN_TILE_OFFSET  = 0x099bc0   # TreasureIceSkatinFormGfx — 64 bytes (4 tiles, 2bpp)
+TREASURE_FLAT_TILE_OFFSET        = 0x099c00   # TreasureFlatFormGfx      — 64 bytes (4 tiles, 2bpp)
+TREASURE_PUFFY_TILE_OFFSET       = 0x099c40   # TreasurePuffyFormGfx     — 64 bytes (4 tiles, 2bpp)
 
 # Vanilla Form icon extractions. Each entry:
-#   ("sprite" | "tilemap", offset, length, crop_x, crop_y, dest_offset)
-# "sprite":  RLE-compressed 8x16 sprite-pair sheet (src/gfx/enemies/*.2bpp.rle
-#            and src/gfx/cutscenes/*.2bpp.rle). Width is 16 tiles; height is
-#            inferred from decompressed size.
-# "tilemap": uncompressed row-major 8x8 sheet (src/gfx/levels/main_tiles*.2bpp)
+#   (kind, offset, length, crop_x, crop_y, dest_offset)
+# kind values:
+#   "sprite":     RLE-compressed 8x16 sprite-pair sheet
+#                 (src/gfx/enemies/*.2bpp.rle, src/gfx/cutscenes/*.2bpp.rle)
+#   "sprite_raw": uncompressed 8x16 sprite-pair sheet
+#                 (src/gfx/wario/*.2bpp — built with rgbgfx --interleave)
+#   "tilemap":   uncompressed row-major 8x8 sheet
+#                 (src/gfx/levels/main_tiles*.2bpp)
+# Width is always 16 tiles; height is inferred from sheet size.
 FORM_ICON_EXTRACTIONS = (
-    ("sprite",  0x1a8a8a, 824,   96, 0, TREASURE_ZOMBIE_TILE_OFFSET),
-    ("sprite",  0x1aa5ac, 947,   95, 0, TREASURE_FIRE_TILE_OFFSET),
-    ("sprite",  0x1a945b, 544,   53, 0, TREASURE_BAT_TILE_OFFSET),
-    ("sprite",  0x0a5ebd, 3175,  88, 0, TREASURE_INVISIBLE_TILE_OFFSET),
+    ("sprite",     0x1a8a8a, 824,    96,  0, TREASURE_ZOMBIE_TILE_OFFSET),
+    ("sprite",     0x1a945b, 544,    53,  0, TREASURE_BAT_TILE_OFFSET),
+    ("sprite",     0x0a5ebd, 3175,   88,  0, TREASURE_INVISIBLE_TILE_OFFSET),
+    ("sprite",     0x1a85b3, 854,    72, 16, TREASURE_FAT_TILE_OFFSET),
+    ("sprite_raw", 0x1e8000, 2048,    1, 48, TREASURE_SNOWMAN_TILE_OFFSET),
+    ("sprite",     0x0a5ebd, 3175,  108, 62, TREASURE_BOUNCY_TILE_OFFSET),
+    ("sprite",     0x1a090d, 844,   108,  0, TREASURE_YARN_TILE_OFFSET),
+    ("sprite_raw", 0x025000, 2048,  104,  0, TREASURE_FLAT_TILE_OFFSET),
+    ("sprite_raw", 0x027000, 2048,   97, 33, TREASURE_PUFFY_TILE_OFFSET),
+)
+
+# Form icons built by horizontally mirroring a half-sprite into a full icon.
+# Each entry: (kind, offset, length, crop_x, crop_y, half_w, half_h, dest_offset)
+# Pipeline: decode source, crop a half_w x half_h region at (crop_x, crop_y),
+# stitch it next to its horizontal flip to form a (2*half_w) x half_h full
+# image, center-pad that onto a 16x16 white canvas, encode as 4 tiles.
+FORM_ICON_MIRRORED_EXTRACTIONS = (
+    # Ice Skatin' Form — half-snowflake from brrr_bear (game mirrors it at runtime too).
+    ("sprite", 0x1ad4ea, 887, 122, 2, 6, 12, TREASURE_ICE_SKATIN_TILE_OFFSET),
+    # Fire Form — half-flame from fire_bot, mirrored to form a full flame shape.
+    ("sprite", 0x1ac234, 988,  97, 0, 7, 15, TREASURE_FIRE_TILE_OFFSET),
 )
 TREASURE_DUMMY_PAL_OFFSET        = 0x09AD1F   # TreasureOBPals[$65] — 1 byte (palette index)
 TREASURE_GFX_BASE                = 0x098000   # TreasureGfx[0] — each entry 64 bytes
@@ -127,6 +155,29 @@ def _encode_icon_from_pixels(pixels, crop_x: int, crop_y: int) -> bytes:
         return bytes(out)
 
     return encode_tile(0, 0) + encode_tile(1, 0) + encode_tile(0, 1) + encode_tile(1, 1)
+
+
+def _build_mirrored_icon(pixels, crop_x: int, crop_y: int, half_w: int, half_h: int) -> bytes:
+    """Build a 16x16 icon by horizontally mirroring a half-sprite:
+      1. Take a half_w x half_h crop at (crop_x, crop_y) from the source grid.
+      2. Produce its horizontal flip.
+      3. Stitch the two halves into a (2*half_w) x half_h full image.
+      4. Center-pad that onto a 16x16 canvas (palette index 0 = white).
+      5. Encode as 4 tiles.
+    Pal 0 is used for padding because our treasure icons treat it as the
+    background/transparent color."""
+    full_w = 2 * half_w
+    assert full_w <= 16 and half_h <= 16, "mirrored icon must fit in 16x16"
+    canvas = [[0] * 16 for _ in range(16)]
+    offset_x = (16 - full_w) // 2
+    offset_y = (16 - half_h) // 2
+    for y in range(half_h):
+        row = pixels[crop_y + y]
+        for x in range(half_w):
+            v = row[crop_x + x]
+            canvas[offset_y + y][offset_x + x] = v
+            canvas[offset_y + y][offset_x + full_w - 1 - x] = v
+    return _encode_icon_from_pixels(canvas, 0, 0)
 
 
 def _build_key_portrait() -> bytes:
@@ -420,14 +471,24 @@ def write_tokens(world: "WL3World", patch: WL3ProcedurePatch) -> None:
     # Extract Form treasure icons from the user's vanilla ROM. Each icon is a
     # 16x16 pixel-crop, re-encoded as 4 tiles of 2bpp. No vanilla GFX ships in
     # the apworld — source bytes come from the user's own ROM.
-    for kind, src_offset, src_length, crop_x, crop_y, dest_offset in FORM_ICON_EXTRACTIONS:
+    def _read_pixels(kind: str, src_offset: int, src_length: int):
         raw = _read_vanilla(src_offset, src_length)
         if kind == "sprite":
-            pixels = _decode_sprite_sheet(_wl3_rle_decompress(raw), width_tiles=16)
+            return _decode_sprite_sheet(_wl3_rle_decompress(raw), width_tiles=16)
+        elif kind == "sprite_raw":
+            return _decode_sprite_sheet(raw, width_tiles=16)
         else:  # "tilemap"
-            pixels = _decode_tilemap(raw, width_tiles=16)
+            return _decode_tilemap(raw, width_tiles=16)
+
+    for kind, src_offset, src_length, crop_x, crop_y, dest_offset in FORM_ICON_EXTRACTIONS:
+        pixels = _read_pixels(kind, src_offset, src_length)
         patch.write_token(APTokenTypes.WRITE, dest_offset,
                           _encode_icon_from_pixels(pixels, crop_x, crop_y))
+
+    for kind, src_offset, src_length, crop_x, crop_y, half_w, half_h, dest_offset in FORM_ICON_MIRRORED_EXTRACTIONS:
+        pixels = _read_pixels(kind, src_offset, src_length)
+        patch.write_token(APTokenTypes.WRITE, dest_offset,
+                          _build_mirrored_icon(pixels, crop_x, crop_y, half_w, half_h))
 
     chest_assignments = list(world._build_chest_assignments())
 
