@@ -368,17 +368,17 @@ TRANSFORM_SACRIFICED_TREASURES: Set[str] = {
 # treasure for Vampire); UFO is sacrificed for the 2nd copy's pool slot.
 FORM_DISPLAY_TREASURE: Dict[str, int] = {
     "Fire Form":           0x68,  # generated from user's rom
-    "Fat Form":            0x38,  # Pocket Pet
-    "Flat Form":           0x3c,  # Fighter Mannequin
+    "Fat Form":            0x6b,  # generated from user's rom
+    "Flat Form":           0x70,  # generated from user's rom
     "Invisible Form":      0x6a,  # generated from user's rom
     "Progressive Vampire": 0x69,  # generated from user's rom (bat)
-    "Snowman Form":        0x55,  # Earthen Figure
+    "Snowman Form":        0x6c,  # generated from user's rom
     "Zombie Form":          0x67,  # generated from user's rom
     "Bat Form":            0x69,  # generated from user's rom
-    "Bouncy Form":         0x57,  # Goblet
-    "Yarn Form":           0x58,  # Teapot
-    "Ice Skatin' Form":    0x5b,  # Minicar
-    "Puffy Form":          0x5c,  # Locomotive
+    "Bouncy Form":         0x6d,  # generated from user's rom
+    "Yarn Form":           0x6e,  # generated from user's rom
+    "Ice Skatin' Form":    0x6f,  # generated from user's rom
+    "Puffy Form":          0x71,  # generated from user's rom
 }
 
 TREASURE_TABLE: Dict[str, WL3ItemData] = {
