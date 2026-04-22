@@ -20,6 +20,7 @@ CHEST_TABLE_OFFSET               = 0x001A84   # LevelTreasureIDs_WithoutTemple (
 KEYSANITY_MODE_OFFSET            = 0x001AE8   # KeysanityMode (1 byte: 0=vanilla, 1=simple, 2=full)
 KEY_TABLE_OFFSET                 = 0x001AE9   # LevelKeyPool (100 bytes; ITEM_KEY_BASE + index = vanilla)
 CHEST_KEY_PAL_OFFSET             = 0x001B4D   # ChestKeyPalettes (100 bytes; $FF=not key, 4-7=palette)
+KEY_PAL_OVERRIDE_OFFSET          = 0x001BB1   # KeyPaletteOverrides (100 bytes; $FF=default, else OBPAL)
 TREASURE_DUMMY_TILE_OFFSET       = 0x099940   # TreasureGfx[$65] — 64 bytes (4 tiles, 2bpp)
 TREASURE_ZOMBIE_TILE_OFFSET      = 0x0999c0   # TreasureZombieFormGfx    — 64 bytes (4 tiles, 2bpp)
 TREASURE_FIRE_TILE_OFFSET        = 0x099a00   # TreasureFireFormGfx      — 64 bytes (4 tiles, 2bpp)
@@ -68,7 +69,7 @@ FORM_ICON_MIRRORED_EXTRACTIONS = (
 )
 TREASURE_DUMMY_PAL_OFFSET        = 0x09AD1F   # TreasureOBPals[$65] — 1 byte (palette index)
 TREASURE_GFX_BASE                = 0x098000   # TreasureGfx[0] — each entry 64 bytes
-TREASURE_PAL_BASE                = 0x09ACBA   # TreasureOBPals[0] — each entry 1 byte
+TREASURE_PAL_BASE                = 0x09AFBA   # TreasureOBPals[0] — each entry 1 byte
 KEY_COLOR_PALS = [0x08, 0x05, 0x06, 0x07]    # OBPAL: grey, red, green, blue
 OBPAL_TREASURE_PURPLE = 0x09                  # Combined unlock items
 
@@ -228,7 +229,7 @@ I_HATE_GOLF_OFFSET               = 0x003A03   # AutoWinGolfOpt byte in Home bank
 NON_STOP_CHESTS_OFFSET           = 0x003A04   # NonStopChestsOpt byte in Home bank
 COMBINED_COMPANION_TABLE_OFFSET  = 0x003A05   # CombinedCompanionTable (101 bytes, home bank)
 TRANSFORMS_REQUIRE_ITEMS_OFFSET  = 0x003A6A   # TransformsRequireItems byte in Home bank
-TREASURE_OB_PALS_OFFSET          = 0x09ACBA   # TreasureOBPals table (indexed by treasure ID)
+TREASURE_OB_PALS_OFFSET          = 0x09AFBA   # TreasureOBPals table (indexed by treasure ID)
 
 # Combined-item companion chains: collecting key → also grant value (chained).
 # Tusk Set: $24→$25→$26 (two hops).
@@ -521,6 +522,24 @@ def write_tokens(world: "WL3World", patch: WL3ProcedurePatch) -> None:
         elif item.name in COMBINED_ITEMS:
             pal_overrides[idx] = OBPAL_TREASURE_PURPLE
     patch.write_token(APTokenTypes.WRITE, CHEST_KEY_PAL_OFFSET, bytes(pal_overrides))
+
+    # Per-key palette overrides: in full keysanity, combined items at key
+    # slots render with the purple palette (same as chest treatment). Index
+    # into KeyPaletteOverrides = (owlevel-1)*4 + color_index (matches
+    # LevelKeyPool layout). Values: 0xFF = default (use item's own palette),
+    # else an OBPAL_TREASURE_* constant.
+    from .locations import KEY_LOCATION_TABLE
+    key_pal_overrides = bytearray([0xFF] * 100)
+    if world.options.key_shuffle == KeyShuffle.option_full:
+        for loc_name, loc_data in KEY_LOCATION_TABLE.items():
+            location = world.multiworld.get_location(loc_name, world.player)
+            item = location.item
+            if item is None or item.player != world.player:
+                continue
+            if item.name in COMBINED_ITEMS:
+                idx = (loc_data.owlevel - 1) * 4 + loc_data.color_index
+                key_pal_overrides[idx] = OBPAL_TREASURE_PURPLE
+    patch.write_token(APTokenTypes.WRITE, KEY_PAL_OVERRIDE_OFFSET, bytes(key_pal_overrides))
 
     patch.write_token(APTokenTypes.WRITE, CHEST_TABLE_OFFSET, bytes(chest_assignments))
 
