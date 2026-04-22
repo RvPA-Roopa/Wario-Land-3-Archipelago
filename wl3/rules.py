@@ -1015,8 +1015,14 @@ def set_rules(world: "WL3World") -> None:
 
         if keysanity:
             # Keysanity: chests require the matching key item (separate from key access)
+            # If the level is keyringed, a single Keyring item stands in for all 4 keys.
             key_item = f"{loc_data.level_name} {COLOR_NAMES[loc_data.color_index]} Key"
-            key_item_rule = _has(key_item)
+            keyringed = getattr(world, "keyringed_level_names", set())
+            if loc_data.level_name in keyringed:
+                keyring_item = f"{loc_data.level_name} Keyring"
+                key_item_rule = _o(_has(key_item), _has(keyring_item))
+            else:
+                key_item_rule = _has(key_item)
             chest_rule = _c(chest_rule, key_item_rule) if chest_rule is not None else key_item_rule
         else:
             # Vanilla: combine key access + chest access (must reach both in same level)

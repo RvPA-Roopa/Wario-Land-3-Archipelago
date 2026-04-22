@@ -367,17 +367,18 @@ TRANSFORM_SACRIFICED_TREASURES: Set[str] = {
 # Progressive Vampire has 2 copies: both display as Crown (the sacrificed
 # treasure for Vampire); UFO is sacrificed for the 2nd copy's pool slot.
 FORM_DISPLAY_TREASURE: Dict[str, int] = {
-    "Fire Form":           0x37,  # Rocket
-    "Fat Form":            0x38,  # Pocket Pet
-    "Flat Form":           0x3c,  # Fighter Mannequin
-    "Invisible Form":      0x4b,  # Telephone
-    "Progressive Vampire": 0x4c,  # Crown
-    "Snowman Form":        0x55,  # Earthen Figure
-    "Zombie Form":          0x56,  # Saber
-    "Bouncy Form":         0x57,  # Goblet
-    "Yarn Form":           0x58,  # Teapot
-    "Ice Skatin' Form":    0x5b,  # Minicar
-    "Puffy Form":          0x5c,  # Locomotive
+    "Fire Form":           0x68,  # generated from user's rom
+    "Fat Form":            0x6b,  # generated from user's rom
+    "Flat Form":           0x70,  # generated from user's rom
+    "Invisible Form":      0x6a,  # generated from user's rom
+    "Progressive Vampire": 0x69,  # generated from user's rom (bat)
+    "Snowman Form":        0x6c,  # generated from user's rom
+    "Zombie Form":          0x67,  # generated from user's rom
+    "Bat Form":            0x69,  # generated from user's rom
+    "Bouncy Form":         0x6d,  # generated from user's rom
+    "Yarn Form":           0x6e,  # generated from user's rom
+    "Ice Skatin' Form":    0x6f,  # generated from user's rom
+    "Puffy Form":          0x71,  # generated from user's rom
 }
 
 TREASURE_TABLE: Dict[str, WL3ItemData] = {
@@ -460,3 +461,35 @@ def _build_key_item_table() -> Dict[str, WL3KeyItemData]:
 
 
 KEY_ITEM_TABLE: Dict[str, WL3KeyItemData] = _build_key_item_table()
+
+
+# ---------------------------------------------------------------------------
+# Keyring items — one per level. Each keyring, when received, grants all 4
+# keys for that level. Activated by the KeyringCount option.
+# AP IDs: BASE_ITEM_ID + 700 + (owlevel - 1)
+# ---------------------------------------------------------------------------
+
+KEYRING_BASE_ITEM_ID = BASE_ITEM_ID + 700  # 7_770_700
+
+
+class WL3KeyringItemData(NamedTuple):
+    ap_id: int
+    owlevel: int
+    level_name: str
+
+
+def _build_keyring_item_table() -> Dict[str, "WL3KeyringItemData"]:
+    from .locations import LEVEL_LIST
+    table: Dict[str, WL3KeyringItemData] = {}
+    for owlevel, level_name, _region in LEVEL_LIST:
+        name = f"{level_name} Keyring"
+        ap_id = KEYRING_BASE_ITEM_ID + (owlevel - 1)
+        table[name] = WL3KeyringItemData(
+            ap_id=ap_id,
+            owlevel=owlevel,
+            level_name=level_name,
+        )
+    return table
+
+
+KEYRING_ITEM_TABLE: Dict[str, WL3KeyringItemData] = _build_keyring_item_table()
