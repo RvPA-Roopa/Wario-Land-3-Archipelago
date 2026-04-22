@@ -336,21 +336,6 @@ class WL3World(World):
 
         assert len(items) == 100, f"Expected 100 items, got {len(items)}"
 
-        # Trap replacement: swap a % of filler items for random trap items.
-        trap_pct = int(self.options.trap_fill)
-        if trap_pct > 0 and TRAP_ITEMS:
-            filler_indices = [
-                i for i, it in enumerate(items)
-                if it.classification == ItemClassification.filler
-            ]
-            num_traps = (len(filler_indices) * trap_pct + 50) // 100
-            if num_traps > 0:
-                victim_indices = self.random.sample(filler_indices, num_traps)
-                trap_names = list(TRAP_ITEMS.keys())
-                for idx in victim_indices:
-                    trap_name = self.random.choice(trap_names)
-                    items[idx] = self.create_item(trap_name)
-
         # Key shuffle: add all 100 key items to the pool
         # Full: pool is 200 with free placement across all locations
         # Keyring levels: skip 4 individual keys, add 1 Keyring + 3 filler instead.
@@ -364,6 +349,22 @@ class WL3World(World):
                 # 3 filler items to preserve pool size (keyring replaces 4 keys)
                 for _ in range(3):
                     items.append(self.create_item("Clubs Crest (1 Coin)"))
+
+        # Trap replacement: swap a % of filler items for random trap items.
+        # Runs after key shuffle so keyring-padding fillers are also candidates.
+        trap_pct = int(self.options.trap_fill)
+        if trap_pct > 0 and TRAP_ITEMS:
+            filler_indices = [
+                i for i, it in enumerate(items)
+                if it.classification == ItemClassification.filler
+            ]
+            num_traps = (len(filler_indices) * trap_pct + 50) // 100
+            if num_traps > 0:
+                victim_indices = self.random.sample(filler_indices, num_traps)
+                trap_names = list(TRAP_ITEMS.keys())
+                for idx in victim_indices:
+                    trap_name = self.random.choice(trap_names)
+                    items[idx] = self.create_item(trap_name)
 
         self.multiworld.itempool += items
 
