@@ -505,8 +505,9 @@ def write_tokens(world: "WL3World", patch: WL3ProcedurePatch) -> None:
     patch.write_token(APTokenTypes.WRITE, TREASURE_DUMMY_TILE_OFFSET, KEY_PORTRAIT_TILES)
 
     # Build per-chest palette override table: $FF = use default, 4-9 = override palette.
-    from .items import COMBINED_ITEMS, KEY_ITEM_TABLE
+    from .items import COMBINED_ITEMS, KEY_ITEM_TABLE, KEYRING_ITEM_TABLE
     from .locations import LOCATION_TABLE
+    OBPAL_TREASURE_YELLOW = 4
     pal_overrides = bytearray([0xFF] * 100)
     for loc_name, loc_data in LOCATION_TABLE.items():
         idx = loc_data.loc_index
@@ -521,6 +522,10 @@ def write_tokens(world: "WL3World", patch: WL3ProcedurePatch) -> None:
         # Combined items → purple palette
         elif item.name in COMBINED_ITEMS:
             pal_overrides[idx] = OBPAL_TREASURE_PURPLE
+        # Keyrings → force yellow (default TreasureOBPals already points here,
+        # but explicit override ensures non-stop chest pop-up renders correctly).
+        elif item.name in KEYRING_ITEM_TABLE:
+            pal_overrides[idx] = OBPAL_TREASURE_YELLOW
     patch.write_token(APTokenTypes.WRITE, CHEST_KEY_PAL_OFFSET, bytes(pal_overrides))
 
     # Per-key palette overrides: in full keysanity, combined items at key
