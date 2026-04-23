@@ -141,6 +141,26 @@ COMBINED_ITEMS_IN_LEVEL: Dict[str, WL3ItemData] = {
 # Combined union (for ITEM_TABLE lookup, classification, etc.)
 COMBINED_ITEMS: Dict[str, WL3ItemData] = {**COMBINED_ITEMS_OVERWORLD, **COMBINED_ITEMS_IN_LEVEL}
 
+# Full component treasure-ID lists for each combined item.
+# Source of truth for both rom.py (offline pre-grant bits at patch time) and
+# client.py (live grants via COMBINED_GRANTS). Keep in sync.
+COMBINED_COMPONENTS: Dict[str, List[int]] = {
+    "Lantern & Magical Flame": [0x0F, 0x10],
+    "Gears":                   [0x12, 0x13],
+    "Blue Book & Magic Wand":  [0x17, 0x1C],
+    "Trident & Yellow Book":   [0x1A, 0x19],
+    "Skull Ring":              [0x1D, 0x1E],
+    "Tablets":                 [0x1F, 0x20],
+    "Scroll":                  [0x22, 0x23],
+    "Tusk Set":                [0x24, 0x25, 0x26],
+    "Storm Pouch":             [0x49, 0x47],
+    "Chemicals":               [0x27, 0x28],
+    "Glass Eyes":              [0x43, 0x42],
+    "Golden Eyes":             [0x41, 0x40],
+    "Sun Medallion":           [0x45, 0x46],
+    "Key Cards":               [0x33, 0x34],
+}
+
 # Individual items absorbed by overworld combines (8 combined items replace 17 individuals).
 INDIVIDUAL_OVERWORLD_NAMES: Set[str] = {
     "Lantern", "Magical Flame",
