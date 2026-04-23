@@ -21,6 +21,8 @@ KEYSANITY_MODE_OFFSET            = 0x001AE8   # KeysanityMode (1 byte: 0=vanilla
 KEY_TABLE_OFFSET                 = 0x001AE9   # LevelKeyPool (100 bytes; ITEM_KEY_BASE + index = vanilla)
 CHEST_KEY_PAL_OFFSET             = 0x001B4D   # ChestKeyPalettes (100 bytes; $FF=not key, 4-7=palette)
 KEY_PAL_OVERRIDE_OFFSET          = 0x001BB1   # KeyPaletteOverrides (100 bytes; $FF=default, else OBPAL)
+INITIAL_TREASURES_OFFSET         = 0x001C15   # InitialTreasuresBits (13 bytes; OR'd into wTreasuresCollected at new-game init)
+INITIAL_KEYS_OFFSET              = 0x001C22   # InitialKeysBits      (25 bytes; OR'd into wKeyInventory      at new-game init)
 TREASURE_DUMMY_TILE_OFFSET       = 0x099940   # TreasureGfx[$65] — 64 bytes (4 tiles, 2bpp)
 TREASURE_ZOMBIE_TILE_OFFSET      = 0x0999c0   # TreasureZombieFormGfx    — 64 bytes (4 tiles, 2bpp)
 TREASURE_FIRE_TILE_OFFSET        = 0x099a00   # TreasureFireFormGfx      — 64 bytes (4 tiles, 2bpp)
@@ -545,6 +547,44 @@ def write_tokens(world: "WL3World", patch: WL3ProcedurePatch) -> None:
                 idx = (loc_data.owlevel - 1) * 4 + loc_data.color_index
                 key_pal_overrides[idx] = OBPAL_TREASURE_PURPLE
     patch.write_token(APTokenTypes.WRITE, KEY_PAL_OVERRIDE_OFFSET, bytes(key_pal_overrides))
+
+    # --- initial inventory bits ---
+    # Precollected items (start_with_axe, random_level_starts, etc.) are usually
+    # delivered by the AP client on connect. Bake them into ROM tables too so a
+    # seed plays standalone without the client ever running — also lets a fresh
+    # save boot on real hardware / flashcart. The ROM new-game init OR's these
+    # into wTreasuresCollected / wKeyInventory.
+    from .items import (
+        COMBINED_COMPONENTS as _CC,
+        KEY_ITEM_TABLE as _KIT,
+        KEYRING_ITEM_TABLE as _KRT,
+        PROGRESSIVE_ITEMS as _PI,
+        ITEM_TABLE as _IT,
+    )
+    initial_treasures = bytearray((0x65 // 8) + 1)  # 13 bytes, matches wTreasuresCollected
+    initial_keys = bytearray(25)                    # matches wKeyInventory
+    for pre_item in world.multiworld.precollected_items[world.player]:
+        name = pre_item.name
+        if name in _KRT:
+            owlevel = _KRT[name].owlevel
+            initial_keys[owlevel - 1] |= 0x0F   # grant all 4 keys for that level
+        elif name in _KIT:
+            kd = _KIT[name]
+            initial_keys[kd.owlevel - 1] |= 1 << kd.color_index
+        elif name in _CC:
+            for tid in _CC[name]:
+                if 0 <= tid < 0x65:
+                    initial_treasures[tid >> 3] |= 1 << (tid & 7)
+        elif name in _PI:
+            # Progressive start: grant tier 1 (matches AP "one precollected = first tier").
+            tid = _PI[name].tier_ids[0]
+            initial_treasures[tid >> 3] |= 1 << (tid & 7)
+        elif name in _IT:
+            tid = _IT[name].tier_ids[0]
+            if 0 <= tid < 0x65:
+                initial_treasures[tid >> 3] |= 1 << (tid & 7)
+    patch.write_token(APTokenTypes.WRITE, INITIAL_TREASURES_OFFSET, bytes(initial_treasures))
+    patch.write_token(APTokenTypes.WRITE, INITIAL_KEYS_OFFSET, bytes(initial_keys))
 
     patch.write_token(APTokenTypes.WRITE, CHEST_TABLE_OFFSET, bytes(chest_assignments))
 
