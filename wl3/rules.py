@@ -507,9 +507,8 @@ KEY_RULES: dict = {
         _c(_has("Scissors"), 
            _o(_has("High Jump Boots"), _has("Puffy Form"), 
               _has("Bouncy Form"), has_vampire_2)),                                  # green
-        _c(_has("Scissors"), 
-           _o(_has("High Jump Boots"), _has("Puffy Form"), 
-              _has("Bouncy Form"), has_vampire_2)),                                  # blue
+        _o(_c(_has("Scissors"), _o(_has("High Jump Boots"), _has("Bouncy Form"))), 
+           _has("Puffy Form"), has_vampire_2),                                       # blue
     ],
     "The Stagnant Swamp": [
         None,                                                                        # grey
@@ -696,7 +695,7 @@ CHEST_RULES_GLITCHED: dict = {
            _has("High Jump Boots")),                                                 # green
         None,                                                                        # blue
     ],
-    "Castle of Illusion": [
+    "Castle of Illusions": [
         NoRule,                                                                      # grey
         None,                                                                        # red
         None,                                                                        # green
@@ -741,13 +740,6 @@ KEY_RULES_KNOWLEDGE: dict = {
                                      _has("Snowman Form"))), _has("Garlic")),        # green
         None,                                                                        # blue
     ],
-    "The Big Bridge": [
-        None,                                                                        # grey
-        None,                                                                        # red
-        None,                                                                        # green
-        _c(_o(has_flippers_1, has_grab_1), 
-           _o(_has("Garlic"), _has("Puffy Form"), has_vampire_2)),                   # blue
-    ],
     "Beneath the Waves": [
         None,                                                                        # grey
         _c(_o(has_flippers_2, _has("Fat Form"), _has("Flat Form")), has_flippers_1), # red
@@ -765,9 +757,10 @@ KEY_RULES_KNOWLEDGE: dict = {
         None,                                                                        # grey
         None,                                                                        # red
         _c(has_flippers_1, _o(_c(_o(has_overalls_1, _has("Zombie Form")), has_grab_1), 
-                              _o(has_overalls_2, _has("Fat Form"), 
-                                 _has("Snowman Form")))),                            # green
-        None,                                                                        # blue
+                              has_overalls_2, _has("Fat Form"), _has("Snowman Form"),
+                              has_vampire_2, _has("Puffy Form"))),                   # green
+        _c(_o(has_flippers_1, has_grab_1), 
+           _o(_has("Garlic"), _has("Puffy Form"), has_vampire_2)),                   # blue
     ],
     "Castle of Illusions": [
         None,                                                                        # grey
