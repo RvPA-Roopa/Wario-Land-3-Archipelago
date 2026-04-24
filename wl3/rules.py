@@ -507,9 +507,8 @@ KEY_RULES: dict = {
         _c(_has("Scissors"), 
            _o(_has("High Jump Boots"), _has("Puffy Form"), 
               _has("Bouncy Form"), has_vampire_2)),                                  # green
-        _c(_has("Scissors"), 
-           _o(_has("High Jump Boots"), _has("Puffy Form"), 
-              _has("Bouncy Form"), has_vampire_2)),                                  # blue
+        _o(_c(_has("Scissors"), _o(_has("High Jump Boots"), _has("Bouncy Form"))), 
+           _has("Puffy Form"), has_vampire_2),                                       # blue
     ],
     "The Stagnant Swamp": [
         None,                                                                        # grey
