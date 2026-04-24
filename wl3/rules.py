@@ -273,8 +273,8 @@ CHEST_RULES: dict = {
     "The Steep Canyon": [
         None,                                                                        # grey
         _has("Foot of Stone"),                                                       # red
-        _c(_has("Foot of Stone"), has_flippers_2, 
-           _o(has_overalls_2, _has("Fat Form", _has("Snowman Form")),
+        _c(_has("Foot of Stone"), has_flippers_2,
+           _o(has_overalls_2, _has("Fat Form"), _has("Snowman Form"),
               has_vampire_2, _has("Puffy Form"))),                                   # green
         _c(_has("Rust Spray"), _o(has_overalls_1, _has("Fat Form"), 
                                   _has("Snowman Form"), _has("Zombie Form"))),       # blue
