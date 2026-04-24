@@ -589,9 +589,10 @@ CHEST_RULES_KNOWLEDGE: dict = {
         _o(_c(_o(has_overalls_2, _has("Zombie Form"), _has("Snowman Form")), _has("Garlic")),
            _has("Flute"),_has("High Jump Boots"), _has("Bouncy Form"), 
            _has("Puffy Form"), has_vampire_2),                                       # red
-        _c(_o(_c(_o(has_overalls_2, _has("Zombie Form"), _has("Snowman Form")), _has("Garlic")),
-           _has("Flute"),_has("High Jump Boots"), _has("Bouncy Form"), 
-           _has("Puffy Form"), has_vampire_2), 
+        _c(_o(_c(_o(has_overalls_2, _has("Zombie Form"), _has("Snowman Form"), _has("Fat Form")), 
+                 _has("Garlic")),
+              _has("Flute"),_has("High Jump Boots"), _has("Bouncy Form"), 
+              _has("Puffy Form"), has_vampire_2), 
            _o(_has("Fat Form"), _has("Snowman Form"), 
               has_overalls_1, _has("Zombie Form"))),                                 # green
         None,                                                                        # blue
@@ -747,7 +748,7 @@ KEY_RULES_KNOWLEDGE: dict = {
         _c(_o(has_flippers_1, has_grab_1), 
            _o(_has("Garlic"), _has("Puffy Form"), has_vampire_2)),                   # blue
     ],
-        "Beneath the Waves": [
+    "Beneath the Waves": [
         None,                                                                        # grey
         _c(_o(has_flippers_2, _has("Fat Form"), _has("Flat Form")), has_flippers_1), # red
         None,                                                                        # green
@@ -760,7 +761,7 @@ KEY_RULES_KNOWLEDGE: dict = {
            _has("Puffy Form"), has_vampire_2),                                       # green
         None,                                                                        # blue
     ],
-        "The Big Bridge": [
+    "The Big Bridge": [
         None,                                                                        # grey
         None,                                                                        # red
         _c(has_flippers_1, _o(_c(_o(has_overalls_1, _has("Zombie Form")), has_grab_1), 
@@ -809,7 +810,7 @@ KEY_RULES_HARD: dict = {
         None,                                                                        # blue
     ],
     "The East Crater": [
-        has_grab_1,                                                                  # grey
+        _o(has_grab_1, _has("Zombie Form")),                                                              # grey
         None,                                                                        # red
         None,                                                                        # green
         None,                                                                        # blue
