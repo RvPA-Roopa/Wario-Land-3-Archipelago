@@ -21,8 +21,10 @@ KEYSANITY_MODE_OFFSET            = 0x001AE8   # KeysanityMode (1 byte: 0=vanilla
 KEY_TABLE_OFFSET                 = 0x001AE9   # LevelKeyPool (100 bytes; ITEM_KEY_BASE + index = vanilla)
 CHEST_KEY_PAL_OFFSET             = 0x001B4D   # ChestKeyPalettes (100 bytes; $FF=not key, 4-7=palette)
 KEY_PAL_OVERRIDE_OFFSET          = 0x001BB1   # KeyPaletteOverrides (100 bytes; $FF=default, else OBPAL)
-INITIAL_TREASURES_OFFSET         = 0x001C15   # InitialTreasuresBits (13 bytes; OR'd into wTreasuresCollected at new-game init)
-INITIAL_KEYS_OFFSET              = 0x001C22   # InitialKeysBits      (25 bytes; OR'd into wKeyInventory      at new-game init)
+CHEST_KEYRING_OFFSET             = 0x001C15   # ChestKeyringTargets (100 bytes; $FF=not keyring, 1-25=target owlevel)
+KEY_KEYRING_OFFSET               = 0x001C79   # KeyKeyringTargets   (100 bytes; same format, but for key slots)
+INITIAL_TREASURES_OFFSET         = 0x001CDD   # InitialTreasuresBits (13 bytes; OR'd into wTreasuresCollected at new-game init)
+INITIAL_KEYS_OFFSET              = 0x001CEA   # InitialKeysBits      (25 bytes; OR'd into wKeyInventory      at new-game init)
 TREASURE_DUMMY_TILE_OFFSET       = 0x099940   # TreasureGfx[$65] — 64 bytes (4 tiles, 2bpp)
 TREASURE_ZOMBIE_TILE_OFFSET      = 0x0999c0   # TreasureZombieFormGfx    — 64 bytes (4 tiles, 2bpp)
 TREASURE_FIRE_TILE_OFFSET        = 0x099a00   # TreasureFireFormGfx      — 64 bytes (4 tiles, 2bpp)
@@ -221,9 +223,9 @@ def _build_key_portrait() -> bytes:
 
 KEY_PORTRAIT_TILES = _build_key_portrait()
 LEVEL_MUSIC_OFFSET               = 0x03FE40   # LevelMusic table (25 levels × 16 bytes = 400 bytes)
-MUSIC_BOXES_REQUIRED_OFFSET      = 0x080EEB   # MusicBoxesRequired byte in Bank 20
-START_WITH_AXE_OFFSET            = 0x080EEC   # StartWithAxeOpt byte in Bank 20
-START_WITH_MAG_GLASS_OFFSET      = 0x080EED   # StartWithMagnifyingGlassOpt byte in Bank 20
+MUSIC_BOXES_REQUIRED_OFFSET      = 0x080F13   # MusicBoxesRequired byte in Bank 20
+START_WITH_AXE_OFFSET            = 0x080F14   # StartWithAxeOpt byte in Bank 20
+START_WITH_MAG_GLASS_OFFSET      = 0x080F15   # StartWithMagnifyingGlassOpt byte in Bank 20
 GOLF_PRICE_OPT_OFFSET            = 0x003A00   # GolfPriceOpt byte in Home bank
 GOLF_BUILDING_OPT_OFFSET         = 0x003A01   # GolfBuildingOpt byte in Home bank
 DISABLE_PAL_CYCLE_OFFSET         = 0x003A02   # DisablePalCycleOpt byte in Home bank
@@ -547,6 +549,34 @@ def write_tokens(world: "WL3World", patch: WL3ProcedurePatch) -> None:
                 idx = (loc_data.owlevel - 1) * 4 + loc_data.color_index
                 key_pal_overrides[idx] = OBPAL_TREASURE_PURPLE
     patch.write_token(APTokenTypes.WRITE, KEY_PAL_OVERRIDE_OFFSET, bytes(key_pal_overrides))
+
+    # --- chest + key slot keyring targets ---
+    # When a slot holds a keyring (treasure ID $66), the ROM needs to know
+    # which level's 4 keys to grant. Two parallel 100-byte tables: one indexed
+    # by chest slot, one by key slot (both (owlevel-1)*4 + color). Lets the
+    # ROM grant keyring items locally without the AP client, in either
+    # location type.
+    chest_keyring_targets = bytearray([0xFF] * 100)
+    for loc_name, loc_data in LOCATION_TABLE.items():
+        location = world.multiworld.get_location(loc_name, world.player)
+        item = location.item
+        if item is None or item.player != world.player:
+            continue
+        if item.name in KEYRING_ITEM_TABLE:
+            chest_keyring_targets[loc_data.loc_index] = KEYRING_ITEM_TABLE[item.name].owlevel
+    patch.write_token(APTokenTypes.WRITE, CHEST_KEYRING_OFFSET, bytes(chest_keyring_targets))
+
+    key_keyring_targets = bytearray([0xFF] * 100)
+    if world.options.key_shuffle == KeyShuffle.option_full:
+        for loc_name, loc_data in KEY_LOCATION_TABLE.items():
+            location = world.multiworld.get_location(loc_name, world.player)
+            item = location.item
+            if item is None or item.player != world.player:
+                continue
+            if item.name in KEYRING_ITEM_TABLE:
+                idx = (loc_data.owlevel - 1) * 4 + loc_data.color_index
+                key_keyring_targets[idx] = KEYRING_ITEM_TABLE[item.name].owlevel
+    patch.write_token(APTokenTypes.WRITE, KEY_KEYRING_OFFSET, bytes(key_keyring_targets))
 
     # --- initial inventory bits ---
     # Precollected items (start_with_axe, random_level_starts, etc.) are usually

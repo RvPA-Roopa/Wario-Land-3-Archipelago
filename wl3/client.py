@@ -97,16 +97,17 @@ ADDR_CHEST_AP_KEY   = 0x2E58   # wChestAPKey (WRAM domain, bank 2 $DE58): chest-
 # GBC WRAM layout: bank 0 at offset 0x0000, bank 1 at 0x1000, bank 2 at 0x2000, …
 ADDR_TREASURES_WRAM     = 0x2000   # WRAM domain offset for wTreasuresCollected (bank 2, 0xD000)
 ADDR_UNLOCKED_LEVELS_WRAM = 0x1163 # WRAM domain offset for wUnlockedLevels    (bank 1, 0xD163)
-ADDR_OPENED_CHESTS_WRAM   = 0x2E00 # WRAM domain offset for wOpenedChests      (bank 2, 0xDE00)
 ADDR_LEVEL_KEYS_WRAM      = 0x117C # WRAM domain offset for wLevelKeys         (bank 1, 0xD17C)
 ADDR_KEY_INVENTORY_WRAM   = 0x1195 # WRAM domain offset for wKeyInventory      (bank 1, 0xD195)
-ADDR_MSG_BUFFER_WRAM      = 0x11AE # wMsgBuffer (96 bytes)
-ADDR_MSG_TIMER_WRAM       = 0x120E # wMsgTimer (1 byte)
-ADDR_MSG_READY_WRAM       = 0x120F # wMsgReady (1 byte, set to 1 to trigger)
-ADDR_MSG_ROWS_WRAM        = 0x1211 # wMsgRows (1 byte, 1-3)
-ADDR_PENDING_TRAP_WRAM    = 0x121A # wPendingTrap (1 byte — AP trap queue, bank 1 0xD21A)
-ADDR_TRANSFORM_UNLOCKS_WRAM  = 0x121B # wTransformUnlocks  (bank 1 0xD21B)
-ADDR_TRANSFORM_UNLOCKS2_WRAM = 0x121C # wTransformUnlocks2 (bank 1 0xD21C)
+ADDR_OPENED_CHESTS_WRAM   = 0x11AE # wOpenedChests — moved to AP Persistent    (bank 1, 0xD1AE)
+                                   # to escape pause-menu collection screen wipe of $D800-$DFFF.
+ADDR_MSG_BUFFER_WRAM      = 0x11BB # wMsgBuffer (96 bytes)
+ADDR_MSG_TIMER_WRAM       = 0x121B # wMsgTimer (1 byte)
+ADDR_MSG_READY_WRAM       = 0x121C # wMsgReady (1 byte, set to 1 to trigger)
+ADDR_MSG_ROWS_WRAM        = 0x121E # wMsgRows (1 byte, 1-3)
+ADDR_PENDING_TRAP_WRAM    = 0x1227 # wPendingTrap (1 byte — AP trap queue, bank 1 0xD227)
+ADDR_TRANSFORM_UNLOCKS_WRAM  = 0x1228 # wTransformUnlocks  (bank 1 0xD228)
+ADDR_TRANSFORM_UNLOCKS2_WRAM = 0x1229 # wTransformUnlocks2 (bank 1 0xD229)
 
 # AP item ID → ROM trap ID (TRAP_* constants in wario_constants.asm)
 TRAP_AP_IDS: dict[int, int] = {
