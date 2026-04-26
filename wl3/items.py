@@ -334,6 +334,11 @@ TRAP_ITEMS: Dict[str, WL3ItemData] = {
 # not a real treasure ID).
 TRAP_AP_IDS_SET: set = {item.ap_id for item in TRAP_ITEMS.values()}
 
+# Map AP item ID → ROM TRAP_* constant (1-5). Used by client.py for
+# AP-delivered traps and by _build_trap_chest_table for offline trap dispatch
+# via TrapChestTable in ROM.
+TRAP_AP_IDS: Dict[int, int] = {item.ap_id: item.tier_ids[0] for item in TRAP_ITEMS.values()}
+
 # ---------------------------------------------------------------------------
 # Transform Unlock items — player-activated abilities via Select+button combos.
 # Each unlock sets one bit in wTransformUnlocks or wTransformUnlocks2.

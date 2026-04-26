@@ -538,8 +538,8 @@ class WL3World(World):
             # Trap items: show as red gem. tier_ids[0] is a TRAP_* constant,
             # NOT a treasure ID, so we must never write it to the chest table.
             if item_data.ap_id in TRAP_AP_IDS_SET:
-                chest_table[loc_data.loc_index] = 0x4E  # Red Gem
-                continue
+                chest_table[loc_data.loc_index] = 0x4E  # Red Gem (visual placeholder)
+                continue  # ROM dispatches the trap via TrapChestTable; see _build_trap_chest_table
 
             # Transform unlock items: tier_ids are (byte_idx, bit_idx) pairs,
             # NOT treasure IDs. Show as the sacrificed treasure's icon so each
@@ -563,6 +563,28 @@ class WL3World(World):
                 chest_table[loc_idx] = tier_ids[0]
 
         return chest_table
+
+    def _build_trap_chest_table(self) -> List[int]:
+        """Return a 100-element list of TRAP_* IDs (1-5) per chest slot, or 0 for
+        non-trap chests. Indexed identically to the regular chest table.
+        Patched into ROM TrapChestTable; SetTreasureTransitionParam reads it
+        and queues the trap on chest open instead of granting an item, so
+        traps fire even with the AP client disconnected (offline solo seeds).
+        """
+        from .items import TRAP_AP_IDS  # AP item id → TRAP_* (1-5)
+        trap_table = [0] * 100
+        for loc_name, loc_data in LOCATION_TABLE.items():
+            location = self.multiworld.get_location(loc_name, self.player)
+            item = location.item
+            if item is None or item.player != self.player:
+                continue
+            item_data = ITEM_TABLE.get(item.name)
+            if item_data is None:
+                continue
+            trap_id = TRAP_AP_IDS.get(item_data.ap_id)
+            if trap_id is not None:
+                trap_table[loc_data.loc_index] = trap_id
+        return trap_table
 
     def _build_key_assignments(self) -> List[int]:
         """Return a 100-element list of in-game item IDs for the LevelKeyPool table.

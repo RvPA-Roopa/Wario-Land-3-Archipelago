@@ -16,15 +16,16 @@ from worlds.Files import APProcedurePatch, APTokenMixin, APTokenTypes
 if TYPE_CHECKING:
     from . import WL3World
 
-CHEST_TABLE_OFFSET               = 0x001A84   # LevelTreasureIDs_WithoutTemple (100 bytes)
-KEYSANITY_MODE_OFFSET            = 0x001AE8   # KeysanityMode (1 byte: 0=vanilla, 1=simple, 2=full)
-KEY_TABLE_OFFSET                 = 0x001AE9   # LevelKeyPool (100 bytes; ITEM_KEY_BASE + index = vanilla)
-CHEST_KEY_PAL_OFFSET             = 0x001B4D   # ChestKeyPalettes (100 bytes; $FF=not key, 4-7=palette)
-KEY_PAL_OVERRIDE_OFFSET          = 0x001BB1   # KeyPaletteOverrides (100 bytes; $FF=default, else OBPAL)
-CHEST_KEYRING_OFFSET             = 0x001C15   # ChestKeyringTargets (100 bytes; $FF=not keyring, 1-25=target owlevel)
-KEY_KEYRING_OFFSET               = 0x001C79   # KeyKeyringTargets   (100 bytes; same format, but for key slots)
-INITIAL_TREASURES_OFFSET         = 0x001CDD   # InitialTreasuresBits (13 bytes; OR'd into wTreasuresCollected at new-game init)
-INITIAL_KEYS_OFFSET              = 0x001CEA   # InitialKeysBits      (25 bytes; OR'd into wKeyInventory      at new-game init)
+CHEST_TABLE_OFFSET               = 0x001AA2   # LevelTreasureIDs_WithoutTemple (100 bytes)
+KEYSANITY_MODE_OFFSET            = 0x001B06   # KeysanityMode (1 byte: 0=vanilla, 1=simple, 2=full)
+KEY_TABLE_OFFSET                 = 0x001B07   # LevelKeyPool (100 bytes; ITEM_KEY_BASE + index = vanilla)
+CHEST_KEY_PAL_OFFSET             = 0x001B6B   # ChestKeyPalettes (100 bytes; $FF=not key, 4-7=palette)
+KEY_PAL_OVERRIDE_OFFSET          = 0x001BCF   # KeyPaletteOverrides (100 bytes; $FF=default, else OBPAL)
+CHEST_KEYRING_OFFSET             = 0x001C33   # ChestKeyringTargets (100 bytes; $FF=not keyring, 1-25=target owlevel)
+KEY_KEYRING_OFFSET               = 0x001C97   # KeyKeyringTargets   (100 bytes; same format, but for key slots)
+INITIAL_TREASURES_OFFSET         = 0x001CFB   # InitialTreasuresBits (13 bytes; OR'd into wTreasuresCollected at new-game init)
+INITIAL_KEYS_OFFSET              = 0x001D08   # InitialKeysBits      (25 bytes; OR'd into wKeyInventory      at new-game init)
+TRAP_CHEST_TABLE_OFFSET          = 0x001D21   # TrapChestTable (100 bytes; 0=no trap, 1-5=TRAP_* — offline trap dispatch)
 TREASURE_DUMMY_TILE_OFFSET       = 0x099940   # TreasureGfx[$65] — 64 bytes (4 tiles, 2bpp)
 TREASURE_ZOMBIE_TILE_OFFSET      = 0x0999c0   # TreasureZombieFormGfx    — 64 bytes (4 tiles, 2bpp)
 TREASURE_FIRE_TILE_OFFSET        = 0x099a00   # TreasureFireFormGfx      — 64 bytes (4 tiles, 2bpp)
@@ -617,6 +618,13 @@ def write_tokens(world: "WL3World", patch: WL3ProcedurePatch) -> None:
     patch.write_token(APTokenTypes.WRITE, INITIAL_KEYS_OFFSET, bytes(initial_keys))
 
     patch.write_token(APTokenTypes.WRITE, CHEST_TABLE_OFFSET, bytes(chest_assignments))
+
+    # Trap dispatch table (offline). Chest table holds Red Gem ($4E) for trap
+    # slots so the popup graphic stays consistent; this parallel table tells
+    # the ROM "this slot is actually trap N (1-5)" so SetTreasureTransitionParam
+    # can queue the trap into wPendingTrap and skip the gem grant.
+    trap_chest_table = list(world._build_trap_chest_table())
+    patch.write_token(APTokenTypes.WRITE, TRAP_CHEST_TABLE_OFFSET, bytes(trap_chest_table))
 
     music_boxes_required = int(world.options.music_boxes_required)
     patch.write_token(APTokenTypes.WRITE, MUSIC_BOXES_REQUIRED_OFFSET,
