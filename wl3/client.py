@@ -216,6 +216,7 @@ class WL3Client(BizHawkClient):
         self._prev_opened_chests: bytes = bytes(13)
         self._checked_locs:     set   = set()
         self._items_handled:    int  = 0
+        self._caught_up:        bool = False    # False until items already in items_received at first connect have been silently re-applied
         self._cached_received:  set  = set()   # AP IDs received; kept between disconnects
         self._prog_counts:      dict = {}       # ap_id → count received (for progressive tiers)
         self._combined_unlocks: bool = False
@@ -407,27 +408,37 @@ class WL3Client(BizHawkClient):
                     self._prog_counts[net_item.item] = self._prog_counts.get(net_item.item, 0) + 1
 
         # ---- Grant any newly received items ----
-        # ---- Grant any newly received items ----
+        # `_caught_up` is False on the first call after a (re)connect — items
+        # currently in items_received are "catch-up". For those we suppress
+        # trap re-fires (the `silent` flag below) but still show the banner
+        # so the player can see what they got while away — they can /skip if
+        # the message queue gets noisy.
+        catch_up_boundary = len(ctx.items_received) if not self._caught_up else self._items_handled
+
         while self._items_handled < len(ctx.items_received):
+            is_catch_up = self._items_handled < catch_up_boundary
             net_item = ctx.items_received[self._items_handled]
             ap_id = net_item.item
             self._cached_received.add(ap_id)
             if ap_id in PROGRESSIVE_ITEMS:
                 self._prog_counts[ap_id] = self._prog_counts.get(ap_id, 0) + 1
-            await self._grant_item(ctx, ap_id)
-            # Show message for each received item (queued, displayed one at a time)
-            if True:
-                try:
-                    item_name = ctx.item_names.lookup_in_game(ap_id) if ctx.item_names else f"ITEM {ap_id}"
-                    sender = net_item.player
-                    if sender != ctx.slot and ctx.player_names:
-                        sender_name = ctx.player_names.get(sender, f"P{sender}")
-                        await self._show_msg(ctx, f"{item_name} FROM {sender_name}")
-                    else:
-                        await self._show_msg(ctx, item_name)
-                except Exception:
-                    pass
+            # silent=True on catch-up batch only suppresses trap dispatch;
+            # idempotent bit-sets (treasures, keys, transforms) still apply.
+            await self._grant_item(ctx, ap_id, silent=is_catch_up)
+            try:
+                item_name = ctx.item_names.lookup_in_game(ap_id) if ctx.item_names else f"ITEM {ap_id}"
+                sender = net_item.player
+                if sender != ctx.slot and ctx.player_names:
+                    sender_name = ctx.player_names.get(sender, f"P{sender}")
+                    await self._show_msg(ctx, f"{item_name} FROM {sender_name}")
+                else:
+                    await self._show_msg(ctx, item_name)
+            except Exception:
+                pass
             self._items_handled += 1
+
+        if not self._caught_up:
+            self._caught_up = True
 
         # Keep cache in sync with full server list
         for net_item in ctx.items_received:
@@ -478,9 +489,17 @@ class WL3Client(BizHawkClient):
     # Item granting helpers
     # ------------------------------------------------------------------
 
-    async def _grant_item(self, ctx: "BizHawkClientContext", ap_id: int) -> None:
-        """Resolve an AP item ID to treasure ID(s) and apply them to the game."""
+    async def _grant_item(self, ctx: "BizHawkClientContext", ap_id: int, silent: bool = False) -> None:
+        """Resolve an AP item ID to treasure ID(s) and apply them to the game.
+
+        When `silent` is True (catch-up after a (re)connect), the trap queue
+        is skipped so old traps don't re-fire. All other grants are
+        idempotent bit-sets and run normally so the inventory stays consistent.
+        """
         if ap_id in TRAP_AP_IDS:
+            if silent:
+                logger.debug(f"[WL3] Trap AP {ap_id} skipped (catch-up)")
+                return
             trap_id = TRAP_AP_IDS[ap_id]
             self._trap_queue.append(trap_id)
             logger.debug(f"[WL3] Trap AP {ap_id} queued → ROM trap 0x{trap_id:02X}")
