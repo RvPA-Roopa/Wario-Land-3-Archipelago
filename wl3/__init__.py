@@ -33,6 +33,7 @@ from .items import (
     PROGRESSIVE_COUNTS,
     PROGRESSIVE_ITEMS,
     TRAP_AP_IDS_SET,
+    TRAP_DISGUISE_POOL,
     TRAP_ITEMS,
     FORM_DISPLAY_TREASURE,
     TRANSFORM_SACRIFICED_TREASURES,
@@ -538,8 +539,12 @@ class WL3World(World):
             # Trap items: show as red gem. tier_ids[0] is a TRAP_* constant,
             # NOT a treasure ID, so we must never write it to the chest table.
             if item_data.ap_id in TRAP_AP_IDS_SET:
-                chest_table[loc_data.loc_index] = 0x4E  # Red Gem (visual placeholder)
-                continue  # ROM dispatches the trap via TrapChestTable; see _build_trap_chest_table
+                # Random treasure ID as visual disguise — the player can't
+                # tell from the chest popup whether it's a real item or a
+                # trap. ROM dispatches the trap via TrapChestTable, which
+                # short-circuits before the regular grant flow.
+                chest_table[loc_data.loc_index] = self.random.choice(TRAP_DISGUISE_POOL)
+                continue
 
             # Transform unlock items: tier_ids are (byte_idx, bit_idx) pairs,
             # NOT treasure IDs. Show as the sacrificed treasure's icon so each
@@ -658,9 +663,10 @@ class WL3World(World):
                 if item_data is None:
                     key_table[idx] = 0x4F
                 elif item_data.ap_id in TRAP_AP_IDS_SET:
-                    # Trap at a key location → red gem (tier_ids[0] is a TRAP_*
-                    # constant, not a treasure ID).
-                    key_table[idx] = 0x4E
+                    # Trap at a key location — random treasure ID as visual
+                    # disguise (tier_ids[0] is the TRAP_* constant, not a
+                    # treasure ID). ROM dispatches the trap via TrapKeyTable.
+                    key_table[idx] = self.random.choice(TRAP_DISGUISE_POOL)
                 else:
                     # Own treasure at key location — ROM safely skips inventory update
                     key_table[idx] = item_data.tier_ids[0]

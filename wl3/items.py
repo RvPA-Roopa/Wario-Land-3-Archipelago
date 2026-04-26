@@ -339,6 +339,19 @@ TRAP_AP_IDS_SET: set = {item.ap_id for item in TRAP_ITEMS.values()}
 # via TrapChestTable in ROM.
 TRAP_AP_IDS: Dict[int, int] = {item.ap_id: item.tier_ids[0] for item in TRAP_ITEMS.values()}
 
+# Treasure IDs the chest/key tables can use as VISUAL disguises for trap
+# slots. The actual trap is dispatched by TrapChestTable / TrapKeyTable in
+# ROM (which short-circuits before grant), so the player can't tell from
+# the chest popup whether it's a real treasure or a trap. Avoid:
+#   - $4E-$54 gems/crests (those are the AP logos, defeats the disguise)
+#   - $65 dummy (used for key portraits in Full keysanity)
+#   - $66 keyring sprite (visually distinct)
+#   - $67-$71 Form sprites (visually distinct)
+TRAP_DISGUISE_POOL: List[int] = (
+    list(range(0x01, 0x4E))  # all "normal" treasures up to the gem gap
+    + list(range(0x55, 0x65))  # past the gems, up through the crayons
+)
+
 # ---------------------------------------------------------------------------
 # Transform Unlock items — player-activated abilities via Select+button combos.
 # Each unlock sets one bit in wTransformUnlocks or wTransformUnlocks2.
