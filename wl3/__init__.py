@@ -586,6 +586,27 @@ class WL3World(World):
                 trap_table[loc_data.loc_index] = trap_id
         return trap_table
 
+    def _build_trap_key_table(self) -> List[int]:
+        """Like _build_trap_chest_table but for KEY locations (Full keysanity).
+        SaveKeyToInventory reads ROM TrapKeyTable; non-zero entries queue the
+        trap and skip the regular key/treasure inventory write.
+        """
+        from .items import TRAP_AP_IDS
+        trap_table = [0] * 100
+        for loc_name, loc_data in KEY_LOCATION_TABLE.items():
+            location = self.multiworld.get_location(loc_name, self.player)
+            item = location.item
+            if item is None or item.player != self.player:
+                continue
+            item_data = ITEM_TABLE.get(item.name)
+            if item_data is None:
+                continue
+            trap_id = TRAP_AP_IDS.get(item_data.ap_id)
+            if trap_id is not None:
+                idx = (loc_data.owlevel - 1) * 4 + loc_data.color_index
+                trap_table[idx] = trap_id
+        return trap_table
+
     def _build_key_assignments(self) -> List[int]:
         """Return a 100-element list of in-game item IDs for the LevelKeyPool table.
 

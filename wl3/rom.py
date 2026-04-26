@@ -25,7 +25,8 @@ CHEST_KEYRING_OFFSET             = 0x001C33   # ChestKeyringTargets (100 bytes; 
 KEY_KEYRING_OFFSET               = 0x001C97   # KeyKeyringTargets   (100 bytes; same format, but for key slots)
 INITIAL_TREASURES_OFFSET         = 0x001CFB   # InitialTreasuresBits (13 bytes; OR'd into wTreasuresCollected at new-game init)
 INITIAL_KEYS_OFFSET              = 0x001D08   # InitialKeysBits      (25 bytes; OR'd into wKeyInventory      at new-game init)
-TRAP_CHEST_TABLE_OFFSET          = 0x001D21   # TrapChestTable (100 bytes; 0=no trap, 1-5=TRAP_* — offline trap dispatch)
+TRAP_CHEST_TABLE_OFFSET          = 0x001D21   # TrapChestTable (100 bytes; 0=no trap, 1-5=TRAP_* — offline trap dispatch from chests)
+TRAP_KEY_TABLE_OFFSET            = 0x001D85   # TrapKeyTable   (100 bytes; same encoding — offline trap dispatch from key slots)
 TREASURE_DUMMY_TILE_OFFSET       = 0x099940   # TreasureGfx[$65] — 64 bytes (4 tiles, 2bpp)
 TREASURE_ZOMBIE_TILE_OFFSET      = 0x0999c0   # TreasureZombieFormGfx    — 64 bytes (4 tiles, 2bpp)
 TREASURE_FIRE_TILE_OFFSET        = 0x099a00   # TreasureFireFormGfx      — 64 bytes (4 tiles, 2bpp)
@@ -625,6 +626,12 @@ def write_tokens(world: "WL3World", patch: WL3ProcedurePatch) -> None:
     # can queue the trap into wPendingTrap and skip the gem grant.
     trap_chest_table = list(world._build_trap_chest_table())
     patch.write_token(APTokenTypes.WRITE, TRAP_CHEST_TABLE_OFFSET, bytes(trap_chest_table))
+
+    # Same dispatch for traps placed at key locations (Full keysanity).
+    # SaveKeyToInventory reads TrapKeyTable; LevelKeyPool keeps a gem
+    # placeholder so the visual pickup still works.
+    trap_key_table = list(world._build_trap_key_table())
+    patch.write_token(APTokenTypes.WRITE, TRAP_KEY_TABLE_OFFSET, bytes(trap_key_table))
 
     music_boxes_required = int(world.options.music_boxes_required)
     patch.write_token(APTokenTypes.WRITE, MUSIC_BOXES_REQUIRED_OFFSET,
