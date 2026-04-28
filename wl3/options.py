@@ -208,6 +208,15 @@ class NonStopChests(Toggle):
     default = 0
 
 
+class BigCoinsanity(Toggle):
+    """Adds 200 musical-coin (a.k.a. "big coin") pickups — 8 per level — to
+    the location pool. Each coin you grab becomes an Archipelago check that
+    delivers an item from the pool. Reserved name leaves room for a future
+    "Coinsanity" that randomizes the regular small gold coins."""
+    display_name = "Big Coinsanity"
+    default = 0
+
+
 class TransformationShuffle(Toggle):
     """Shuffle transformation abilities (Zombie, Vampire, Fire, etc.) as items.
     When on, you must find each Form item to use that transformation via
@@ -257,6 +266,7 @@ class WL3Options(PerGameCommonOptions):
     start_with_magnifying_glass:  StartWithMagnifyingGlass
     reduce_flashing:              ReduceFlashing
     non_stop_chests:              NonStopChests
+    bigcoinsanity:                BigCoinsanity
     trap_fill:                    TrapFill
     # Cosmetics
     music_shuffle:                MusicShuffle

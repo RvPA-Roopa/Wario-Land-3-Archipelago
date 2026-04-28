@@ -10,8 +10,9 @@ Setup:
   4. Launch ArchipelagoBizHawkClient.exe and connect to your AP server
 """
 
+import asyncio
 import logging
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Optional
 
 from NetUtils import ClientStatus
 from worlds._bizhawk import read, write, RequestFailedError
@@ -116,6 +117,11 @@ ADDR_TRANSFORM_FROM_TRAP_WRAM = 0x149E # wTransformFromTrap (bank 1 0xD49E) — 
                                        # to 1 alongside wPendingTrap when delivering
                                        # a trap so ROM blocks Select-cancel; ROM
                                        # clears it when transformation ends.
+ADDR_COIN_FLAGS_WRAM         = 0x149F  # wCoinFlags (bank 1 0xD49F) — 25 bytes,
+                                       # 1 bit per musical coin per level
+                                       # (200 total). Bit (level-1)*8+idx
+                                       # set on coinsanity pickup.
+COINS_PER_LEVEL = 8
 
 # AP item ID → ROM trap ID (TRAP_* constants in wario_constants.asm).
 # Single source of truth lives in items.TRAP_AP_IDS (also used by
@@ -141,6 +147,7 @@ TRANSFORM_UNLOCK_AP_IDS: dict[int, list[tuple[int, int]]] = {
 PROGRESSIVE_VAMPIRE_AP_ID = BASE_ITEM_ID + 500 + 1
 
 KEY_BASE_LOC_ID  = 7_770_400        # AP location ID = KEY_BASE_LOC_ID + (owlevel-1)*4 + color
+COIN_BASE_LOC_ID = 7_770_500        # AP location ID = COIN_BASE_LOC_ID + (owlevel-1)*8 + coin_idx
 KEY_BASE_ITEM_ID = BASE_ITEM_ID + 300  # 7_770_300
 KEYRING_BASE_ITEM_ID = BASE_ITEM_ID + 700  # 7_770_700 (one per level, owlevel-1 offset)
 
@@ -213,6 +220,7 @@ class WL3Client(BizHawkClient):
         super().__init__()
         self._prev_end_screen:  int   = 0
         self._prev_level_keys:  bytes = bytes(25)
+        self._prev_coin_flags:  bytes = bytes(25)
         self._prev_opened_chests: bytes = bytes(13)
         self._checked_locs:     set   = set()
         self._items_handled:    int  = 0
@@ -314,6 +322,35 @@ class WL3Client(BizHawkClient):
         except RequestFailedError:
             pass
 
+        # ---- Detect coin pickups: new bits set in wCoinFlags (coinsanity) ----
+        # 25 bytes, one byte per level, 8 bits each = 200 musical coins.
+        # Bit (level-1)*8 + spawn_idx is set on pickup by ROM
+        # (SetCoinFlagFromCurObj). We only care about rising-edge bits.
+        try:
+            cf_raw = (await read(ctx.bizhawk_ctx, [(ADDR_COIN_FLAGS_WRAM, 25, "WRAM")]))[0]
+            # DEBUG: log any byte change at all so we can see whether
+            # the ROM is actually flipping bits in wCoinFlags on pickup.
+            if cf_raw != self._prev_coin_flags:
+                changed = [(i, self._prev_coin_flags[i], cf_raw[i])
+                           for i in range(25) if cf_raw[i] != self._prev_coin_flags[i]]
+                logger.info(f"[WL3] coin flags changed: "
+                            + ", ".join(f"L{i+1}: 0x{old:02X}->0x{new:02X}"
+                                        for i, old, new in changed))
+            for byte_idx in range(25):
+                new_bits = (~self._prev_coin_flags[byte_idx]) & cf_raw[byte_idx]
+                if new_bits == 0:
+                    continue
+                for bit in range(COINS_PER_LEVEL):
+                    if new_bits & (1 << bit):
+                        loc_id = COIN_BASE_LOC_ID + byte_idx * COINS_PER_LEVEL + bit
+                        if loc_id not in self._checked_locs:
+                            self._checked_locs.add(loc_id)
+                            logger.info(f"[WL3] Coin pickup — L{byte_idx+1} #{bit+1} -> AP loc {loc_id}")
+                            await self._show_sent_msg(ctx, loc_id)
+            self._prev_coin_flags = bytes(cf_raw)
+        except RequestFailedError:
+            pass
+
         # ---- Detect chest pickups via wOpenedChests (non-stop mode fallback) ----
         # In non-stop mode wLevelEndScreen is cleared same-frame, so the rising-edge
         # check above may miss it. Also detect newly set bits in wOpenedChests.
@@ -366,19 +403,28 @@ class WL3Client(BizHawkClient):
             ctx.command_processor.commands["levels"] = lambda *_: self._show_unlocked_levels(ctx)
             ctx.command_processor.commands["skip"] = lambda *_: self._skip_messages()
             ctx.command_processor.commands["keys"] = lambda *_: self._show_keys()
+            ctx.command_processor.commands["coindebug"] = lambda *_: asyncio.create_task(self._coin_debug(ctx))
             self._cmd_registered = True
 
         # ---- Seed _checked_locs from wOpenedChests on first server connection ----
         # The ROM now writes wOpenedChests on every chest open and it's saved to SRAM,
         # so it accurately reflects ALL offline checks including gem/crest placeholders.
+        # Also seed coin checks from wCoinFlags so coins collected offline get sent
+        # on first connect.
         if not self._seeded_from_wram:
             try:
                 oc_raw = (await read(ctx.bizhawk_ctx, [(ADDR_OPENED_CHESTS_WRAM, 13, "WRAM")]))[0]
                 for loc_index in range(100):
                     if oc_raw[loc_index >> 3] & (1 << (loc_index & 7)):
                         self._checked_locs.add(BASE_LOC_ID + loc_index)
+                cf_raw = (await read(ctx.bizhawk_ctx, [(ADDR_COIN_FLAGS_WRAM, 25, "WRAM")]))[0]
+                for byte_idx in range(25):
+                    for bit in range(COINS_PER_LEVEL):
+                        if cf_raw[byte_idx] & (1 << bit):
+                            self._checked_locs.add(COIN_BASE_LOC_ID + byte_idx * COINS_PER_LEVEL + bit)
+                self._prev_coin_flags = bytes(cf_raw)
                 self._seeded_from_wram = True
-                logger.debug(f"[WL3] Seeded {len(self._checked_locs)} offline checks from wOpenedChests")
+                logger.debug(f"[WL3] Seeded {len(self._checked_locs)} offline checks from wOpenedChests + wCoinFlags")
                 self._levels_shown = False  # trigger auto-print after items are processed
             except RequestFailedError:
                 pass  # retry next poll
@@ -595,6 +641,40 @@ class WL3Client(BizHawkClient):
         count = len(self._msg_queue)
         self._msg_queue.clear()
         logger.info(f"[WL3] Skipped {count} queued message(s).")
+
+    async def _coin_debug(self, ctx: "BizHawkClientContext") -> None:
+        """Dump every active musical-coin obj slot's (room, x, y, idx) so we
+        can compare against CoinPositions and figure out why FindCoinIdx is
+        not matching. Active obj slots: 8 × 32 bytes starting at WRAM 0x1000
+        (= $D000 in bank 1). OBJ_INTERACTION_TYPE = $0d means musical coin."""
+        try:
+            slots = (await read(ctx.bizhawk_ctx, [(0x1000, 8 * 32, "WRAM")]))[0]
+            wlevel = (await read(ctx.bizhawk_ctx, [(0x0A0B, 1, "WRAM")]))[0][0]  # wLevel @ $CA0B
+            wroom  = (await read(ctx.bizhawk_ctx, [(0x00C9, 1, "WRAM")]))[0][0]  # wRoom @ $C0C9
+        except RequestFailedError:
+            logger.warning("[WL3] coindebug: read failed")
+            return
+        owlevel = (wlevel >> 3) + 1
+        logger.info(f"[WL3] coindebug: wLevel=0x{wlevel:02X} (ow {owlevel})  wRoom=0x{wroom:02X}")
+        found = 0
+        for n in range(8):
+            base = n * 32
+            flags = slots[base + 0]
+            if not (flags & 0x01):  # OBJFLAG_ACTIVE
+                continue
+            interaction = slots[base + 8]
+            if interaction != 0x0d:  # OBJ_INTERACTION_MUSICAL_COIN
+                continue
+            y_hi = slots[base + 3]
+            y_lo = slots[base + 4]
+            x_hi = slots[base + 5]
+            x_lo = slots[base + 6]
+            var1 = slots[base + 0x17]
+            logger.info(f"[WL3]  slot {n}: x=0x{x_hi:02X}{x_lo:02X} y=0x{y_hi:02X}{y_lo:02X}  "
+                        f"OBJ_VAR_1=0x{var1:02X} (idx from FindCoinIdx; 0xFF = miss)")
+            found += 1
+        if found == 0:
+            logger.info("[WL3]  no active musical coins in any obj slot — walk near one and re-run.")
 
     def _show_keys(self) -> None:
         """Print held keys grouped by level. Called by /keys command."""

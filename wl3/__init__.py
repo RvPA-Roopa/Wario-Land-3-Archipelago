@@ -42,7 +42,7 @@ from .items import (
     TREASURE_TABLE,
     WL3ItemData,
 )
-from .locations import BASE_LOC_ID, KEY_LOCATION_TABLE, LOCATION_TABLE, WL3LocationData
+from .locations import BASE_LOC_ID, COIN_LOCATION_TABLE, KEY_LOCATION_TABLE, LOCATION_TABLE, WL3LocationData
 from Options import OptionGroup
 from .options import (WL3Options, MusicBoxShuffle, KeyShuffle, CombinedItems,
                       GolfPrice, GolfBuilding, IHateGolf,
@@ -216,6 +216,10 @@ class WL3World(World):
     location_name_to_id  = {
         **{name: data.ap_id for name, data in LOCATION_TABLE.items()},
         **{name: data.ap_id for name, data in KEY_LOCATION_TABLE.items()},
+        # Coin locations are always in the name→id map (so the AP server
+        # recognizes them); they're only added as actual locations on the
+        # multiworld side when world.options.bigcoinsanity is on.
+        **{name: data.ap_id for name, data in COIN_LOCATION_TABLE.items()},
     }
 
     item_name_groups = {
@@ -350,6 +354,13 @@ class WL3World(World):
                 # 3 filler items to preserve pool size (keyring replaces 4 keys)
                 for _ in range(3):
                     items.append(self.create_item("Clubs Crest (1 Coin)"))
+
+        # Big Coinsanity: 200 new coin locations need 200 new filler items so
+        # the pool stays balanced. Use Clubs Crests (1 coin each) — same filler
+        # as other slot-padding above. These become trap candidates downstream.
+        if self.options.bigcoinsanity:
+            for _ in range(200):
+                items.append(self.create_item("Clubs Crest (1 Coin)"))
 
         # Trap replacement: swap a % of filler items for random trap items.
         # Runs after key shuffle so keyring-padding fillers are also candidates.

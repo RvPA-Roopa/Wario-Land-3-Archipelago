@@ -113,3 +113,46 @@ def _build_key_location_table() -> Dict[str, WL3KeyLocationData]:
 
 
 KEY_LOCATION_TABLE: Dict[str, WL3KeyLocationData] = _build_key_location_table()
+
+
+# ---------------------------------------------------------------------------
+# Coin locations (coinsanity)
+# 200 musical coins (25 levels × 8 each); AP IDs 7_770_500 – 7_770_699.
+# Spawn-order index 0-7 within the level (deterministic per level visit).
+# ---------------------------------------------------------------------------
+
+COIN_BASE_LOC_ID = 7_770_500
+COINS_PER_LEVEL = 8
+
+
+class WL3CoinLocationData(NamedTuple):
+    ap_id: int
+    owlevel: int        # wOWLevel (1–25)
+    coin_index: int     # 0–7 (spawn order within the level)
+    region: str
+    level_name: str
+
+    @property
+    def loc_index(self) -> int:
+        """0-based index into the 200-entry coin space: (owlevel-1)*8 + coin_index."""
+        return (self.owlevel - 1) * COINS_PER_LEVEL + self.coin_index
+
+
+def _build_coin_location_table() -> Dict[str, WL3CoinLocationData]:
+    table: Dict[str, WL3CoinLocationData] = {}
+    for owlevel, level_name, region in LEVEL_LIST:
+        for coin_index in range(COINS_PER_LEVEL):
+            loc_name = f"{level_name} - Big Coin {coin_index + 1}"
+            ap_id = COIN_BASE_LOC_ID + (owlevel - 1) * COINS_PER_LEVEL + coin_index
+            table[loc_name] = WL3CoinLocationData(
+                ap_id=ap_id,
+                owlevel=owlevel,
+                coin_index=coin_index,
+                region=region,
+                level_name=level_name,
+            )
+    return table
+
+
+COIN_LOCATION_TABLE: Dict[str, WL3CoinLocationData] = _build_coin_location_table()
+assert len(COIN_LOCATION_TABLE) == 200, f"Expected 200 coin locations, got {len(COIN_LOCATION_TABLE)}"

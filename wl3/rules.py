@@ -28,7 +28,7 @@ from typing import TYPE_CHECKING, List
 
 from BaseClasses import CollectionState, LocationProgressType
 
-from .locations import COLOR_NAMES, KEY_LOCATION_TABLE, LOCATION_TABLE
+from .locations import COIN_LOCATION_TABLE, COLOR_NAMES, KEY_LOCATION_TABLE, LOCATION_TABLE
 from .options import (KeyShuffle, DifficultyOptions, MinorGlitches)
 
 if TYPE_CHECKING:
@@ -1054,6 +1054,16 @@ def set_rules(world: "WL3World") -> None:
             elif key_rule is not None:
                 mw.get_location(loc_name, player).access_rule = \
                     lambda state, r=key_rule: r(state, player)
+
+    # Coin locations (coinsanity) — only the level-entry rule gates them.
+    # Coins respawn each level visit and can be grabbed without any keys, so
+    # access matches "is the level reachable", same logic as level entry.
+    if world.options.bigcoinsanity:
+        for loc_name, loc_data in COIN_LOCATION_TABLE.items():
+            level_rule = level_rules.get(loc_data.level_name)
+            if level_rule is not None:
+                mw.get_location(loc_name, player).access_rule = \
+                    lambda state, r=level_rule: r(state, player)
 
     # Victory condition — collect required music boxes then beat the final boss.
     # Progressive Overalls x1 and Progressive Grab x2 are always required for the temple fight.

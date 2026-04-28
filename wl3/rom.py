@@ -1,9 +1,17 @@
 """
 WL3 patch class — builds the .apwl3 patch file using AP's APProcedurePatch system.
 
-Procedure:
-  1. apply_bsdiff4  — applies base ROM hack (original WL3 → hacked base)
-  2. apply_tokens   — writes the randomized 100-byte chest table
+Procedure (runs at patch-application time, not generation):
+  1. capture_vanilla        — snapshot vanilla ROM on self for steps 4-5
+  2. apply_bsdiff4          — vanilla → hacked base
+  3. apply_tokens           — write seeded tables (chest, key, options, wario palettes, …)
+  4. apply_form_icons       — extract Form icons from snapshot, encode, write
+  5. apply_palette_shuffle  — recolor enemy/level-bg palettes from snapshot using
+                              per-palette seeds bundled in palette_params.json
+
+Form icon extraction and palette shuffle are deferred so generation never reads
+the user's vanilla ROM. Hosts can produce multiworld zips for upload without
+owning the ROM; the player applying the .apwl3 supplies their own.
 """
 import colorsys
 import os
@@ -11,7 +19,7 @@ import zipfile
 from typing import TYPE_CHECKING
 
 from settings import get_settings
-from worlds.Files import APProcedurePatch, APTokenMixin, APTokenTypes
+from worlds.Files import APProcedurePatch, APPatchExtension, APTokenMixin, APTokenTypes
 
 if TYPE_CHECKING:
     from . import WL3World
@@ -330,9 +338,21 @@ class WL3ProcedurePatch(APProcedurePatch, APTokenMixin):
     patch_file_ending   = ".apwl3"
     result_file_ending  = ".gbc"
 
+    # Procedure order matters:
+    #   1. capture_vanilla        — snapshot unmodified rom on self for later steps
+    #   2. apply_bsdiff4          — vanilla → hacked base
+    #   3. apply_tokens           — write seeded tables (chest/key/options/wario palettes)
+    #   4. apply_form_icons       — read vanilla pixels from snapshot, re-encode, write
+    #   5. apply_palette_shuffle  — read vanilla palette bytes, recolor with stored seed
+    # Steps 4-5 are deferred to patch time so generation never reads the user's
+    # vanilla ROM. Hosts can produce multiworld zips for upload without owning
+    # the ROM; only the player applying the .apwl3 needs it.
     procedure = [
-        ("apply_bsdiff4", ["base_patch.bsdiff4"]),
-        ("apply_tokens",  ["token_data.bin"]),
+        ("capture_vanilla",       []),
+        ("apply_bsdiff4",         ["base_patch.bsdiff4"]),
+        ("apply_tokens",          ["token_data.bin"]),
+        ("apply_form_icons",      []),
+        ("apply_palette_shuffle", ["palette_params.json"]),
     ]
 
     @classmethod
@@ -343,6 +363,96 @@ class WL3ProcedurePatch(APProcedurePatch, APTokenMixin):
         rom_path = opts["rom_file"] if isinstance(opts, dict) else opts.rom_file
         with open(rom_path, "rb") as f:
             return f.read()
+
+
+# Custom procedure steps for our patch. Procedure dispatch goes through
+# AutoPatchExtensionRegister.get_handler(game), which finds the APPatchExtension
+# subclass with matching `game`. Methods receive (caller, rom, *args) — `caller`
+# is the WL3ProcedurePatch instance, used for self.get_file() and stashing
+# vanilla bytes between steps.
+class WL3PatchExtension(APPatchExtension):
+    game = "Wario Land 3"
+
+    @staticmethod
+    def capture_vanilla(caller, rom: bytes) -> bytes:
+        # Snapshot for apply_form_icons / apply_palette_shuffle, which run after
+        # bsdiff has modified rom and need original bytes.
+        caller._wl3_vanilla = bytes(rom)
+        return rom
+
+    @staticmethod
+    def apply_form_icons(caller, rom: bytes) -> bytes:
+        rom = bytearray(rom)
+        vanilla = caller._wl3_vanilla
+        for kind, src_offset, src_length, crop_x, crop_y, dest_offset in FORM_ICON_EXTRACTIONS:
+            raw = vanilla[src_offset:src_offset + src_length]
+            if kind == "sprite":
+                pixels = _decode_sprite_sheet(_wl3_rle_decompress(raw), width_tiles=16)
+            elif kind == "sprite_raw":
+                pixels = _decode_sprite_sheet(raw, width_tiles=16)
+            else:
+                pixels = _decode_tilemap(raw, width_tiles=16)
+            encoded = _encode_icon_from_pixels(pixels, crop_x, crop_y)
+            rom[dest_offset:dest_offset + len(encoded)] = encoded
+        for kind, src_offset, src_length, crop_x, crop_y, half_w, half_h, dest_offset in FORM_ICON_MIRRORED_EXTRACTIONS:
+            raw = vanilla[src_offset:src_offset + src_length]
+            if kind == "sprite":
+                pixels = _decode_sprite_sheet(_wl3_rle_decompress(raw), width_tiles=16)
+            elif kind == "sprite_raw":
+                pixels = _decode_sprite_sheet(raw, width_tiles=16)
+            else:
+                pixels = _decode_tilemap(raw, width_tiles=16)
+            encoded = _build_mirrored_icon(pixels, crop_x, crop_y, half_w, half_h)
+            rom[dest_offset:dest_offset + len(encoded)] = encoded
+        return bytes(rom)
+
+    @staticmethod
+    def apply_palette_shuffle(caller, rom: bytes, params_filename: str) -> bytes:
+        import json
+        import random as _random
+        params_raw = caller.get_file(params_filename)
+        if not params_raw:
+            return rom
+        params = json.loads(params_raw.decode("utf-8"))
+        rom = bytearray(rom)
+        vanilla = caller._wl3_vanilla
+
+        for entry in params.get("enemy", []):
+            rng = _random.Random(entry["seed"])
+            offset = entry["offset"]
+            length = entry["length"]
+            data = vanilla[offset:offset + length]
+            result = bytearray()
+            for i in range(length // 8):
+                chunk = data[i * 8:(i + 1) * 8]
+                result.extend(_recolor_palette(chunk, rng.random))
+            rom[offset:offset + len(result)] = bytes(result)
+
+        for entry in params.get("level_bg", []):
+            rng = _random.Random(entry["seed"])
+            offset = entry["offset"]
+            length = entry["length"]
+            mode = entry["mode"]
+            group_hue = entry.get("group_hue")
+            data = vanilla[offset:offset + length]
+            result = bytearray()
+            count = length // 8
+            if mode == 1:
+                num = min(count, 2)
+                chosen = set(rng.sample(range(count), num))
+            else:
+                chosen = None
+            for i in range(count):
+                chunk = data[i * 8:(i + 1) * 8]
+                if mode == 2:
+                    result.extend(_recolor_palette(chunk, rng.random, fixed_hue_rotate=group_hue))
+                elif mode == 1 and (i in chosen):
+                    result.extend(_shift_one_palette_color(chunk, rng.random))
+                else:
+                    result.extend(chunk)
+            rom[offset:offset + len(result)] = bytes(result)
+
+        return bytes(rom)
 
 
 # --- palette helpers ---
@@ -462,41 +572,12 @@ def _shift_one_palette_color(chunk: bytes, rand) -> bytes:
 
 
 def write_tokens(world: "WL3World", patch: WL3ProcedurePatch) -> None:
-    """Write the randomized chest table, key pool, and options into the patch."""
-    # Lazy loader for the user's vanilla ROM (shared across all features that
-    # read original game bytes). Keeps vanilla data out of the apworld zip.
-    _vanilla_rom_cache = [None]
-    def _read_vanilla(offset: int, length: int) -> bytes:
-        if _vanilla_rom_cache[0] is None:
-            from settings import get_settings
-            opts = get_settings().wl3_options
-            rom_path = opts["rom_file"] if isinstance(opts, dict) else opts.rom_file
-            with open(rom_path, "rb") as f:
-                _vanilla_rom_cache[0] = f.read()
-        return _vanilla_rom_cache[0][offset:offset + length]
+    """Write the randomized chest table, key pool, and options into the patch.
 
-    # Extract Form treasure icons from the user's vanilla ROM. Each icon is a
-    # 16x16 pixel-crop, re-encoded as 4 tiles of 2bpp. No vanilla GFX ships in
-    # the apworld — source bytes come from the user's own ROM.
-    def _read_pixels(kind: str, src_offset: int, src_length: int):
-        raw = _read_vanilla(src_offset, src_length)
-        if kind == "sprite":
-            return _decode_sprite_sheet(_wl3_rle_decompress(raw), width_tiles=16)
-        elif kind == "sprite_raw":
-            return _decode_sprite_sheet(raw, width_tiles=16)
-        else:  # "tilemap"
-            return _decode_tilemap(raw, width_tiles=16)
-
-    for kind, src_offset, src_length, crop_x, crop_y, dest_offset in FORM_ICON_EXTRACTIONS:
-        pixels = _read_pixels(kind, src_offset, src_length)
-        patch.write_token(APTokenTypes.WRITE, dest_offset,
-                          _encode_icon_from_pixels(pixels, crop_x, crop_y))
-
-    for kind, src_offset, src_length, crop_x, crop_y, half_w, half_h, dest_offset in FORM_ICON_MIRRORED_EXTRACTIONS:
-        pixels = _read_pixels(kind, src_offset, src_length)
-        patch.write_token(APTokenTypes.WRITE, dest_offset,
-                          _build_mirrored_icon(pixels, crop_x, crop_y, half_w, half_h))
-
+    Operations that need vanilla ROM bytes (Form icon extraction, palette
+    shuffle) are NOT performed here — they're deferred to patch-application
+    time via the apply_form_icons / apply_palette_shuffle procedure steps.
+    This lets generation run without the user's vanilla ROM."""
     chest_assignments = list(world._build_chest_assignments())
 
     key_assignments = world._build_key_assignments()
@@ -710,57 +791,49 @@ def write_tokens(world: "WL3World", patch: WL3ProcedurePatch) -> None:
             world.options.wario_shirt_shuffle):
         patch.write_token(APTokenTypes.WRITE, DISABLE_PAL_CYCLE_OFFSET, bytes([1]))
 
-    # --- palette shuffle ---
-    # Vanilla palette bytes are NOT stored in the apworld. Offsets are inlined
-    # in palette_offsets.py; actual bytes are read from the user's own vanilla
-    # ROM here at generation time (via _read_vanilla defined at top of this fn).
+    # --- palette shuffle: deferred to patch time ---
+    # Per-palette seeds are rolled here (consumes world.random deterministically),
+    # then bundled into palette_params.json. apply_palette_shuffle reads vanilla
+    # palette bytes from the snapshot at patch time and runs the recolors with
+    # these seeds. Vanilla palette bytes are NOT stored in the apworld.
+    import json as _json
     from .palette_offsets import ENEMY_PALETTES, LEVEL_BG_PALETTES
+
+    palette_params: dict = {"enemy": [], "level_bg": []}
 
     if world.options.enemy_palette_shuffle:
         for offset, length, _group in ENEMY_PALETTES:
-            data = _read_vanilla(offset, length)
-            result = bytearray()
-            for i in range(len(data) // 8):
-                chunk = data[i * 8 : (i + 1) * 8]
-                result.extend(_recolor_palette(chunk, world.random.random))
-            patch.write_token(APTokenTypes.WRITE, offset, bytes(result))
+            palette_params["enemy"].append({
+                "offset": offset,
+                "length": length,
+                "seed":   world.random.getrandbits(32),
+            })
 
-    # --- level / room BG palette shuffle (simple or full) ---
     level_bg_mode = int(world.options.level_bg_palette_shuffle)
     if level_bg_mode != 0:
-        # Per-cycle-group shared hue rotation: palettes that belong to the
-        # same room palette cycle (e.g. Above the Clouds lightning flash) all
-        # get the same hue offset so cycle frames don't strobe random colors.
+        # Per-cycle-group shared hue rotation: palettes in the same cycle group
+        # (e.g. Above the Clouds lightning flash) get the same hue so cycle
+        # frames don't strobe random colors. Roll the group hue once per group.
         group_hue_cache: dict = {}
-
-        # Normal per-block processing (simple or full recolors applied per-palette)
         for offset, length, group in LEVEL_BG_PALETTES:
-            data = _read_vanilla(offset, length)
-            result = bytearray()
-            count = len(data) // 8
-            if level_bg_mode == 1:
-                num = min(count, 2)
-                chosen = set(world.random.sample(range(count), num))
-            else:
-                chosen = None
-
             if group is not None:
                 if group not in group_hue_cache:
                     group_hue_cache[group] = world.random.random()
                 group_hue = group_hue_cache[group]
             else:
                 group_hue = None
+            palette_params["level_bg"].append({
+                "offset":    offset,
+                "length":    length,
+                "mode":      level_bg_mode,
+                "seed":      world.random.getrandbits(32),
+                "group_hue": group_hue,
+            })
 
-            for i in range(count):
-                chunk = data[i * 8 : (i + 1) * 8]
-                if level_bg_mode == 2:
-                    result.extend(_recolor_palette(chunk, world.random.random, fixed_hue_rotate=group_hue))
-                elif level_bg_mode == 1 and (i in chosen):
-                    # instead of recoloring entire palette, shift one color slightly
-                    result.extend(_shift_one_palette_color(chunk, world.random.random))
-                else:
-                    result.extend(chunk)
-            patch.write_token(APTokenTypes.WRITE, offset, bytes(result))
+    # Always write the file (even if both shuffles disabled) so apply_palette_shuffle
+    # can self.get_file() without erroring.
+    patch.write_file("palette_params.json",
+                     _json.dumps(palette_params).encode("utf-8"))
 
     # Wario palette offsets (color 3 = overalls/outline in each variant)
     WARIO_OVERALLS_OFFSETS = [

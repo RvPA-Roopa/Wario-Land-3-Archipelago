@@ -10,7 +10,7 @@ from typing import TYPE_CHECKING, Dict
 
 from BaseClasses import Location, Region
 
-from .locations import KEY_LOCATION_TABLE, LOCATION_TABLE
+from .locations import COIN_LOCATION_TABLE, KEY_LOCATION_TABLE, LOCATION_TABLE
 
 if TYPE_CHECKING:
     from . import WL3World
@@ -54,6 +54,15 @@ def create_regions(world: "WL3World") -> Dict[str, Region]:
         region = all_regions[loc_data.region]
         loc = Location(player, loc_name, loc_data.ap_id, region)
         region.locations.append(loc)
+
+    # Coinsanity: 200 coin locations, gated by the coinsanity option.
+    # Each coin's reachability piggybacks on its level being reachable —
+    # the per-level rules in set_rules() apply equally to coin locations.
+    if world.options.bigcoinsanity:
+        for loc_name, loc_data in COIN_LOCATION_TABLE.items():
+            region = all_regions[loc_data.region]
+            loc = Location(player, loc_name, loc_data.ap_id, region)
+            region.locations.append(loc)
 
     # All regions unconditionally reachable — level entry gated by item rules
     menu.connect(north)
