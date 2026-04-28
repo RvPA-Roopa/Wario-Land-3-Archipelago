@@ -10,7 +10,6 @@ Setup:
   4. Launch ArchipelagoBizHawkClient.exe and connect to your AP server
 """
 
-import asyncio
 import logging
 from typing import TYPE_CHECKING, Optional
 
@@ -328,14 +327,6 @@ class WL3Client(BizHawkClient):
         # (SetCoinFlagFromCurObj). We only care about rising-edge bits.
         try:
             cf_raw = (await read(ctx.bizhawk_ctx, [(ADDR_COIN_FLAGS_WRAM, 25, "WRAM")]))[0]
-            # DEBUG: log any byte change at all so we can see whether
-            # the ROM is actually flipping bits in wCoinFlags on pickup.
-            if cf_raw != self._prev_coin_flags:
-                changed = [(i, self._prev_coin_flags[i], cf_raw[i])
-                           for i in range(25) if cf_raw[i] != self._prev_coin_flags[i]]
-                logger.info(f"[WL3] coin flags changed: "
-                            + ", ".join(f"L{i+1}: 0x{old:02X}->0x{new:02X}"
-                                        for i, old, new in changed))
             for byte_idx in range(25):
                 new_bits = (~self._prev_coin_flags[byte_idx]) & cf_raw[byte_idx]
                 if new_bits == 0:
@@ -345,7 +336,7 @@ class WL3Client(BizHawkClient):
                         loc_id = COIN_BASE_LOC_ID + byte_idx * COINS_PER_LEVEL + bit
                         if loc_id not in self._checked_locs:
                             self._checked_locs.add(loc_id)
-                            logger.info(f"[WL3] Coin pickup — L{byte_idx+1} #{bit+1} -> AP loc {loc_id}")
+                            logger.debug(f"[WL3] Coin pickup — L{byte_idx+1} #{bit+1} -> AP loc {loc_id}")
                             await self._show_sent_msg(ctx, loc_id)
             self._prev_coin_flags = bytes(cf_raw)
         except RequestFailedError:
@@ -403,7 +394,6 @@ class WL3Client(BizHawkClient):
             ctx.command_processor.commands["levels"] = lambda *_: self._show_unlocked_levels(ctx)
             ctx.command_processor.commands["skip"] = lambda *_: self._skip_messages()
             ctx.command_processor.commands["keys"] = lambda *_: self._show_keys()
-            ctx.command_processor.commands["coindebug"] = lambda *_: asyncio.create_task(self._coin_debug(ctx))
             self._cmd_registered = True
 
         # ---- Seed _checked_locs from wOpenedChests on first server connection ----
@@ -641,40 +631,6 @@ class WL3Client(BizHawkClient):
         count = len(self._msg_queue)
         self._msg_queue.clear()
         logger.info(f"[WL3] Skipped {count} queued message(s).")
-
-    async def _coin_debug(self, ctx: "BizHawkClientContext") -> None:
-        """Dump every active musical-coin obj slot's (room, x, y, idx) so we
-        can compare against CoinPositions and figure out why FindCoinIdx is
-        not matching. Active obj slots: 8 × 32 bytes starting at WRAM 0x1000
-        (= $D000 in bank 1). OBJ_INTERACTION_TYPE = $0d means musical coin."""
-        try:
-            slots = (await read(ctx.bizhawk_ctx, [(0x1000, 8 * 32, "WRAM")]))[0]
-            wlevel = (await read(ctx.bizhawk_ctx, [(0x0A0B, 1, "WRAM")]))[0][0]  # wLevel @ $CA0B
-            wroom  = (await read(ctx.bizhawk_ctx, [(0x00C9, 1, "WRAM")]))[0][0]  # wRoom @ $C0C9
-        except RequestFailedError:
-            logger.warning("[WL3] coindebug: read failed")
-            return
-        owlevel = (wlevel >> 3) + 1
-        logger.info(f"[WL3] coindebug: wLevel=0x{wlevel:02X} (ow {owlevel})  wRoom=0x{wroom:02X}")
-        found = 0
-        for n in range(8):
-            base = n * 32
-            flags = slots[base + 0]
-            if not (flags & 0x01):  # OBJFLAG_ACTIVE
-                continue
-            interaction = slots[base + 8]
-            if interaction != 0x0d:  # OBJ_INTERACTION_MUSICAL_COIN
-                continue
-            y_hi = slots[base + 3]
-            y_lo = slots[base + 4]
-            x_hi = slots[base + 5]
-            x_lo = slots[base + 6]
-            var1 = slots[base + 0x17]
-            logger.info(f"[WL3]  slot {n}: x=0x{x_hi:02X}{x_lo:02X} y=0x{y_hi:02X}{y_lo:02X}  "
-                        f"OBJ_VAR_1=0x{var1:02X} (idx from FindCoinIdx; 0xFF = miss)")
-            found += 1
-        if found == 0:
-            logger.info("[WL3]  no active musical coins in any obj slot — walk near one and re-run.")
 
     def _show_keys(self) -> None:
         """Print held keys grouped by level. Called by /keys command."""
