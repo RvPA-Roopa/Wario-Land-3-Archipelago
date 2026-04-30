@@ -33,6 +33,7 @@ from .items import (
     PROGRESSIVE_COUNTS,
     PROGRESSIVE_ITEMS,
     TRAP_AP_IDS_SET,
+    TRAP_DISGUISE_POOL,
     TRAP_ITEMS,
     FORM_DISPLAY_TREASURE,
     TRANSFORM_SACRIFICED_TREASURES,
@@ -538,7 +539,11 @@ class WL3World(World):
             # Trap items: show as red gem. tier_ids[0] is a TRAP_* constant,
             # NOT a treasure ID, so we must never write it to the chest table.
             if item_data.ap_id in TRAP_AP_IDS_SET:
-                chest_table[loc_data.loc_index] = 0x4E  # Red Gem
+                # Random treasure ID as visual disguise — the player can't
+                # tell from the chest popup whether it's a real item or a
+                # trap. ROM dispatches the trap via TrapChestTable, which
+                # short-circuits before the regular grant flow.
+                chest_table[loc_data.loc_index] = self.random.choice(TRAP_DISGUISE_POOL)
                 continue
 
             # Transform unlock items: tier_ids are (byte_idx, bit_idx) pairs,
@@ -563,6 +568,49 @@ class WL3World(World):
                 chest_table[loc_idx] = tier_ids[0]
 
         return chest_table
+
+    def _build_trap_chest_table(self) -> List[int]:
+        """Return a 100-element list of TRAP_* IDs (1-5) per chest slot, or 0 for
+        non-trap chests. Indexed identically to the regular chest table.
+        Patched into ROM TrapChestTable; SetTreasureTransitionParam reads it
+        and queues the trap on chest open instead of granting an item, so
+        traps fire even with the AP client disconnected (offline solo seeds).
+        """
+        from .items import TRAP_AP_IDS  # AP item id → TRAP_* (1-5)
+        trap_table = [0] * 100
+        for loc_name, loc_data in LOCATION_TABLE.items():
+            location = self.multiworld.get_location(loc_name, self.player)
+            item = location.item
+            if item is None or item.player != self.player:
+                continue
+            item_data = ITEM_TABLE.get(item.name)
+            if item_data is None:
+                continue
+            trap_id = TRAP_AP_IDS.get(item_data.ap_id)
+            if trap_id is not None:
+                trap_table[loc_data.loc_index] = trap_id
+        return trap_table
+
+    def _build_trap_key_table(self) -> List[int]:
+        """Like _build_trap_chest_table but for KEY locations (Full keysanity).
+        SaveKeyToInventory reads ROM TrapKeyTable; non-zero entries queue the
+        trap and skip the regular key/treasure inventory write.
+        """
+        from .items import TRAP_AP_IDS
+        trap_table = [0] * 100
+        for loc_name, loc_data in KEY_LOCATION_TABLE.items():
+            location = self.multiworld.get_location(loc_name, self.player)
+            item = location.item
+            if item is None or item.player != self.player:
+                continue
+            item_data = ITEM_TABLE.get(item.name)
+            if item_data is None:
+                continue
+            trap_id = TRAP_AP_IDS.get(item_data.ap_id)
+            if trap_id is not None:
+                idx = (loc_data.owlevel - 1) * 4 + loc_data.color_index
+                trap_table[idx] = trap_id
+        return trap_table
 
     def _build_key_assignments(self) -> List[int]:
         """Return a 100-element list of in-game item IDs for the LevelKeyPool table.
@@ -615,9 +663,10 @@ class WL3World(World):
                 if item_data is None:
                     key_table[idx] = 0x4F
                 elif item_data.ap_id in TRAP_AP_IDS_SET:
-                    # Trap at a key location → red gem (tier_ids[0] is a TRAP_*
-                    # constant, not a treasure ID).
-                    key_table[idx] = 0x4E
+                    # Trap at a key location — random treasure ID as visual
+                    # disguise (tier_ids[0] is the TRAP_* constant, not a
+                    # treasure ID). ROM dispatches the trap via TrapKeyTable.
+                    key_table[idx] = self.random.choice(TRAP_DISGUISE_POOL)
                 else:
                     # Own treasure at key location — ROM safely skips inventory update
                     key_table[idx] = item_data.tier_ids[0]
