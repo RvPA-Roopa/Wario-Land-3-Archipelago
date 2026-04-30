@@ -35,6 +35,8 @@ INITIAL_TREASURES_OFFSET         = 0x001CFB   # InitialTreasuresBits (13 bytes; 
 INITIAL_KEYS_OFFSET              = 0x001D08   # InitialKeysBits      (25 bytes; OR'd into wKeyInventory      at new-game init)
 TRAP_CHEST_TABLE_OFFSET          = 0x001D21   # TrapChestTable (100 bytes; 0=no trap, 1-5=TRAP_* — offline trap dispatch from chests)
 TRAP_KEY_TABLE_OFFSET            = 0x001D85   # TrapKeyTable   (100 bytes; same encoding — offline trap dispatch from key slots)
+LEVEL_COIN_ITEMS_OFFSET          = 0x058434   # LevelCoinItems       (200 bytes; bank $16 — display treasure ID per coin slot, $FF=plain)
+COIN_PAL_OVERRIDE_OFFSET         = 0x0584FC   # CoinPaletteOverrides (200 bytes; bank $16 — OBPAL per coin, $FF=default)
 TREASURE_DUMMY_TILE_OFFSET       = 0x099940   # TreasureGfx[$65] — 64 bytes (4 tiles, 2bpp)
 TREASURE_ZOMBIE_TILE_OFFSET      = 0x0999c0   # TreasureZombieFormGfx    — 64 bytes (4 tiles, 2bpp)
 TREASURE_FIRE_TILE_OFFSET        = 0x099a00   # TreasureFireFormGfx      — 64 bytes (4 tiles, 2bpp)
@@ -582,6 +584,13 @@ def write_tokens(world: "WL3World", patch: WL3ProcedurePatch) -> None:
 
     key_assignments = world._build_key_assignments()
     patch.write_token(APTokenTypes.WRITE, KEY_TABLE_OFFSET, bytes(key_assignments))
+
+    # Coinsanity per-coin item + palette tables (200 bytes each, bank $16).
+    # Same encoding as LevelKeyPool / KeyPaletteOverrides. Used by
+    # LoadCoinTreasureTiles to load portrait tiles into VRAM at room entry.
+    coin_items, coin_pals = world._build_coin_assignments()
+    patch.write_token(APTokenTypes.WRITE, LEVEL_COIN_ITEMS_OFFSET,  bytes(coin_items))
+    patch.write_token(APTokenTypes.WRITE, COIN_PAL_OVERRIDE_OFFSET, bytes(coin_pals))
 
     # Write keysanity mode flag (0=vanilla, 1=simple, 2=full)
     from .options import KeyShuffle

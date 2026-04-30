@@ -50,7 +50,7 @@ from .options import (WL3Options, MusicBoxShuffle, KeyShuffle, CombinedItems,
                       MusicShuffle, EnemyPaletteShuffle, LevelBGPaletteShuffle,
                       WarioOverallsShuffle, WarioShirtShuffle, DifficultyOptions, MinorGlitches)
 from .regions import create_regions
-from .rom import WL3ProcedurePatch, write_tokens
+from .rom import WL3ProcedurePatch, write_tokens, KEY_COLOR_PALS, OBPAL_TREASURE_PURPLE
 from .rules import MUSIC_BOXES, set_rules
 from . import client as _client  # noqa: F401 — registers WL3Client with AutoBizHawkClientRegister
 
@@ -690,6 +690,83 @@ class WL3World(World):
                     key_table[idx] = item_data.tier_ids[0]
 
         return key_table
+
+    def _build_coin_assignments(self) -> "tuple[List[int], List[int]]":
+        """Return (LevelCoinItems, CoinPaletteOverrides), each 200 bytes.
+
+        Index: (owlevel - 1) * 8 + coin_index  (matches LEVEL_COIN_ITEMS_OFFSET layout)
+
+        LevelCoinItems byte:
+          - $FF                       → no portrait, show plain spinning-coin sprite
+          - $00-$7F (treasure ID)     → load that treasure's portrait (16x16, 4 tiles)
+          - $65 (TREASURE_DUMMY)      → key portrait (used when item is a key)
+          - $66 (TREASURE_KEYRING)    → keyring portrait
+        CoinPaletteOverrides byte:
+          - $FF                → use the displayed treasure's default palette
+          - 4-9 (OBPAL constant) → force this palette
+        Coins are filler-by-design: the ROM does NOT grant the item directly on
+        pickup (the AP client does). These tables are purely for visual portrait.
+        """
+        from .locations import COIN_LOCATION_TABLE
+        from .items import COMBINED_ITEMS, KEY_ITEM_TABLE, KEYRING_ITEM_TABLE
+        OBPAL_TREASURE_YELLOW = 4
+
+        coin_items = bytearray([0xFF] * 200)
+        coin_pals  = bytearray([0xFF] * 200)
+
+        # Bigcoinsanity off — no items at coin locations, leave defaults ($FF).
+        # All coins render as plain spinning sprites, no portraits.
+        if not self.options.bigcoinsanity:
+            return list(coin_items), list(coin_pals)
+
+        for loc_name, loc_data in COIN_LOCATION_TABLE.items():
+            idx = loc_data.loc_index
+            location = self.multiworld.get_location(loc_name, self.player)
+            item = location.item
+            if item is None or item.player != self.player:
+                # Foreign / empty — show generic gem so the player still sees a
+                # portrait indicating "you're sending this to someone."
+                if item is not None:
+                    cls = item.classification
+                    if cls in (ItemClassification.progression,
+                               ItemClassification.progression_skip_balancing):
+                        coin_items[idx] = 0x4E  # Red Gem
+                    elif cls == ItemClassification.useful:
+                        coin_items[idx] = 0x50  # Blue Gem
+                    else:
+                        coin_items[idx] = 0x4F  # Green Gem
+                continue
+
+            # Own item — pick a display treasure ID.
+            if item.name in KEY_ITEM_TABLE:
+                # Key item at a coin → use the key portrait (TREASURE_DUMMY).
+                # Set its palette to the key's color so it reads correctly.
+                coin_items[idx] = 0x65
+                color = KEY_ITEM_TABLE[item.name].color_index
+                coin_pals[idx] = KEY_COLOR_PALS[color]
+            elif item.name in KEYRING_ITEM_TABLE:
+                # Keyring → 4-keys icon (yellow palette).
+                coin_items[idx] = 0x66
+                coin_pals[idx] = OBPAL_TREASURE_YELLOW
+            elif item.name in TRANSFORM_UNLOCK_ITEMS:
+                # Form unlock → use the sacrificed treasure's icon.
+                coin_items[idx] = FORM_DISPLAY_TREASURE[item.name]
+            elif item.name in COMBINED_ITEMS:
+                # Combined item → purple palette (matches chest treatment).
+                item_data = ITEM_TABLE.get(item.name)
+                coin_items[idx] = item_data.tier_ids[0] if item_data else 0x4F
+                coin_pals[idx]  = OBPAL_TREASURE_PURPLE
+            else:
+                item_data = ITEM_TABLE.get(item.name)
+                if item_data is None:
+                    coin_items[idx] = 0x4F
+                elif item_data.ap_id in TRAP_AP_IDS_SET:
+                    # Trap → random treasure-ID disguise (same as chests/keys).
+                    coin_items[idx] = self.random.choice(TRAP_DISGUISE_POOL)
+                else:
+                    coin_items[idx] = item_data.tier_ids[0]
+
+        return list(coin_items), list(coin_pals)
 
     # ------------------------------------------------------------------
     # Slot data

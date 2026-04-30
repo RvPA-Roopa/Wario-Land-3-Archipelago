@@ -394,6 +394,9 @@ class WL3Client(BizHawkClient):
             ctx.command_processor.commands["levels"] = lambda *_: self._show_unlocked_levels(ctx)
             ctx.command_processor.commands["skip"] = lambda *_: self._skip_messages()
             ctx.command_processor.commands["keys"] = lambda *_: self._show_keys()
+            import asyncio as _asyncio
+            ctx.command_processor.commands["coindebug"] = lambda *_: _asyncio.create_task(self._coin_debug(ctx))
+            ctx.command_processor.commands["coinunique"] = lambda *_: _asyncio.create_task(self._coin_unique(ctx))
             self._cmd_registered = True
 
         # ---- Seed _checked_locs from wOpenedChests on first server connection ----
@@ -631,6 +634,32 @@ class WL3Client(BizHawkClient):
         count = len(self._msg_queue)
         self._msg_queue.clear()
         logger.info(f"[WL3] Skipped {count} queued message(s).")
+
+    async def _coin_debug(self, ctx: "BizHawkClientContext") -> None:
+        """Dump wCoinIdxToSlot, wCoinSlotItems, wRoom, wLevel for the
+        current room. Helps diagnose why MusicalCoinFunc reads $FF when
+        we expect a slot value."""
+        try:
+            # wCoinIdxToSlot @ $D4B8 → bank-1 WRAM offset $14B8 (8 bytes)
+            # wCoinSlotItems @ $D4C0 → bank-1 WRAM offset $14C0 (4 bytes)
+            # wLevel @ $CA0B → WRAM0 offset $0A0B (1 byte)
+            # wRoom  @ $C0C9 → WRAM0 offset $00C9 (1 byte)
+            data = await read(ctx.bizhawk_ctx, [
+                (0x14B8, 12, "WRAM"),  # wCoinIdxToSlot[8] + wCoinSlotItems[4]
+                (0x0A0B, 1,  "WRAM"),
+                (0x00C9, 1,  "WRAM"),
+            ])
+        except RequestFailedError:
+            logger.warning("[WL3] coindebug: read failed")
+            return
+        idx_to_slot = data[0][:8]
+        slot_items  = data[0][8:12]
+        wlevel      = data[1][0]
+        wroom       = data[2][0]
+        owlevel     = (wlevel >> 3) + 1
+        logger.info(f"[WL3] coindebug: wLevel=0x{wlevel:02X} (ow {owlevel}) wRoom=0x{wroom:02X}")
+        logger.info(f"[WL3]   wCoinIdxToSlot[0..7] = {[f'0x{b:02X}' for b in idx_to_slot]}")
+        logger.info(f"[WL3]   wCoinSlotItems[0..3] = {[f'0x{b:02X}' for b in slot_items]}")
 
     def _show_keys(self) -> None:
         """Print held keys grouped by level. Called by /keys command."""
