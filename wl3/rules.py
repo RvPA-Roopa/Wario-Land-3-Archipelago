@@ -1183,15 +1183,25 @@ def set_rules(world: "WL3World") -> None:
                 mw.get_location(loc_name, player).access_rule = \
                     lambda state, r=key_rule: r(state, player)
 
-    # Coin locations (coinsanity) — only the level-entry rule gates them.
-    # Coins respawn each level visit and can be grabbed without any keys, so
-    # access matches "is the level reachable", same logic as level entry.
+    # Coin locations (coinsanity) — gated by level entry AND any per-coin
+    # ability requirements from COIN_RULES (e.g. flippers_2 for an underwater
+    # coin). Coins don't need keys (they respawn each level visit), so we
+    # combine just the two rule sources, mirroring the key location wiring.
     if world.options.bigcoinsanity:
         for loc_name, loc_data in COIN_LOCATION_TABLE.items():
             level_rule = level_rules.get(loc_data.level_name)
-            if level_rule is not None:
+            coin_rules_for_level = COIN_RULES.get(loc_data.level_name)
+            coin_rule = coin_rules_for_level[loc_data.coin_index] if coin_rules_for_level else None
+
+            if level_rule is not None and coin_rule is not None:
+                mw.get_location(loc_name, player).access_rule = \
+                    lambda state, lr=level_rule, cr=coin_rule: lr(state, player) and cr(state, player)
+            elif level_rule is not None:
                 mw.get_location(loc_name, player).access_rule = \
                     lambda state, r=level_rule: r(state, player)
+            elif coin_rule is not None:
+                mw.get_location(loc_name, player).access_rule = \
+                    lambda state, r=coin_rule: r(state, player)
 
     # Victory condition — collect required music boxes then beat the final boss.
     # Progressive Overalls x1 and Progressive Grab x2 are always required for the temple fight.
