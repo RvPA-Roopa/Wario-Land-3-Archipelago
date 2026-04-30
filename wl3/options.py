@@ -209,10 +209,7 @@ class NonStopChests(Toggle):
 
 
 class BigCoinsanity(Toggle):
-    """Adds 200 musical-coin (a.k.a. "big coin") pickups — 8 per level — to
-    the location pool. Each coin you grab becomes an Archipelago check that
-    delivers an item from the pool. Reserved name leaves room for a future
-    "Coinsanity" that randomizes the regular small gold coins."""
+    """Adds 200 big-coin (musical coin) locations  — 8 per level — to the pool."""
     display_name = "Big Coinsanity"
     default = 0
 
