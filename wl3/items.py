@@ -141,6 +141,26 @@ COMBINED_ITEMS_IN_LEVEL: Dict[str, WL3ItemData] = {
 # Combined union (for ITEM_TABLE lookup, classification, etc.)
 COMBINED_ITEMS: Dict[str, WL3ItemData] = {**COMBINED_ITEMS_OVERWORLD, **COMBINED_ITEMS_IN_LEVEL}
 
+# Full component treasure-ID lists for each combined item.
+# Source of truth for both rom.py (offline pre-grant bits at patch time) and
+# client.py (live grants via COMBINED_GRANTS). Keep in sync.
+COMBINED_COMPONENTS: Dict[str, List[int]] = {
+    "Lantern & Magical Flame": [0x0F, 0x10],
+    "Gears":                   [0x12, 0x13],
+    "Blue Book & Magic Wand":  [0x17, 0x1C],
+    "Trident & Yellow Book":   [0x1A, 0x19],
+    "Skull Ring":              [0x1D, 0x1E],
+    "Tablets":                 [0x1F, 0x20],
+    "Scroll":                  [0x22, 0x23],
+    "Tusk Set":                [0x24, 0x25, 0x26],
+    "Storm Pouch":             [0x49, 0x47],
+    "Chemicals":               [0x27, 0x28],
+    "Glass Eyes":              [0x43, 0x42],
+    "Golden Eyes":             [0x41, 0x40],
+    "Sun Medallion":           [0x45, 0x46],
+    "Key Cards":               [0x33, 0x34],
+}
+
 # Individual items absorbed by overworld combines (8 combined items replace 17 individuals).
 INDIVIDUAL_OVERWORLD_NAMES: Set[str] = {
     "Lantern", "Magical Flame",
@@ -313,6 +333,24 @@ TRAP_ITEMS: Dict[str, WL3ItemData] = {
 # red-gem visual instead of grabbing tier_ids[0] (which is a TRAP_* constant,
 # not a real treasure ID).
 TRAP_AP_IDS_SET: set = {item.ap_id for item in TRAP_ITEMS.values()}
+
+# Map AP item ID → ROM TRAP_* constant (1-5). Used by client.py for
+# AP-delivered traps and by _build_trap_chest_table for offline trap dispatch
+# via TrapChestTable in ROM.
+TRAP_AP_IDS: Dict[int, int] = {item.ap_id: item.tier_ids[0] for item in TRAP_ITEMS.values()}
+
+# Treasure IDs the chest/key tables can use as VISUAL disguises for trap
+# slots. The actual trap is dispatched by TrapChestTable / TrapKeyTable in
+# ROM (which short-circuits before grant), so the player can't tell from
+# the chest popup whether it's a real treasure or a trap. Avoid:
+#   - $4E-$54 gems/crests (those are the AP logos, defeats the disguise)
+#   - $65 dummy (used for key portraits in Full keysanity)
+#   - $66 keyring sprite (visually distinct)
+#   - $67-$71 Form sprites (visually distinct)
+TRAP_DISGUISE_POOL: List[int] = (
+    list(range(0x01, 0x4E))  # all "normal" treasures up to the gem gap
+    + list(range(0x55, 0x65))  # past the gems, up through the crayons
+)
 
 # ---------------------------------------------------------------------------
 # Transform Unlock items — player-activated abilities via Select+button combos.

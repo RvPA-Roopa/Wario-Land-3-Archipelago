@@ -97,25 +97,30 @@ ADDR_CHEST_AP_KEY   = 0x2E58   # wChestAPKey (WRAM domain, bank 2 $DE58): chest-
 # GBC WRAM layout: bank 0 at offset 0x0000, bank 1 at 0x1000, bank 2 at 0x2000, …
 ADDR_TREASURES_WRAM     = 0x2000   # WRAM domain offset for wTreasuresCollected (bank 2, 0xD000)
 ADDR_UNLOCKED_LEVELS_WRAM = 0x1163 # WRAM domain offset for wUnlockedLevels    (bank 1, 0xD163)
-ADDR_OPENED_CHESTS_WRAM   = 0x2E00 # WRAM domain offset for wOpenedChests      (bank 2, 0xDE00)
 ADDR_LEVEL_KEYS_WRAM      = 0x117C # WRAM domain offset for wLevelKeys         (bank 1, 0xD17C)
 ADDR_KEY_INVENTORY_WRAM   = 0x1195 # WRAM domain offset for wKeyInventory      (bank 1, 0xD195)
-ADDR_MSG_BUFFER_WRAM      = 0x11AE # wMsgBuffer (96 bytes)
-ADDR_MSG_TIMER_WRAM       = 0x120E # wMsgTimer (1 byte)
-ADDR_MSG_READY_WRAM       = 0x120F # wMsgReady (1 byte, set to 1 to trigger)
-ADDR_MSG_ROWS_WRAM        = 0x1211 # wMsgRows (1 byte, 1-3)
-ADDR_PENDING_TRAP_WRAM    = 0x121A # wPendingTrap (1 byte — AP trap queue, bank 1 0xD21A)
-ADDR_TRANSFORM_UNLOCKS_WRAM  = 0x121B # wTransformUnlocks  (bank 1 0xD21B)
-ADDR_TRANSFORM_UNLOCKS2_WRAM = 0x121C # wTransformUnlocks2 (bank 1 0xD21C)
+ADDR_OPENED_CHESTS_WRAM   = 0x11AE # wOpenedChests — moved to AP Persistent    (bank 1, 0xD1AE)
+                                   # to escape pause-menu collection screen wipe of $D800-$DFFF.
+ADDR_MSG_BUFFER_WRAM      = 0x11BB # wMsgBuffer (96 bytes)
+ADDR_MSG_TIMER_WRAM       = 0x121B # wMsgTimer (1 byte)
+ADDR_MSG_READY_WRAM       = 0x121C # wMsgReady (1 byte, set to 1 to trigger)
+ADDR_MSG_ROWS_WRAM        = 0x121E # wMsgRows (1 byte, 1-3)
+ADDR_PENDING_TRAP_WRAM    = 0x1227 # wPendingTrap (1 byte — AP trap queue, bank 1 0xD227)
+ADDR_TRANSFORM_UNLOCKS_WRAM  = 0x1228 # wTransformUnlocks  (bank 1 0xD228)
+ADDR_TRANSFORM_UNLOCKS2_WRAM = 0x1229 # wTransformUnlocks2 (bank 1 0xD229)
+ADDR_CLIENT_HEARTBEAT_WRAM   = 0x149D # wClientHeartbeat (bank 1 0xD49D) — write
+                                       # ~30 each poll; ROM decrements per frame
+                                       # and suppresses ROM-initiated pickup
+                                       # messages while it's > 0.
+ADDR_TRANSFORM_FROM_TRAP_WRAM = 0x149E # wTransformFromTrap (bank 1 0xD49E) — set
+                                       # to 1 alongside wPendingTrap when delivering
+                                       # a trap so ROM blocks Select-cancel; ROM
+                                       # clears it when transformation ends.
 
-# AP item ID → ROM trap ID (TRAP_* constants in wario_constants.asm)
-TRAP_AP_IDS: dict[int, int] = {
-    BASE_ITEM_ID + 400 + 0x01: 0x01,  # Fire Trap     → TRAP_FIRE
-    BASE_ITEM_ID + 400 + 0x02: 0x02,  # Yarn Trap     → TRAP_YARN
-    BASE_ITEM_ID + 400 + 0x03: 0x03,  # Bouncy Trap   → TRAP_BOUNCY
-    BASE_ITEM_ID + 400 + 0x04: 0x04,  # Electric Trap → TRAP_ELECTRIC
-    BASE_ITEM_ID + 400 + 0x05: 0x05,  # Ice Skate Trap → TRAP_ICE_SKATE
-}
+# AP item ID → ROM trap ID (TRAP_* constants in wario_constants.asm).
+# Single source of truth lives in items.TRAP_AP_IDS (also used by
+# _build_trap_chest_table for offline trap dispatch).
+from .items import TRAP_AP_IDS
 
 # AP item ID → list of (byte_idx, bit_idx) pairs to set in wTransformUnlocks[n].
 # byte_idx: 0 = wTransformUnlocks, 1 = wTransformUnlocks2
@@ -211,6 +216,7 @@ class WL3Client(BizHawkClient):
         self._prev_opened_chests: bytes = bytes(13)
         self._checked_locs:     set   = set()
         self._items_handled:    int  = 0
+        self._caught_up:        bool = False    # False until items already in items_received at first connect have been silently re-applied
         self._cached_received:  set  = set()   # AP IDs received; kept between disconnects
         self._prog_counts:      dict = {}       # ap_id → count received (for progressive tiers)
         self._combined_unlocks: bool = False
@@ -250,6 +256,16 @@ class WL3Client(BizHawkClient):
     # ------------------------------------------------------------------
 
     async def game_watcher(self, ctx: "BizHawkClientContext") -> None:
+        # Refresh the heartbeat so ROM Show* helpers know the client is in
+        # control of pickup messages. ROM ticks this down by 1 each frame in
+        # TickMsgDisplay; 30 gives ~0.5s of headroom between client polls.
+        try:
+            await write(ctx.bizhawk_ctx, [
+                (ADDR_CLIENT_HEARTBEAT_WRAM, bytes([30]), "WRAM"),
+            ])
+        except RequestFailedError:
+            pass
+
         # Always read game state so we can detect chests even when disconnected.
         try:
             read_result = await read(ctx.bizhawk_ctx, [
@@ -392,27 +408,37 @@ class WL3Client(BizHawkClient):
                     self._prog_counts[net_item.item] = self._prog_counts.get(net_item.item, 0) + 1
 
         # ---- Grant any newly received items ----
-        # ---- Grant any newly received items ----
+        # `_caught_up` is False on the first call after a (re)connect — items
+        # currently in items_received are "catch-up". For those we suppress
+        # trap re-fires (the `silent` flag below) but still show the banner
+        # so the player can see what they got while away — they can /skip if
+        # the message queue gets noisy.
+        catch_up_boundary = len(ctx.items_received) if not self._caught_up else self._items_handled
+
         while self._items_handled < len(ctx.items_received):
+            is_catch_up = self._items_handled < catch_up_boundary
             net_item = ctx.items_received[self._items_handled]
             ap_id = net_item.item
             self._cached_received.add(ap_id)
             if ap_id in PROGRESSIVE_ITEMS:
                 self._prog_counts[ap_id] = self._prog_counts.get(ap_id, 0) + 1
-            await self._grant_item(ctx, ap_id)
-            # Show message for each received item (queued, displayed one at a time)
-            if True:
-                try:
-                    item_name = ctx.item_names.lookup_in_game(ap_id) if ctx.item_names else f"ITEM {ap_id}"
-                    sender = net_item.player
-                    if sender != ctx.slot and ctx.player_names:
-                        sender_name = ctx.player_names.get(sender, f"P{sender}")
-                        await self._show_msg(ctx, f"{item_name} FROM {sender_name}")
-                    else:
-                        await self._show_msg(ctx, item_name)
-                except Exception:
-                    pass
+            # silent=True on catch-up batch only suppresses trap dispatch;
+            # idempotent bit-sets (treasures, keys, transforms) still apply.
+            await self._grant_item(ctx, ap_id, silent=is_catch_up)
+            try:
+                item_name = ctx.item_names.lookup_in_game(ap_id) if ctx.item_names else f"ITEM {ap_id}"
+                sender = net_item.player
+                if sender != ctx.slot and ctx.player_names:
+                    sender_name = ctx.player_names.get(sender, f"P{sender}")
+                    await self._show_msg(ctx, f"{item_name} FROM {sender_name}")
+                else:
+                    await self._show_msg(ctx, item_name)
+            except Exception:
+                pass
             self._items_handled += 1
+
+        if not self._caught_up:
+            self._caught_up = True
 
         # Keep cache in sync with full server list
         for net_item in ctx.items_received:
@@ -440,8 +466,13 @@ class WL3Client(BizHawkClient):
                 cur = (await read(ctx.bizhawk_ctx, [(ADDR_PENDING_TRAP_WRAM, 1, "WRAM")]))[0][0]
                 if cur == 0:
                     trap_id = self._trap_queue.pop(0)
-                    await write(ctx.bizhawk_ctx, [(ADDR_PENDING_TRAP_WRAM, bytes([trap_id]), "WRAM")])
-                    logger.debug(f"[WL3] Wrote trap 0x{trap_id:02X} to wPendingTrap")
+                    # Set the lock flag *before* the trap ID so ROM can never
+                    # observe wPendingTrap non-zero with the lock still cleared.
+                    await write(ctx.bizhawk_ctx, [
+                        (ADDR_TRANSFORM_FROM_TRAP_WRAM, bytes([1]), "WRAM"),
+                        (ADDR_PENDING_TRAP_WRAM, bytes([trap_id]), "WRAM"),
+                    ])
+                    logger.debug(f"[WL3] Wrote trap 0x{trap_id:02X} to wPendingTrap (locked)")
             except RequestFailedError:
                 pass
 
@@ -458,9 +489,17 @@ class WL3Client(BizHawkClient):
     # Item granting helpers
     # ------------------------------------------------------------------
 
-    async def _grant_item(self, ctx: "BizHawkClientContext", ap_id: int) -> None:
-        """Resolve an AP item ID to treasure ID(s) and apply them to the game."""
+    async def _grant_item(self, ctx: "BizHawkClientContext", ap_id: int, silent: bool = False) -> None:
+        """Resolve an AP item ID to treasure ID(s) and apply them to the game.
+
+        When `silent` is True (catch-up after a (re)connect), the trap queue
+        is skipped so old traps don't re-fire. All other grants are
+        idempotent bit-sets and run normally so the inventory stays consistent.
+        """
         if ap_id in TRAP_AP_IDS:
+            if silent:
+                logger.debug(f"[WL3] Trap AP {ap_id} skipped (catch-up)")
+                return
             trap_id = TRAP_AP_IDS[ap_id]
             self._trap_queue.append(trap_id)
             logger.debug(f"[WL3] Trap AP {ap_id} queued → ROM trap 0x{trap_id:02X}")
@@ -539,61 +578,6 @@ class WL3Client(BizHawkClient):
             else:
                 out.append(0x54)  # space for any unknown char
         return bytes(out)
-
-    @staticmethod
-    def _build_font() -> bytes:
-        """Generate 8x8 font tiles for A-Z, 0-9, space, dash programmatically.
-        Color 1 = text (light), color 3 = background (dark)."""
-        # Each char defined as 8 rows of pixel patterns (1=letter pixel, 0=bg)
-        P = {
-            'A':[0x30,0x30,0x30,0x48,0x78,0x48,0x84,0x00],
-            'B':[0xF0,0x88,0xF0,0x88,0x88,0xF0,0x00,0x00],
-            'C':[0x70,0x88,0x80,0x80,0x80,0x88,0x70,0x00],
-            'D':[0xE0,0x90,0x88,0x88,0x88,0x90,0xE0,0x00],
-            'E':[0xF8,0x80,0xF0,0x80,0x80,0xF8,0x00,0x00],
-            'F':[0xF8,0x80,0xF0,0x80,0x80,0x80,0x00,0x00],
-            'G':[0x70,0x80,0xB0,0x88,0x88,0x78,0x00,0x00],
-            'H':[0x88,0x88,0xF8,0x88,0x88,0x88,0x00,0x00],
-            'I':[0x70,0x20,0x20,0x20,0x20,0x70,0x00,0x00],
-            'J':[0x38,0x10,0x10,0x10,0x90,0xC0,0x00,0x00],
-            'K':[0x90,0xA0,0xC0,0xA0,0x90,0x88,0x00,0x00],
-            'L':[0x80,0x80,0x80,0x80,0x80,0xF8,0x00,0x00],
-            'M':[0x88,0xD8,0xA8,0x88,0x88,0x88,0x00,0x00],
-            'N':[0x88,0xC8,0xA8,0x98,0x88,0x88,0x00,0x00],
-            'O':[0x70,0x88,0x88,0x88,0x88,0x70,0x00,0x00],
-            'P':[0xF0,0x88,0xF0,0x80,0x80,0x80,0x00,0x00],
-            'Q':[0x70,0x88,0x88,0xA8,0x90,0x68,0x00,0x00],
-            'R':[0xF0,0x88,0xF0,0xA0,0x90,0x88,0x00,0x00],
-            'S':[0x78,0x80,0x70,0x08,0x08,0xF0,0x00,0x00],
-            'T':[0xF8,0x20,0x20,0x20,0x20,0x20,0x00,0x00],
-            'U':[0x88,0x88,0x88,0x88,0x88,0x70,0x00,0x00],
-            'V':[0x88,0x88,0x88,0x50,0x50,0x20,0x00,0x00],
-            'W':[0x88,0x88,0xA8,0xA8,0x50,0x50,0x00,0x00],
-            'X':[0x88,0x50,0x20,0x50,0x88,0x00,0x00,0x00],
-            'Y':[0x88,0x50,0x20,0x20,0x20,0x20,0x00,0x00],
-            'Z':[0xF8,0x10,0x20,0x40,0x80,0xF8,0x00,0x00],
-            '0':[0x70,0x98,0xA8,0xC8,0x88,0x70,0x00,0x00],
-            '1':[0x20,0xC0,0x20,0x20,0x20,0x70,0x00,0x00],
-            '2':[0x70,0x88,0x10,0x20,0x40,0xF8,0x00,0x00],
-            '3':[0x70,0x88,0x30,0x08,0x88,0x70,0x00,0x00],
-            '4':[0x10,0x50,0x90,0xF8,0x10,0x10,0x00,0x00],
-            '5':[0xF8,0x80,0xF0,0x08,0x08,0xF0,0x00,0x00],
-            '6':[0x70,0x80,0xF0,0x88,0x88,0x70,0x00,0x00],
-            '7':[0xF8,0x10,0x20,0x40,0x40,0x40,0x00,0x00],
-            '8':[0x70,0x88,0x70,0x88,0x88,0x70,0x00,0x00],
-            '9':[0x70,0x88,0x88,0x78,0x08,0x70,0x00,0x00],
-            ' ':[0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00],
-            '-':[0x00,0x00,0x00,0xF8,0x00,0x00,0x00,0x00],
-            '&':[0x60,0x90,0x60,0xA8,0x90,0x68,0x00,0x00],
-        }
-        out = bytearray()
-        for ch in 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789 -&':
-            for row in P[ch]:
-                out.append(0xFF)        # lo plane: all set
-                out.append(row ^ 0xFF)  # hi plane: inverted (text=0→color1, bg=1→color3)
-        return bytes(out)
-
-    _MSG_FONT: bytes = None  # lazy-init
 
     async def _show_sent_msg(self, ctx: "BizHawkClientContext", loc_id: int) -> None:
         """Show 'SENT {item} TO {player}' if this location has another player's item."""
@@ -718,36 +702,10 @@ class WL3Client(BizHawkClient):
             row += bytearray([0x54] * 12)  # pad to 32
             tilemap += row
 
-        # Read palette from ROM's MsgPalPerLevel table
+        # ROM's TickMsgDisplay loads MsgFont into VRAM bank 1 $9300 and writes
+        # the window attribute bytes from MsgPalPerLevel itself, so we only
+        # need to push the tilemap + row count + ready flag.
         try:
-            data = await read(ctx.bizhawk_ctx, [
-                (0xC0D4, 1, "System Bus"),  # wLevel
-                (0x1FB2, 25, "System Bus"), # MsgPalPerLevel (25 bytes in ROM bank 0)
-            ])
-            owlevel = data[0][0] >> 3  # 0-24
-            pal_table = data[1]
-            pal = pal_table[owlevel] if owlevel < len(pal_table) else 4
-        except (RequestFailedError, IndexError):
-            pal = 4
-        attr_byte = 0x88 | pal  # BG priority + VRAM bank 1 + palette
-        attr_row = bytes([attr_byte] * 32)
-        attrs = attr_row * num_rows
-        # Pad attrs to 3 rows like tilemap
-        attrs += bytes([attr_byte] * 32) * (3 - num_rows)
-
-        try:
-            # Write font to VRAM bank 1 via System Bus — need VBK=1 first
-            # BizHawk: write VBK register then font data, then restore VBK
-            # Actually, use the GBC VBK register at $FF4F
-            if self._MSG_FONT is None:
-                self._MSG_FONT = self._build_font()
-            await write(ctx.bizhawk_ctx, [
-                (0xFF4F, bytes([1]), "System Bus"),          # VBK = 1 (VRAM bank 1)
-                (0x9300, self._MSG_FONT, "System Bus"),      # Font tiles at bank 1 $9300
-                (0x9C00, bytes(attrs), "System Bus"),        # Attributes at bank 1 $9C00
-                (0xFF4F, bytes([0]), "System Bus"),          # VBK = 0 (restore)
-            ])
-            # Write tilemap to WRAM buffer — ROM copies to VRAM bank 0 during HBlank
             await write(ctx.bizhawk_ctx, [
                 (ADDR_MSG_BUFFER_WRAM, bytes(tilemap), "WRAM"),
                 (ADDR_MSG_ROWS_WRAM,   bytes([num_rows]), "WRAM"),
