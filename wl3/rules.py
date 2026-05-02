@@ -567,8 +567,8 @@ COIN_RULES: dict = {
         _c(can_pound_cracked_blocks,_has("Spiked Helmet"),has_flippers_1),              #4
         _c(can_pound_cracked_blocks,_has("Spiked Helmet"),has_flippers_1),              #5
         can_pound_solid_blocks,                                                         #6
-        _c(can_pound_solid_blocks,_has("Night Vision Goggles"),can_jump_high),          #7
-        _c(can_pound_solid_blocks,_has("Night Vision Goggles"),can_jump_high),          #8
+        _c(can_pound_solid_blocks,_has("Night Vision Scope"),can_jump_high),          #7
+        _c(can_pound_solid_blocks,_has("Night Vision Scope"),can_jump_high),          #8
     ],
     "Desert Ruins": [
         None,                                                                           #1
