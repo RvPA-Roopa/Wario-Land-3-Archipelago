@@ -805,7 +805,8 @@ class WL3World(World):
                     "player": loc.item.player,
                 }
         return {
-            "death_link":            False,
+            "death_link":            bool(self.options.death_link),
+            "death_mode":            int(self.options.death_mode),
             "combined_items":        int(self.options.combined_items),
             "loc_items":             loc_items,
         }

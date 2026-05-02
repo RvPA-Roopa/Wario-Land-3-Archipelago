@@ -11,6 +11,7 @@ Setup:
 """
 
 import logging
+import time
 from typing import TYPE_CHECKING, Optional
 
 from NetUtils import ClientStatus
@@ -116,10 +117,16 @@ ADDR_TRANSFORM_FROM_TRAP_WRAM = 0x149E # wTransformFromTrap (bank 1 0xD49E) — 
                                        # to 1 alongside wPendingTrap when delivering
                                        # a trap so ROM blocks Select-cancel; ROM
                                        # clears it when transformation ends.
-ADDR_COIN_FLAGS_WRAM         = 0x149F  # wCoinFlags (bank 1 0xD49F) — 25 bytes,
+ADDR_FORCE_GAME_OVER_WRAM    = 0x149F  # wForceGameOver (bank 1 0xD49F) — write 1
+                                       # on inbound DeathLink; ROM main state
+                                       # poll flips wState to ST_GAME_OVER and
+                                       # clears the byte.
+ADDR_COIN_FLAGS_WRAM         = 0x14A0  # wCoinFlags (bank 1 0xD4A0) — 25 bytes,
                                        # 1 bit per musical coin per level
                                        # (200 total). Bit (level-1)*8+idx
                                        # set on coinsanity pickup.
+ADDR_STATE_WRAM              = 0x009B  # wState (WRAM0 0xC09B) — main state machine
+                                       # value; 0x0C = ST_GAME_OVER (DeathLink trigger).
 COINS_PER_LEVEL = 8
 
 # AP item ID → ROM trap ID (TRAP_* constants in wario_constants.asm).
@@ -236,10 +243,40 @@ class WL3Client(BizHawkClient):
         self._saved_pal7:      bytes = None    # saved BG palette 7 to restore after message
         self._loc_items:       dict = {}       # loc_id → {"item": name, "player": slot}
         self._trap_queue:      list = []       # pending ROM trap IDs waiting for a safe frame
+        # --- DeathLink ---
+        self._death_link_enabled: bool = False  # True when slot_data["death_link"] is on
+        self._death_link_tag_sent: bool = False # True after we've added "DeathLink" to ctx.tags
+        self._prev_state:      int   = 0       # last seen wState; used to edge-trigger sends
+        self._suppress_next_send: bool = False  # set when an inbound DeathLink forces game over,
+                                                 # cleared on the matching wState=$0C transition,
+                                                 # so receiving doesn't echo a send back
+        self._force_game_over_pending: bool = False  # set by on_package on inbound DeathLink;
+                                                      # game_watcher writes wForceGameOver=1 and clears
 
     # ------------------------------------------------------------------
-    # validate_rom — called every poll cycle until it returns True
+    # on_package — server-pushed packets (DeathLink Bounced, etc.)
     # ------------------------------------------------------------------
+
+    def on_package(self, ctx: "BizHawkClientContext", cmd: str, args: dict) -> None:
+        """Handle server packets we care about. Currently: inbound DeathLink
+        Bounced packets — set _force_game_over_pending so the next watcher
+        tick writes wForceGameOver=1 and ROM trips the Game Over screen.
+        Also marks _suppress_next_send so the resulting wState=$0C doesn't
+        echo the death back to the server."""
+        if cmd == "Bounced":
+            tags = args.get("tags", []) or []
+            if "DeathLink" not in tags:
+                return
+            data = args.get("data", {}) or {}
+            src = data.get("source", "?")
+            # Ignore deathlinks we sent ourselves (bounce-back).
+            self_name = ctx.player_names.get(ctx.slot, "") if ctx.player_names else ""
+            if src == self_name:
+                return
+            cause = data.get("cause", f"{src} died.")
+            logger.info(f"[WL3] DeathLink: {cause}")
+            self._suppress_next_send = True
+            self._force_game_over_pending = True
 
     async def validate_rom(self, ctx: "BizHawkClientContext") -> bool:
         """Return True if a patched WL3 ROM is loaded in mGBA."""
@@ -431,6 +468,65 @@ class WL3Client(BizHawkClient):
         self._combined_unlocks = _ci in (1, 3)
         if not self._loc_items and ctx.slot_data:
             self._loc_items = {int(k): v for k, v in (ctx.slot_data.get("loc_items") or {}).items()}
+
+        # ---- DeathLink: register tag with the server once per session ----
+        # slot_data["death_link"] is the player's opt-in. When true, we tell
+        # the server we want to receive deaths, and we'll also broadcast our
+        # own. ROM-side ObjInteraction_Jamano / golf bogey set wForceGameOver
+        # which trips wState=$0C; the watcher below detects that edge and
+        # sends a Bounce with tag "DeathLink".
+        if not self._death_link_tag_sent and ctx.slot_data:
+            self._death_link_enabled = bool(ctx.slot_data.get("death_link", False))
+            if self._death_link_enabled:
+                if "DeathLink" not in ctx.tags:
+                    ctx.tags.add("DeathLink")
+                    await ctx.send_msgs([{
+                        "cmd": "ConnectUpdate",
+                        "tags": list(ctx.tags),
+                    }])
+            self._death_link_tag_sent = True
+
+        # ---- DeathLink: deliver pending inbound death to ROM ----
+        # Set by on_package when a Bounced DeathLink packet arrives. Writing
+        # wForceGameOver=1 is what tells the ROM main state poll to flip
+        # wState to ST_GAME_OVER on the next tick.
+        if self._force_game_over_pending:
+            try:
+                await write(ctx.bizhawk_ctx, [
+                    (ADDR_FORCE_GAME_OVER_WRAM, bytes([1]), "WRAM"),
+                ])
+                self._force_game_over_pending = False
+            except RequestFailedError:
+                pass  # try again next tick
+
+        # ---- DeathLink: detect local Game Over and broadcast ----
+        # wState transitions to $0C (ST_GAME_OVER) when:
+        #   - the player gets grabbed (DeathMode >= 1) and ROM forces a death,
+        #   - the player bogeys golf (DeathMode == 2) and ROM forces a death,
+        #   - or we ourselves wrote wForceGameOver in response to a received
+        #     DeathLink (in which case _suppress_next_send is True so we don't
+        #     loop the death back).
+        if self._death_link_enabled:
+            try:
+                cur_state = (await read(ctx.bizhawk_ctx, [(ADDR_STATE_WRAM, 1, "WRAM")]))[0][0]
+            except RequestFailedError:
+                cur_state = self._prev_state
+            ST_GAME_OVER = 0x0C
+            if cur_state == ST_GAME_OVER and self._prev_state != ST_GAME_OVER:
+                if self._suppress_next_send:
+                    self._suppress_next_send = False
+                else:
+                    src = ctx.player_names.get(ctx.slot, "Wario") if ctx.player_names else "Wario"
+                    await ctx.send_msgs([{
+                        "cmd": "Bounce",
+                        "tags": ["DeathLink"],
+                        "data": {
+                            "time": time.time(),
+                            "source": src,
+                            "cause": f"{src} got Game Over'd.",
+                        },
+                    }])
+            self._prev_state = cur_state
 
 
         # If AP server reset the items list, sync handler index down to match.

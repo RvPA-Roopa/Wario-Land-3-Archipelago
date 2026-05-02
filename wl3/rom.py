@@ -246,6 +246,7 @@ I_HATE_GOLF_OFFSET               = 0x003A03   # AutoWinGolfOpt byte in Home bank
 NON_STOP_CHESTS_OFFSET           = 0x003A04   # NonStopChestsOpt byte in Home bank
 COMBINED_COMPANION_TABLE_OFFSET  = 0x003A05   # CombinedCompanionTable (101 bytes, home bank)
 TRANSFORMS_REQUIRE_ITEMS_OFFSET  = 0x003A6A   # TransformsRequireItems byte in Home bank
+DEATH_MODE_OPT_OFFSET            = 0x003A6B   # DeathModeOpt byte in Home bank (0=none, 1=grabs, 2=grabs+golf)
 TREASURE_OB_PALS_OFFSET          = 0x09AFBA   # TreasureOBPals table (indexed by treasure ID)
 
 # Combined-item companion chains: collecting key → also grant value (chained).
@@ -761,6 +762,13 @@ def write_tokens(world: "WL3World", patch: WL3ProcedurePatch) -> None:
     transformation_shuffle = int(world.options.transformation_shuffle)
     patch.write_token(APTokenTypes.WRITE, TRANSFORMS_REQUIRE_ITEMS_OFFSET,
                       bytes([transformation_shuffle]))
+
+    # DeathMode drives the ROM-side intercepts (Jamano grab / golf bogey).
+    # The DeathLink Toggle is purely client-side; this byte controls what
+    # the ROM treats as a local death.
+    death_mode = int(world.options.death_mode)
+    patch.write_token(APTokenTypes.WRITE, DEATH_MODE_OPT_OFFSET,
+                      bytes([death_mode]))
 
     # --- combined item companion table ---
     from .options import CombinedItems as _CI
