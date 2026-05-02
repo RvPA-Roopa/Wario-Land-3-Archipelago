@@ -630,6 +630,28 @@ class WL3World(World):
                 trap_table[idx] = trap_id
         return trap_table
 
+    def _build_trap_coin_table(self) -> List[int]:
+        """Like _build_trap_chest_table but for COIN locations (bigcoinsanity).
+        GrantCoinItem reads ROM TrapCoinTable[(owlevel-1)*8 + coin_idx]; non-zero
+        entries queue the trap and skip the regular item grant.
+        """
+        from .items import TRAP_AP_IDS
+        trap_table = [0] * 200
+        if not self.options.bigcoinsanity:
+            return trap_table
+        for loc_name, loc_data in COIN_LOCATION_TABLE.items():
+            location = self.multiworld.get_location(loc_name, self.player)
+            item = location.item
+            if item is None or item.player != self.player:
+                continue
+            item_data = ITEM_TABLE.get(item.name)
+            if item_data is None:
+                continue
+            trap_id = TRAP_AP_IDS.get(item_data.ap_id)
+            if trap_id is not None:
+                trap_table[loc_data.loc_index] = trap_id
+        return trap_table
+
     def _build_key_assignments(self) -> List[int]:
         """Return a 100-element list of in-game item IDs for the LevelKeyPool table.
 
