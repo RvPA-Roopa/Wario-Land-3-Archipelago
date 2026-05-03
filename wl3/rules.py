@@ -321,7 +321,7 @@ CHEST_RULES: dict = {
     ],
     "The East Crater": [
         _o(has_grab_1, _has("Zombie Form")),                                         # grey
-        _c(can_pass_through_fire, _o(_c(has_grab_1, has_overalls_1), _has("Fire Form")),
+        _c(can_pass_through_fire, _o(_c(has_grab_1, can_pound_cracked_blocks), _has("Fire Form")),
            _o(_has("Zombie Form"), has_grab_1)),                                     # red
         _c(_o(_has("Jackhammer"), can_fly), has_grab_1),                             # green
         _c(_has("Pick Axe"), has_grab_1, can_jump_high),                             # blue
@@ -511,7 +511,7 @@ COIN_RULES: dict = {
     "Out of the Woods": [
         _o(_c(_has("High Jump Boots"), has_grab_1), _has("Puffy Form")),                #1
         None,                                                                           #2
-        can_shake_screen,                                                               #3
+        _o(can_shake_screen,can_fly),                                                   #3
         _o(has_flippers_2, has_storm_pouch, can_fly),                                   #4
         can_fly,                                                                        #5
         None,                                                                           #6
@@ -525,7 +525,8 @@ COIN_RULES: dict = {
         _c(_o(_has("Flute"),can_jump_high),has_flippers_1,
            _o(_has("Zombie Form"),can_pound_cracked_blocks)),                           #4
         _o(_has("Flute"),can_jump_high),                                                #5
-        None,                                                                           #6
+        _o(can_pound_large_solid_blocks,
+           _c(_o(_has("Flute"),can_jump_high),_has("Zombie Form"))),                    #6
         can_pound_large_solid_blocks,                                                   #7
         can_pound_large_solid_blocks,                                                   #8
     ],
@@ -567,8 +568,8 @@ COIN_RULES: dict = {
         _c(can_pound_cracked_blocks,_has("Spiked Helmet"),has_flippers_1),              #4
         _c(can_pound_cracked_blocks,_has("Spiked Helmet"),has_flippers_1),              #5
         can_pound_solid_blocks,                                                         #6
-        _c(can_pound_solid_blocks,_has("Night Vision Scope"),can_jump_high),          #7
-        _c(can_pound_solid_blocks,_has("Night Vision Scope"),can_jump_high),          #8
+        _c(can_pound_solid_blocks,_has("Night Vision Scope"),can_jump_high),            #7
+        _c(can_pound_solid_blocks,_has("Night Vision Scope"),can_jump_high),            #8
     ],
     "Desert Ruins": [
         None,                                                                           #1
@@ -706,7 +707,7 @@ COIN_RULES: dict = {
         _c(_has("Foot of Stone"),_has("High Jump Boots")),                              #3
         _has("Foot of Stone"),                                                          #4
         _c(_has("Foot of Stone"),can_jump_high),                                        #5
-        None,                                                                           #6
+        _has("Spiked Helmet"),                                                          #6
         _has("Explosive Plunger Box"),                                                  #7
         _c(_has("Foot of Stone"),_o(can_bounce,_c(_has("High Jump Boots"),has_grab_1))),#8
     ],
@@ -1035,6 +1036,7 @@ KEY_RULES_GLITCHED: dict = {
         None,                                                                        # blue
     ],
 }
+
 
 
 # ---------------------------------------------------------------------------
