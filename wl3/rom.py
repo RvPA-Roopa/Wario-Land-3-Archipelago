@@ -247,6 +247,7 @@ NON_STOP_CHESTS_OFFSET           = 0x003A04   # NonStopChestsOpt byte in Home ba
 COMBINED_COMPANION_TABLE_OFFSET  = 0x003A05   # CombinedCompanionTable (101 bytes, home bank)
 TRANSFORMS_REQUIRE_ITEMS_OFFSET  = 0x003A6A   # TransformsRequireItems byte in Home bank
 DEATH_MODE_OPT_OFFSET            = 0x003A6B   # DeathModeOpt byte in Home bank (0=none, 1=grabs, 2=grabs+golf)
+BIG_COINSANITY_OPT_OFFSET        = 0x003A6C   # BigCoinsanityOpt byte in Home bank (0=vanilla coins, 1=portrait/suppress/AP-dispatch)
 TREASURE_OB_PALS_OFFSET          = 0x09AFBA   # TreasureOBPals table (indexed by treasure ID)
 
 # Combined-item companion chains: collecting key → also grant value (chained).
@@ -769,6 +770,12 @@ def write_tokens(world: "WL3World", patch: WL3ProcedurePatch) -> None:
     death_mode = int(world.options.death_mode)
     patch.write_token(APTokenTypes.WRITE, DEATH_MODE_OPT_OFFSET,
                       bytes([death_mode]))
+
+    # Big Coinsanity flag — gates MusicalCoinFunc's portrait/suppression
+    # logic. Off (0) = vanilla coin sprite, no AP item dispatch.
+    bigcoinsanity = int(world.options.bigcoinsanity)
+    patch.write_token(APTokenTypes.WRITE, BIG_COINSANITY_OPT_OFFSET,
+                      bytes([bigcoinsanity]))
 
     # --- combined item companion table ---
     from .options import CombinedItems as _CI
