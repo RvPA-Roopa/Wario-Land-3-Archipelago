@@ -262,9 +262,9 @@ CHEST_RULES: dict = {
     "Tower of Revival": [
         None,                                                                        # grey
         has_glass_eyes,                                                              # red
-        _o(_has("Statue"), can_fly),                                                 # green
+        _has("Statue"),                                                              # green
         _c(has_golden_eyes, _has("Garlic"), has_grab_2, _has("Spiked Helmet"),
-           _o(_c(_has("Statue"), can_jump_high), can_fly)),                          # blue
+           _has("Statue"), _has("High Jump Boots")),                                 # blue
     ],
     "The Steep Canyon": [
         None,                                                                        # grey
@@ -432,8 +432,8 @@ KEY_RULES: dict = {
     "Tower of Revival": [
         None,                                                                        # grey
         _c(has_glass_eyes),                                                          # red
-        _o(_has("Statue"), can_fly),                                                 # green
-        _c(_o(_has("Statue"), can_fly), has_golden_eyes),                            # blue
+        _has("Statue"),                                                              # green
+        _c(_has("Statue"), has_golden_eyes),                                         # blue
     ],
     "The Steep Canyon": [
         None,                                                                        # grey
@@ -471,7 +471,8 @@ KEY_RULES: dict = {
         _o(has_grab_1, can_fly),                                                     # grey
         _o(_c(has_grab_2, _o(can_shake_screen, _has("High Jump Boots"))), can_bounce),# red
         _o(has_grab_2, can_bounce),                                                  # green
-        _c(_has("Castle Brick"), can_pound_cracked_blocks, _o(has_grab_1, can_fly)), # blue
+        _c(_has("Castle Brick"), can_pound_cracked_blocks, 
+           _o(has_grab_1, can_fly)), # blue
     ],
     "The Colossal Hole": [
         None,                                                                        # grey
@@ -512,8 +513,8 @@ COIN_RULES: dict = {
         _o(_c(_has("High Jump Boots"), has_grab_1), _has("Puffy Form")),                #1
         None,                                                                           #2
         _o(can_shake_screen,can_fly),                                                   #3
-        _o(has_flippers_2, has_storm_pouch, can_fly),                                   #4
-        can_fly,                                                                        #5
+        _o(has_flippers_2, _c(has_storm_pouch,_has("High Jump Boots")), can_fly),       #4
+        can_jump_high,                                                                  #5
         None,                                                                           #6
         can_pound_cracked_blocks,                                                       #7
         _c(_has("Gold Magic"), _o(can_jump_high,_has("Fat Form"),_has("Zombie Form"))), #8
@@ -535,7 +536,7 @@ COIN_RULES: dict = {
         None,                                                                           #2
         _o(has_chemicals, can_pass_spikes),                                             #3
         can_pound_cracked_blocks,                                                       #4
-        has_flippers_1,                                                                 #5
+        _o(has_flippers_1,_has("Zombie Form")),                                         #5
         _o(_has("Magic Seeds"),can_fly),                                                #6
         has_chemicals,                                                                  #7
         _o(_has("Magic Seeds"),can_fly),                                                #8
@@ -552,7 +553,7 @@ COIN_RULES: dict = {
     ],
     "The Tidal Coast": [
         None,                                                                           #1
-        _o(_has("Garlic"),can_fly),                                                     #2
+        _o(_has("Garlic"),can_fly,_has("Flat Form")),                                   #2
         None,                                                                           #3
         None,                                                                           #4
         _c(has_grab_1,has_flippers_1),                                                  #5
@@ -579,7 +580,7 @@ COIN_RULES: dict = {
         _c(_has("Spiked Helmet"),has_grab_1),                                           #4
         None,                                                                           #5
         can_pound_cracked_blocks,                                                       #6
-        _c(_o(can_pound_solid_blocks,_has("Zombie Form")),has_grab_1),                  #7
+        _c(can_pound_solid_blocks,has_grab_1),                                          #7
         _o(can_pound_solid_blocks,_has("Zombie Form")),                                 #8
     ],
     "The Volcano's Base": [
@@ -598,8 +599,8 @@ COIN_RULES: dict = {
         has_flippers_2,                                                                 #3
         _has("Magic Seeds"),                                                            #4
         has_flippers_1,                                                                 #5
-        _c(has_flippers_1,_has("Spiked Helmet")),                                       #6
-        _c(has_flippers_1,_has("Spiked Helmet")),                                       #7
+        _c(has_flippers_2,_has("Spiked Helmet")),                                       #6
+        _c(has_flippers_2,_has("Spiked Helmet")),                                       #7
         _c(has_flippers_1,_has("Air Pump")),                                            #8
     ],
     "A Town in Chaos": [
@@ -622,7 +623,7 @@ COIN_RULES: dict = {
         _c(_has("Sapling of Growth"),has_flippers_2),                                   #4
         _c(has_chemicals,has_flippers_1,
            _o(_c(can_shake_screen,has_grab_1),has_grab_2,can_pass_spikes)),             #5
-        _c(has_flippers_1,_o(_has("High Jump Boots"),can_fly)),                         #6
+        _c(has_flippers_1,_o(_has("High Jump Boots"),can_bounce)),                      #6
         _c(has_flippers_2,has_grab_2,_has("Spiked Helmet")),                            #7
         _c(has_flippers_2,_has("Spiked Helmet")),                                       #8
     ],
@@ -633,7 +634,7 @@ COIN_RULES: dict = {
         _has("Rust Spray"),                                                             #4
         can_pound_large_solid_blocks,                                                   #5
         _o(_c(can_pass_through_fire, can_jump_high), can_fly),                          #6
-        _o(_c(can_pass_through_fire, can_jump_high), can_fly),                          #7
+        _o(_c(can_pass_through_fire, _has("High Jump Boots")), can_fly),                #7
         _c(_o(can_pound_cracked_blocks, _has("Yarn Form")), _o(has_grab_1, can_bounce)),#8
     ],
     "The Grasslands": [
@@ -653,18 +654,18 @@ COIN_RULES: dict = {
         _c(_o(can_pound_cracked_blocks,_has("Zombie Form")),has_flippers_1),            #3
         _c(_o(can_pound_cracked_blocks,_has("Zombie Form")),has_flippers_1),            #4
         _c(_has("Scepter"),has_flippers_1),                                             #5
-        _c(_has("Scepter"), has_flippers_1, _o(_c(_has("Garlic"), _has("Spiked Helmet")),
-                                               _has("Puffy Form"))),                    #6
-        _c(_o(can_pound_cracked_blocks,_has("Zombie Form")),
+        _c(_has("Scepter"),has_flippers_1,_o(_c(_has("Garlic"),_has("Spiked Helmet")),
+                                             _has("Puffy Form"))),                      #6
+        _c(has_flippers_1,_o(can_pound_cracked_blocks,_has("Zombie Form")),
            _o(can_shake_screen,can_fly)),                                               #7
         _c(has_flippers_1,_o(_c(can_shake_screen,_has("Garlic")),can_fly)),             #8
     ],
     "Tower of Revival": [
         _c(has_golden_eyes, _has("Garlic"), has_grab_2, _has("Spiked Helmet"),
-           _o(_c(_has("Statue"), can_jump_high), can_fly)),                             #1
-        _c(_o(_has("Statue"), can_fly), has_golden_eyes),                               #2
-        _o(_has("Statue"), can_fly),                                                    #3
-        _c(_o(_has("Statue"), can_fly), _has("Garlic")),                                #4
+           _has("Statue"), _has("High Jump Boots")),                                              #1
+        _c(_has("Statue"), has_golden_eyes),                                            #2
+        _has("Statue"),                                                                 #3
+        _c(_has("Statue"), _has("Garlic")),                                             #4
         has_glass_eyes,                                                                 #5
         has_glass_eyes,                                                                 #6
         has_glass_eyes,                                                                 #7
@@ -816,6 +817,13 @@ CHEST_RULES_KNOWLEDGE: dict = {
         _c(_o(_has("Flute"), _has("High Jump Boots"), can_fly), has_flippers_1),     # green
         None,                                                                        # blue
     ],
+    "Tower of Revival": [
+        None,                                                                        # grey
+        None,                                                                        # red
+        None,                                                                        # green
+        _c(has_golden_eyes, _has("Garlic"), has_grab_2, _has("Spiked Helmet"),
+           _has("Statue"), can_jump_high),                                           # blue
+    ],
     "Above the Clouds": [
         None,                                                                        # grey
         _c(_has("High Jump Boots"), _has("Spiked Helmet")),                          # red
@@ -944,7 +952,7 @@ KEY_RULES_KNOWLEDGE: dict = {
               _o(can_shake_screen, _has("High Jump Boots"))), can_bounce),           # red
         None,                                                                        # green
         _c(_o(_has("Castle Brick"), has_vampire_2), 
-           can_pound_cracked_blocks, _o(has_grab_1, can_fly)),                       # blue
+           can_pound_cracked_blocks, _o(has_grab_1, can_fly, _has("Zombie Form"))),  # blue
     ],
     "The East Crater": [
         None,                                                                        # grey
@@ -1055,10 +1063,16 @@ def set_rules(world: "WL3World") -> None:
     glitches = bool(world.options.minor_glitches)
     chest_logic = {k: list(v) for k, v in CHEST_RULES.items()}  # deep copy for mutation
     key_logic   = {k: list(v) for k, v in KEY_RULES.items()}
-
+    coin_logic   = {k: list(v) for k, v in COIN_RULES.items()}
+    knowledge_checks = 1
+    hard_logic = 2
+    grey = 0
+    red = 1
+    green = 2
+    blue = 3
 
     # Override certain level requirements depending on difficulty
-    if difficulty > 0:
+    if difficulty >= knowledge_checks:
         for level, rules in CHEST_RULES_KNOWLEDGE.items():
             for i, rule in enumerate(rules):
                 if not rule:
@@ -1075,7 +1089,24 @@ def set_rules(world: "WL3World") -> None:
                     key_logic[level][i] = None                        
                 else:
                     key_logic[level][i] = rule
-    if difficulty > 1:
+        coin_logic["Out of the Woods"][0] = _o(_c(_has("High Jump Boots"), has_grab_1), can_fly)
+        coin_logic["Out of the Woods"][3] = _o(has_flippers_2, has_storm_pouch, can_fly)
+        coin_logic["Out of the Woods"][6] = _o(can_pound_cracked_blocks,_has("Garlic"))
+        coin_logic["The Vast Plain"][3] = _o(can_pound_cracked_blocks,_has("Zombie Form"))
+        coin_logic["The Tidal Coast"][5] = _c(has_grab_1,_o(has_flippers_2,_c(has_flippers_1,_o(_has("Spiked Helmet"),_has("Zombie Form"))),_c(_has("Zombie Form"),can_sink_in_water)))
+        coin_logic["Desert Ruins"][2] = _c(_o(can_pound_solid_blocks,_has("Zombie Form")),_o(has_grab_1,can_jump_high),has_overalls_1)
+        coin_logic["The Volcano's Base"][4] = None
+        coin_logic["A Town in Chaos"][2] = _o(can_pound_solid_blocks,_c(_has("Spiked Helmet"),can_pound_cracked_blocks))
+        coin_logic["A Town in Chaos"][4] = _c(_o(has_grab_2, can_kill_frogs),_o(_c(can_shake_screen, _has("High Jump Boots")),can_bounce))
+        coin_logic["A Town in Chaos"][7] = _c(_o(has_grab_2, can_kill_frogs),_o(_c(can_shake_screen, _has("High Jump Boots")),_has("Puffy Form"),_has("Bouncy Form")))
+        coin_logic["Beneath the Waves"][6] = _c(has_flippers_2,_o(_c(has_grab_2,_has("Spiked Helmet")),can_bounce)),
+        coin_logic["The Grasslands"][0] = _o(_has("Flute"), can_fly, _has("High Jump Boots"))
+        coin_logic["The Grasslands"][5] = _o(_has("Flute"), can_fly, _has("High Jump Boots"))
+        coin_logic["Tower of Revival"][0] = _c(has_golden_eyes, _has("Garlic"), has_grab_2, _has("Spiked Helmet"),_has("Statue"), can_jump_high)
+        coin_logic["Castle of Illusions"][5] = _c(_o(_has("Castle Brick"),has_vampire_2),_o(has_grab_1,can_fly,_has("Zombie Form")))
+        coin_logic["Castle of Illusions"][6] = _c(_o(_has("Castle Brick"),has_vampire_2),_o(has_grab_1,can_fly,_has("Zombie Form")))
+
+    if difficulty >= hard_logic:
         for level, rules in CHEST_RULES_HARD.items():
             for i, rule in enumerate(rules):
                 if not rule:
@@ -1092,7 +1123,11 @@ def set_rules(world: "WL3World") -> None:
                     key_logic[level][i] = None                        
                 else:
                     key_logic[level][i] = rule
-
+        coin_logic["The Pool of Rain"][5] = _c(has_flippers_1,_has("Spiked Helmet"))
+        coin_logic["The Pool of Rain"][6] = _c(has_flippers_1,_has("Spiked Helmet"))
+        coin_logic["The Frigid Sea"][3] = _o(has_grab_1,can_bounce)
+        coin_logic["Castle of Illusions"][1] = _o(_c(_o(_c(has_grab_1,has_sun_medallion),has_grab_2),_has("High Jump Boots")), can_bounce)
+        coin_logic["Castle of Illusions"][2] = _o(_c(_o(_c(has_grab_1,has_sun_medallion),has_grab_2),can_shake_screen,_has("High Jump Boots")), can_bounce)
 
     # Override certain level requirements if glitches are in logic
     if glitches:
@@ -1112,6 +1147,7 @@ def set_rules(world: "WL3World") -> None:
                     key_logic[level][i] = None                        
                 else:
                     key_logic[level][i] = rule
+        coin_logic["The Peaceful Village"][3] = _o(_has("Zombie Form"),can_pound_cracked_blocks)
 
 
     # Override multi-item unlock predicates when combined mode is on
@@ -1192,7 +1228,7 @@ def set_rules(world: "WL3World") -> None:
     if world.options.bigcoinsanity:
         for loc_name, loc_data in COIN_LOCATION_TABLE.items():
             level_rule = level_rules.get(loc_data.level_name)
-            coin_rules_for_level = COIN_RULES.get(loc_data.level_name)
+            coin_rules_for_level = coin_logic.get(loc_data.level_name)
             coin_rule = coin_rules_for_level[loc_data.coin_index] if coin_rules_for_level else None
 
             if level_rule is not None and coin_rule is not None:
