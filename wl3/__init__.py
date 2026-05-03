@@ -42,7 +42,7 @@ from .items import (
     TREASURE_TABLE,
     WL3ItemData,
 )
-from .locations import BASE_LOC_ID, KEY_LOCATION_TABLE, LOCATION_TABLE, WL3LocationData
+from .locations import BASE_LOC_ID, COIN_LOCATION_TABLE, KEY_LOCATION_TABLE, LOCATION_TABLE, WL3LocationData
 from Options import OptionGroup
 from .options import (WL3Options, MusicBoxShuffle, KeyShuffle, CombinedItems,
                       GolfPrice, GolfBuilding, IHateGolf,
@@ -50,7 +50,7 @@ from .options import (WL3Options, MusicBoxShuffle, KeyShuffle, CombinedItems,
                       MusicShuffle, EnemyPaletteShuffle, LevelBGPaletteShuffle,
                       WarioOverallsShuffle, WarioShirtShuffle, DifficultyOptions, MinorGlitches)
 from .regions import create_regions
-from .rom import WL3ProcedurePatch, write_tokens
+from .rom import WL3ProcedurePatch, write_tokens, KEY_COLOR_PALS, OBPAL_TREASURE_PURPLE
 from .rules import MUSIC_BOXES, set_rules
 from . import client as _client  # noqa: F401 — registers WL3Client with AutoBizHawkClientRegister
 
@@ -216,6 +216,10 @@ class WL3World(World):
     location_name_to_id  = {
         **{name: data.ap_id for name, data in LOCATION_TABLE.items()},
         **{name: data.ap_id for name, data in KEY_LOCATION_TABLE.items()},
+        # Coin locations are always in the name→id map (so the AP server
+        # recognizes them); they're only added as actual locations on the
+        # multiworld side when world.options.bigcoinsanity is on.
+        **{name: data.ap_id for name, data in COIN_LOCATION_TABLE.items()},
     }
 
     item_name_groups = {
@@ -351,6 +355,13 @@ class WL3World(World):
                 for _ in range(3):
                     items.append(self.create_item("Clubs Crest (1 Coin)"))
 
+        # Big Coinsanity: 200 new coin locations need 200 new filler items so
+        # the pool stays balanced. Use Clubs Crests (1 coin each) — same filler
+        # as other slot-padding above. These become trap candidates downstream.
+        if self.options.bigcoinsanity:
+            for _ in range(200):
+                items.append(self.create_item("Clubs Crest (1 Coin)"))
+
         # Trap replacement: swap a % of filler items for random trap items.
         # Runs after key shuffle so keyring-padding fillers are also candidates.
         trap_pct = int(self.options.trap_fill)
@@ -421,21 +432,31 @@ class WL3World(World):
                 lock=True,
             )
 
-        # Overworld combines make pre-fill unnecessary (combined items naturally open
-        # progression without needing a hand-placed chain).
-        if int(self.options.combined_items) in (CombinedItems.option_overworld, CombinedItems.option_both):
+        # Bootstrap only runs when starting access is tight. The chain places
+        # 5 specific items at 5 specific grey chests, which makes early-game
+        # uniform across seeds — only pay that variety cost when needed.
+        #
+        # Skip when: start_with_axe is on (Axe alone unlocks Peaceful Village +
+        #            Vast Plain → 3 levels accessible at start)
+        #         OR random_level_starts >= 3 (3+ random level groups precollected)
+        # Run otherwise (axe off AND rls <= 2).
+        swa = bool(self.options.start_with_axe)
+        rls = int(self.options.random_level_starts)
+        if swa or rls >= 3:
             return
 
-        # Bootstrap the opening chain.
-        # Out of the Woods Grey is the only sphere-0 location.  Pre-fill a
-        # chain through free chests so the main fill starts with a rich
-        # collected-items state.
+        # Sphere-0 is just one location ("Out of the Woods - Grey Chest"), so
+        # AP main fill can't always find a working placement order — gens fail.
+        # Hand-place a chain of level-unlock keys (Axe / Ornamental Fan /
+        # Sky Key / Torch / Jar) starting at OOTW Grey, then chaining through
+        # each unlocked level's grey chest. Each placement is at a chest that
+        # was opened by an earlier placement, so the chain is self-consistent
+        # (the player picks up key N at sphere-N's grey chest, which they
+        # reached via key N-1).
         #
-        # Phase 1: level-unlock keys → free grey chests they open
-        # Phase 2: key ability items → sphere-1 locations opened by Phase 1
-        #
-        # Each entry: item name → locations it directly unlocks (single-gated).
-        _LEVEL_KEY_MAP: Dict[str, List[str]] = {
+        # We do NOT pre-place ability items — once these 5 keys open 5 levels,
+        # AP has plenty of sphere room to handle abilities organically.
+        _LEVEL_KEY_UNLOCKS: Dict[str, List[str]] = {
             "Axe":            ["The Peaceful Village - Grey Chest",
                                "The Vast Plain - Grey Chest"],
             "Ornamental Fan": ["The Stagnant Swamp - Grey Chest"],
@@ -443,43 +464,40 @@ class WL3World(World):
             "Torch":          ["Forest of Fear - Grey Chest"],
             "Jar":            ["A Town in Chaos - Grey Chest"],
         }
-        _ABILITY_MAP: Dict[str, List[str]] = {
-            "Progressive Overalls": ["The Vast Plain - Red Chest",
-                                     "The Pool of Rain - Grey Chest"],
-            "Spiked Helmet":        ["A Town in Chaos - Red Chest"],
-            "Progressive Flippers": ["The Pool of Rain - Green Chest"],
-        }
 
         pool    = self.multiworld.itempool
         rng     = self.multiworld.random
-        to_fill = ["Out of the Woods - Grey Chest"]
+        # Locations opened so far (start with sphere-0). When we place a key
+        # at one, its unlocks join the queue.
+        remaining = ["Out of the Woods - Grey Chest"]
 
-        for phase_map in (_LEVEL_KEY_MAP, _ABILITY_MAP):
-            remaining = list(to_fill)
-            to_fill = []
-            while remaining:
-                loc_name = remaining.pop(0)
-                loc = self.multiworld.get_location(loc_name, self.player)
-                if loc.item is not None:
-                    continue  # already filled (e.g., by music-box pre-fill)
+        while remaining:
+            loc_name = remaining.pop(0)
+            loc = self.multiworld.get_location(loc_name, self.player)
+            if loc.item is not None:
+                continue  # already filled (e.g., by music-box pre-fill)
 
-                candidates = [item for item in pool
+            # IMPORTANT: identify by enumerate-index, NOT by item object —
+            # AP's Item.__eq__ compares (name, player), so pool.remove(chosen)
+            # on a duplicate-name item could remove a DIFFERENT instance,
+            # leaving `chosen` simultaneously locked at a location AND in the
+            # pool. (Level keys are unique-named so it doesn't bite us today,
+            # but it would the moment any duplicate-name item joins the chain.)
+            candidate_idxs = [i for i, item in enumerate(pool)
                               if item.player == self.player
-                              and item.name in phase_map]
-                if not candidates:
-                    # No items left for this phase; carry location to next phase
-                    to_fill.append(loc_name)
-                    continue
+                              and item.name in _LEVEL_KEY_UNLOCKS]
+            if not candidate_idxs:
+                break  # no more level-keys to place; stop the chain
 
-                chosen = rng.choice(candidates)
-                pool.remove(chosen)
-                loc.place_locked_item(chosen)
+            chosen_idx = rng.choice(candidate_idxs)
+            chosen = pool.pop(chosen_idx)
+            loc.place_locked_item(chosen)
 
-                # Queue the locations this item now unlocks
-                for next_loc_name in phase_map[chosen.name]:
-                    nxt = self.multiworld.get_location(next_loc_name, self.player)
-                    if nxt.item is None:
-                        remaining.append(next_loc_name)
+            # Queue the locations this item now unlocks for the next iteration.
+            for next_loc_name in _LEVEL_KEY_UNLOCKS[chosen.name]:
+                nxt = self.multiworld.get_location(next_loc_name, self.player)
+                if nxt.item is None:
+                    remaining.append(next_loc_name)
 
     # ------------------------------------------------------------------
     # Output — produce a .apwl3 patch file
@@ -612,6 +630,28 @@ class WL3World(World):
                 trap_table[idx] = trap_id
         return trap_table
 
+    def _build_trap_coin_table(self) -> List[int]:
+        """Like _build_trap_chest_table but for COIN locations (bigcoinsanity).
+        GrantCoinItem reads ROM TrapCoinTable[(owlevel-1)*8 + coin_idx]; non-zero
+        entries queue the trap and skip the regular item grant.
+        """
+        from .items import TRAP_AP_IDS
+        trap_table = [0] * 200
+        if not self.options.bigcoinsanity:
+            return trap_table
+        for loc_name, loc_data in COIN_LOCATION_TABLE.items():
+            location = self.multiworld.get_location(loc_name, self.player)
+            item = location.item
+            if item is None or item.player != self.player:
+                continue
+            item_data = ITEM_TABLE.get(item.name)
+            if item_data is None:
+                continue
+            trap_id = TRAP_AP_IDS.get(item_data.ap_id)
+            if trap_id is not None:
+                trap_table[loc_data.loc_index] = trap_id
+        return trap_table
+
     def _build_key_assignments(self) -> List[int]:
         """Return a 100-element list of in-game item IDs for the LevelKeyPool table.
 
@@ -673,6 +713,83 @@ class WL3World(World):
 
         return key_table
 
+    def _build_coin_assignments(self) -> "tuple[List[int], List[int]]":
+        """Return (LevelCoinItems, CoinPaletteOverrides), each 200 bytes.
+
+        Index: (owlevel - 1) * 8 + coin_index  (matches LEVEL_COIN_ITEMS_OFFSET layout)
+
+        LevelCoinItems byte:
+          - $FF                       → no portrait, show plain spinning-coin sprite
+          - $00-$7F (treasure ID)     → load that treasure's portrait (16x16, 4 tiles)
+          - $65 (TREASURE_DUMMY)      → key portrait (used when item is a key)
+          - $66 (TREASURE_KEYRING)    → keyring portrait
+        CoinPaletteOverrides byte:
+          - $FF                → use the displayed treasure's default palette
+          - 4-9 (OBPAL constant) → force this palette
+        Coins are filler-by-design: the ROM does NOT grant the item directly on
+        pickup (the AP client does). These tables are purely for visual portrait.
+        """
+        from .locations import COIN_LOCATION_TABLE
+        from .items import COMBINED_ITEMS, KEY_ITEM_TABLE, KEYRING_ITEM_TABLE
+        OBPAL_TREASURE_YELLOW = 4
+
+        coin_items = bytearray([0xFF] * 200)
+        coin_pals  = bytearray([0xFF] * 200)
+
+        # Bigcoinsanity off — no items at coin locations, leave defaults ($FF).
+        # All coins render as plain spinning sprites, no portraits.
+        if not self.options.bigcoinsanity:
+            return list(coin_items), list(coin_pals)
+
+        for loc_name, loc_data in COIN_LOCATION_TABLE.items():
+            idx = loc_data.loc_index
+            location = self.multiworld.get_location(loc_name, self.player)
+            item = location.item
+            if item is None or item.player != self.player:
+                # Foreign / empty — show generic gem so the player still sees a
+                # portrait indicating "you're sending this to someone."
+                if item is not None:
+                    cls = item.classification
+                    if cls in (ItemClassification.progression,
+                               ItemClassification.progression_skip_balancing):
+                        coin_items[idx] = 0x4E  # Red Gem
+                    elif cls == ItemClassification.useful:
+                        coin_items[idx] = 0x50  # Blue Gem
+                    else:
+                        coin_items[idx] = 0x4F  # Green Gem
+                continue
+
+            # Own item — pick a display treasure ID.
+            if item.name in KEY_ITEM_TABLE:
+                # Key item at a coin → use the key portrait (TREASURE_DUMMY).
+                # Set its palette to the key's color so it reads correctly.
+                coin_items[idx] = 0x65
+                color = KEY_ITEM_TABLE[item.name].color_index
+                coin_pals[idx] = KEY_COLOR_PALS[color]
+            elif item.name in KEYRING_ITEM_TABLE:
+                # Keyring → 4-keys icon (yellow palette).
+                coin_items[idx] = 0x66
+                coin_pals[idx] = OBPAL_TREASURE_YELLOW
+            elif item.name in TRANSFORM_UNLOCK_ITEMS:
+                # Form unlock → use the sacrificed treasure's icon.
+                coin_items[idx] = FORM_DISPLAY_TREASURE[item.name]
+            elif item.name in COMBINED_ITEMS:
+                # Combined item → purple palette (matches chest treatment).
+                item_data = ITEM_TABLE.get(item.name)
+                coin_items[idx] = item_data.tier_ids[0] if item_data else 0x4F
+                coin_pals[idx]  = OBPAL_TREASURE_PURPLE
+            else:
+                item_data = ITEM_TABLE.get(item.name)
+                if item_data is None:
+                    coin_items[idx] = 0x4F
+                elif item_data.ap_id in TRAP_AP_IDS_SET:
+                    # Trap → random treasure-ID disguise (same as chests/keys).
+                    coin_items[idx] = self.random.choice(TRAP_DISGUISE_POOL)
+                else:
+                    coin_items[idx] = item_data.tier_ids[0]
+
+        return list(coin_items), list(coin_pals)
+
     # ------------------------------------------------------------------
     # Slot data
     # ------------------------------------------------------------------
@@ -688,7 +805,8 @@ class WL3World(World):
                     "player": loc.item.player,
                 }
         return {
-            "death_link":            False,
+            "death_link":            bool(self.options.death_link),
+            "death_mode":            int(self.options.death_mode),
             "combined_items":        int(self.options.combined_items),
             "loc_items":             loc_items,
         }

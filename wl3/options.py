@@ -208,6 +208,12 @@ class NonStopChests(Toggle):
     default = 0
 
 
+class BigCoinsanity(Toggle):
+    """Adds 200 big-coin (musical coin) locations  — 8 per level — to the pool."""
+    display_name = "Big Coinsanity"
+    default = 0
+
+
 class TransformationShuffle(Toggle):
     """Shuffle transformation abilities (Zombie, Vampire, Fire, etc.) as items.
     When on, you must find each Form item to use that transformation via
@@ -225,6 +231,32 @@ class TrapFill(Range):
     range_start = 0
     range_end   = 100
     default     = 0
+
+
+class DeathLink(Toggle):
+    """Send and receive deaths to/from other players. Wario Land 3 has no
+    native death state, so deaths are synthesized via DeathMode (see below).
+    Receiving a death link forces the Game Over screen.
+    """
+    display_name = "Death Link"
+    default = 0
+
+
+class DeathMode(Choice):
+    """Controls what locally counts as a death (sent over Death Link, when
+    enabled, and triggers Wario's Game Over screen).
+    None: deaths are never triggered locally; you can still receive deaths
+        from other players if Death Link is on.
+    Grabs: enemy grabs that send you back to the level start (e.g. Robo
+        Mouse) instead trigger Game Over.
+    Grabs and Golf: same as Grabs, plus failing a golf hole (over par) ends
+        the run with Game Over instead of bouncing back to the lobby.
+    """
+    display_name = "Death Mode"
+    option_none           = 0
+    option_grabs          = 1
+    option_grabs_and_golf = 2
+    default = 0
 
 
 class ReduceFlashing(Toggle):
@@ -257,7 +289,10 @@ class WL3Options(PerGameCommonOptions):
     start_with_magnifying_glass:  StartWithMagnifyingGlass
     reduce_flashing:              ReduceFlashing
     non_stop_chests:              NonStopChests
+    bigcoinsanity:                BigCoinsanity
     trap_fill:                    TrapFill
+    death_link:                   DeathLink
+    death_mode:                   DeathMode
     # Cosmetics
     music_shuffle:                MusicShuffle
     enemy_palette_shuffle:        EnemyPaletteShuffle
