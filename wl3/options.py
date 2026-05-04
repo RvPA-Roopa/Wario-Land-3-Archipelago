@@ -234,23 +234,21 @@ class TrapFill(Range):
 
 
 class DeathLink(Toggle):
-    """Send and receive deaths to/from other players. Wario Land 3 has no
-    native death state, so deaths are synthesized via DeathMode (see below).
-    Receiving a death link forces the Game Over screen.
+    """Send and receive deaths to/from other players. This will trigger the "Game Over" screen when you die, forcing you to restart the level. If Death Mode is set to "Grabs" or "Grabs and Golf", then certain enemy grabs or golf failures will also trigger deaths. You can still receive deaths from other players even if your own Death Mode is set to None.
+    screen from being captured by Rudy. You can include "Death Mode" below to add more
+    death link options locally.
     """
     display_name = "Death Link"
     default = 0
 
 
 class DeathMode(Choice):
-    """Controls what locally counts as a death (sent over Death Link, when
-    enabled, and triggers Wario's Game Over screen).
+    """Controls what locally counts as a death. 
     None: deaths are never triggered locally; you can still receive deaths
-        from other players if Death Link is on.
-    Grabs: enemy grabs that send you back to the level start (e.g. Robo
-        Mouse) instead trigger Game Over.
-    Grabs and Golf: same as Grabs, plus failing a golf hole (over par) ends
-        the run with Game Over instead of bouncing back to the lobby.
+    from other players if Death Link is on.
+    Grabs: enemy grabs that teleport you  (e.g. RoboMouse, Scowler, Rudy) 
+    instead trigger a Game Over death.
+    Grabs and Golf: same as Grabs, plus failing a golf hole par triggers a death
     """
     display_name = "Death Mode"
     option_none           = 0

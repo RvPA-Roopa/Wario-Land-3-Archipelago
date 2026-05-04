@@ -588,7 +588,7 @@ COIN_RULES: dict = {
         None,                                                                           #2
         None,                                                                           #3
         can_pound_cracked_blocks,                                                       #4
-        _o(_has("Truck Wheels"),has_vampire_2),                                         #5
+        _o(_has("Truck Wheel"),has_vampire_2),                                          #5
         _o(_has("Truck Wheel"),can_fly),                                                #6
         _o(_has("Truck Wheel"),can_fly),                                                #7
         _c(_has("Foot of Stone"),has_flippers_1),                                       #8
@@ -760,7 +760,7 @@ COIN_RULES: dict = {
         _o(_has("Zombie Form"),has_grab_1),                                             #3
         _c(can_pass_through_fire,has_grab_1),                                           #4
         _c(_o(_has("Zombie Form"),has_grab_1),can_pass_through_fire),                   #5
-        _c(has_grab_1,_o(can_fly,_has("Jack Hammer"))),                                 #6
+        _c(has_grab_1,_o(can_fly,_has("Jackhammer"))),                                  #6
         _c(_has("Pick Axe"),has_grab_1,can_jump_high),                                  #7
         _c(_has("Pick Axe"),has_grab_1,can_jump_high),                                  #8
     ],
