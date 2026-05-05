@@ -526,7 +526,7 @@ COIN_RULES: dict = {
         _c(_o(_has("Flute"),can_jump_high),has_flippers_1,
            _o(_has("Zombie Form"),can_pound_cracked_blocks)),                           #4
         _o(_has("Flute"),can_jump_high),                                                #5
-        _o(can_pound_large_solid_blocks,
+        _o(_o(can_pound_large_solid_blocks,_has("Zombie Form")),_has("Garlic"),
            _c(_o(_has("Flute"),can_jump_high),_has("Zombie Form"))),                    #6
         can_pound_large_solid_blocks,                                                   #7
         can_pound_large_solid_blocks,                                                   #8
@@ -568,8 +568,8 @@ COIN_RULES: dict = {
         can_pound_cracked_blocks,                                                       #3
         _c(can_pound_cracked_blocks,_has("Spiked Helmet"),has_flippers_1),              #4
         _c(can_pound_cracked_blocks,_has("Spiked Helmet"),has_flippers_1),              #5
-        can_pound_solid_blocks,                                                         #6
-        _c(can_pound_solid_blocks,_has("Night Vision Scope"),can_jump_high),            #7
+        _c(can_pound_solid_blocks,_has("Night Vision Scope"),can_jump_high),            #6
+        can_pound_solid_blocks,                                                         #7
         _c(can_pound_solid_blocks,_has("Night Vision Scope"),can_jump_high),            #8
     ],
     "Desert Ruins": [
@@ -658,11 +658,11 @@ COIN_RULES: dict = {
                                              _has("Puffy Form"))),                      #6
         _c(has_flippers_1,_o(can_pound_cracked_blocks,_has("Zombie Form")),
            _o(can_shake_screen,can_fly)),                                               #7
-        _c(has_flippers_1,_o(_c(can_shake_screen,_has("Garlic")),can_fly)),             #8
+        _c(has_flippers_1,_o(_c(can_shake_screen,_has("Garlic")),can_bounce)),          #8
     ],
     "Tower of Revival": [
         _c(has_golden_eyes, _has("Garlic"), has_grab_2, _has("Spiked Helmet"),
-           _has("Statue"), _has("High Jump Boots")),                                              #1
+           _has("Statue"), _has("High Jump Boots")),                                    #1
         _c(_has("Statue"), has_golden_eyes),                                            #2
         _has("Statue"),                                                                 #3
         _c(_has("Statue"), _has("Garlic")),                                             #4
@@ -827,7 +827,7 @@ def set_rules(world: "WL3World") -> None:
         chest_logic["The East Crater"][blue] = _c(_has("Pick Axe"), has_grab_1)
         key_logic["Out of the Woods"][red] = _o(can_pound_cracked_blocks, _has("Garlic"))
         key_logic["The Peaceful Village"][red] = None
-        key_logic["The Peaceful Village"][green] = _o(_c(_o(can_shake_screen, _has("Zombie Form")), _has("Garlic")), _has("Flute"), can_fly)
+        key_logic["The Peaceful Village"][green] = _o(_c(_o(can_shake_screen, _has("Zombie Form")), _has("Garlic")), _has("Flute"), can_jump_high)
         key_logic["The Vast Plain"][red] = _o(can_pound_cracked_blocks, _has("Zombie Form"))
         key_logic["Desert Ruins"][green] = _o(_c(_has("Spiked Helmet"), _o(can_pound_cracked_blocks, _has("Flat Form"))), _has("Garlic"))
         key_logic["The Volcano's Base"][blue] = _c(_o(_has("Foot of Stone"),_c(_has("Flat Form"), _has("Spiked Helmet"))), _o(has_flippers_2, _c(has_flippers_1, _has("Spiked Helmet"))))
