@@ -545,10 +545,17 @@ class WL3World(World):
 
             item_data = ITEM_TABLE.get(item.name)
             if item_data is None:
-                # Key items (keysanity): show key icon via TREASURE_DUMMY ($65)
-                # whose tile graphics are patched with a key portrait by write_tokens.
+                # Key items (keysanity): write the AP-encoded key id
+                # ($80 | (owlevel-1)*4 + color). SetTreasureTransitionParam
+                # detects bit 7 and dispatches to wKeyInventory + shows the
+                # pickup message (offline grant). LoadLevelTreasures also
+                # remaps bit-7 → TREASURE_DUMMY in the working copy so the
+                # chest popup tile/palette lookups stay in range.
                 if item.name in KEY_ITEM_TABLE:
-                    chest_table[loc_data.loc_index] = 0x65  # TREASURE_DUMMY → key icon
+                    key_data = KEY_ITEM_TABLE[item.name]
+                    chest_table[loc_data.loc_index] = (
+                        0x80 | ((key_data.owlevel - 1) * 4 + key_data.color_index)
+                    )
                 # Keyring items: show the 4-keys "keyring" icon (TREASURE_KEYRING $66).
                 elif item.name in KEYRING_ITEM_TABLE:
                     chest_table[loc_data.loc_index] = 0x66  # TREASURE_KEYRING
@@ -761,11 +768,16 @@ class WL3World(World):
 
             # Own item — pick a display treasure ID.
             if item.name in KEY_ITEM_TABLE:
-                # Key item at a coin → use the key portrait (TREASURE_DUMMY).
-                # Set its palette to the key's color so it reads correctly.
-                coin_items[idx] = 0x65
-                color = KEY_ITEM_TABLE[item.name].color_index
-                coin_pals[idx] = KEY_COLOR_PALS[color]
+                # Key item at a coin → write the AP-encoded key id
+                # ($80 | (owlevel-1)*4 + color). The ROM uses this for two
+                # things: GrantCoinItem checks bit 7 and dispatches to
+                # wKeyInventory (offline grant), and LoadCoinTreasureTiles
+                # remaps bit-7-set ids to TREASURE_DUMMY for the portrait,
+                # so the visual stays the key icon. CoinPaletteOverrides
+                # gives it the right color.
+                key_data = KEY_ITEM_TABLE[item.name]
+                coin_items[idx] = 0x80 | ((key_data.owlevel - 1) * 4 + key_data.color_index)
+                coin_pals[idx] = KEY_COLOR_PALS[key_data.color_index]
             elif item.name in KEYRING_ITEM_TABLE:
                 # Keyring → 4-keys icon (yellow palette).
                 coin_items[idx] = 0x66
