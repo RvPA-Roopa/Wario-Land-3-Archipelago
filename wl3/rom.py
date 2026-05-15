@@ -33,11 +33,14 @@ CHEST_KEYRING_OFFSET             = 0x001C33   # ChestKeyringTargets (100 bytes; 
 KEY_KEYRING_OFFSET               = 0x001C97   # KeyKeyringTargets   (100 bytes; same format, but for key slots)
 INITIAL_TREASURES_OFFSET         = 0x001CFB   # InitialTreasuresBits (13 bytes; OR'd into wTreasuresCollected at new-game init)
 INITIAL_KEYS_OFFSET              = 0x001D08   # InitialKeysBits      (25 bytes; OR'd into wKeyInventory      at new-game init)
-TRAP_CHEST_TABLE_OFFSET          = 0x001D21   # TrapChestTable (100 bytes; 0=no trap, 1-5=TRAP_* — offline trap dispatch from chests)
-TRAP_KEY_TABLE_OFFSET            = 0x001D85   # TrapKeyTable   (100 bytes; same encoding — offline trap dispatch from key slots)
+INITIAL_TRANSFORM_UNLOCKS_OFFSET = 0x001D21   # InitialTransformUnlocks  (1 byte; OR'd into wTransformUnlocks  at new-game init)
+INITIAL_TRANSFORM_UNLOCKS2_OFFSET = 0x001D22  # InitialTransformUnlocks2 (1 byte; OR'd into wTransformUnlocks2 at new-game init)
+TRAP_CHEST_TABLE_OFFSET          = 0x001D23   # TrapChestTable (100 bytes; 0=no trap, 1-5=TRAP_* — offline trap dispatch from chests)
+TRAP_KEY_TABLE_OFFSET            = 0x001D87   # TrapKeyTable   (100 bytes; same encoding — offline trap dispatch from key slots)
 LEVEL_COIN_ITEMS_OFFSET          = 0x05836C   # LevelCoinItems       (200 bytes; bank $16 — display treasure ID per coin slot, $FF=plain)
 COIN_PAL_OVERRIDE_OFFSET         = 0x058434   # CoinPaletteOverrides (200 bytes; bank $16 — OBPAL per coin, $FF=default)
 TRAP_COIN_TABLE_OFFSET           = 0x0584FC   # TrapCoinTable        (200 bytes; bank $16 — 0=no trap, 1-5=TRAP_* — offline trap dispatch from coins)
+COIN_KEYRING_TARGETS_OFFSET      = 0x0585C4   # CoinKeyringTargets   (200 bytes; bank $16 — $FF=not keyring, 1-25=target owlevel)
 TREASURE_DUMMY_TILE_OFFSET       = 0x099940   # TreasureGfx[$65] — 64 bytes (4 tiles, 2bpp)
 TREASURE_ZOMBIE_TILE_OFFSET      = 0x0999c0   # TreasureZombieFormGfx    — 64 bytes (4 tiles, 2bpp)
 TREASURE_FIRE_TILE_OFFSET        = 0x099a00   # TreasureFireFormGfx      — 64 bytes (4 tiles, 2bpp)
@@ -84,9 +87,9 @@ FORM_ICON_MIRRORED_EXTRACTIONS = (
     # Fire Form — half-flame from fire_bot, mirrored to form a full flame shape.
     ("sprite", 0x1ac234, 988,  97, 0, 7, 15, TREASURE_FIRE_TILE_OFFSET),
 )
-TREASURE_DUMMY_PAL_OFFSET        = 0x09AD1F   # TreasureOBPals[$65] — 1 byte (palette index)
+TREASURE_DUMMY_PAL_OFFSET        = 0x09B025   # TreasureOBPals[$65] — 1 byte (palette index)
 TREASURE_GFX_BASE                = 0x098000   # TreasureGfx[0] — each entry 64 bytes
-TREASURE_PAL_BASE                = 0x09AFBA   # TreasureOBPals[0] — each entry 1 byte
+TREASURE_PAL_BASE                = 0x09AFC0   # TreasureOBPals[0] — each entry 1 byte
 KEY_COLOR_PALS = [0x08, 0x05, 0x06, 0x07]    # OBPAL: grey, red, green, blue
 OBPAL_TREASURE_PURPLE = 0x09                  # Combined unlock items
 
@@ -236,9 +239,9 @@ def _build_key_portrait() -> bytes:
 
 KEY_PORTRAIT_TILES = _build_key_portrait()
 LEVEL_MUSIC_OFFSET               = 0x03FE40   # LevelMusic table (25 levels × 16 bytes = 400 bytes)
-MUSIC_BOXES_REQUIRED_OFFSET      = 0x080F13   # MusicBoxesRequired byte in Bank 20
-START_WITH_AXE_OFFSET            = 0x080F14   # StartWithAxeOpt byte in Bank 20
-START_WITH_MAG_GLASS_OFFSET      = 0x080F15   # StartWithMagnifyingGlassOpt byte in Bank 20
+MUSIC_BOXES_REQUIRED_OFFSET      = 0x080F23   # MusicBoxesRequired byte in Bank 20
+START_WITH_AXE_OFFSET            = 0x080F24   # StartWithAxeOpt byte in Bank 20
+START_WITH_MAG_GLASS_OFFSET      = 0x080F25   # StartWithMagnifyingGlassOpt byte in Bank 20
 GOLF_PRICE_OPT_OFFSET            = 0x003A00   # GolfPriceOpt byte in Home bank
 GOLF_BUILDING_OPT_OFFSET         = 0x003A01   # GolfBuildingOpt byte in Home bank
 DISABLE_PAL_CYCLE_OFFSET         = 0x003A02   # DisablePalCycleOpt byte in Home bank
@@ -248,7 +251,7 @@ COMBINED_COMPANION_TABLE_OFFSET  = 0x003A05   # CombinedCompanionTable (101 byte
 TRANSFORMS_REQUIRE_ITEMS_OFFSET  = 0x003A6A   # TransformsRequireItems byte in Home bank
 DEATH_MODE_OPT_OFFSET            = 0x003A6B   # DeathModeOpt byte in Home bank (0=none, 1=grabs, 2=grabs+golf)
 BIG_COINSANITY_OPT_OFFSET        = 0x003A6C   # BigCoinsanityOpt byte in Home bank (0=vanilla coins, 1=portrait/suppress/AP-dispatch)
-TREASURE_OB_PALS_OFFSET          = 0x09AFBA   # TreasureOBPals table (indexed by treasure ID)
+TREASURE_OB_PALS_OFFSET          = 0x09AFC0   # TreasureOBPals table (indexed by treasure ID)
 
 # Combined-item companion chains: collecting key → also grant value (chained).
 # Tusk Set: $24→$25→$26 (two hops).
@@ -614,8 +617,10 @@ def write_tokens(world: "WL3World", patch: WL3ProcedurePatch) -> None:
         item = location.item
         if item is None or item.player != world.player:
             continue
-        # Key items at chests → key color palette
-        if chest_assignments[idx] == 0x65 and item.name in KEY_ITEM_TABLE:
+        # Key items at chests → key color palette. The chest table now
+        # stores AP-encoded key ids ($80+x); item.name lookup is the
+        # source of truth for "is this a key".
+        if item.name in KEY_ITEM_TABLE:
             color = KEY_ITEM_TABLE[item.name].color_index
             pal_overrides[idx] = KEY_COLOR_PALS[color]
         # Combined items → purple palette
@@ -673,6 +678,20 @@ def write_tokens(world: "WL3World", patch: WL3ProcedurePatch) -> None:
                 key_keyring_targets[idx] = KEYRING_ITEM_TABLE[item.name].owlevel
     patch.write_token(APTokenTypes.WRITE, KEY_KEYRING_OFFSET, bytes(key_keyring_targets))
 
+    # Coin slot keyring targets (mirror of ChestKeyringTargets / KeyKeyringTargets
+    # but for coin slots — 200 bytes, indexed by (owlevel-1)*8 + coin_idx).
+    coin_keyring_targets = bytearray([0xFF] * 200)
+    if world.options.bigcoinsanity:
+        from .locations import COIN_LOCATION_TABLE as _CLT
+        for loc_name, loc_data in _CLT.items():
+            location = world.multiworld.get_location(loc_name, world.player)
+            item = location.item
+            if item is None or item.player != world.player:
+                continue
+            if item.name in KEYRING_ITEM_TABLE:
+                coin_keyring_targets[loc_data.loc_index] = KEYRING_ITEM_TABLE[item.name].owlevel
+    patch.write_token(APTokenTypes.WRITE, COIN_KEYRING_TARGETS_OFFSET, bytes(coin_keyring_targets))
+
     # --- initial inventory bits ---
     # Precollected items (start_with_axe, random_level_starts, etc.) are usually
     # delivered by the AP client on connect. Bake them into ROM tables too so a
@@ -684,10 +703,13 @@ def write_tokens(world: "WL3World", patch: WL3ProcedurePatch) -> None:
         KEY_ITEM_TABLE as _KIT,
         KEYRING_ITEM_TABLE as _KRT,
         PROGRESSIVE_ITEMS as _PI,
+        TRANSFORM_UNLOCK_ITEMS as _TUI,
         ITEM_TABLE as _IT,
     )
     initial_treasures = bytearray((0x65 // 8) + 1)  # 13 bytes, matches wTreasuresCollected
     initial_keys = bytearray(25)                    # matches wKeyInventory
+    initial_form_unlocks  = 0                       # OR'd into wTransformUnlocks
+    initial_form_unlocks2 = 0                       # OR'd into wTransformUnlocks2
     for pre_item in world.multiworld.precollected_items[world.player]:
         name = pre_item.name
         if name in _KRT:
@@ -696,6 +718,14 @@ def write_tokens(world: "WL3World", patch: WL3ProcedurePatch) -> None:
         elif name in _KIT:
             kd = _KIT[name]
             initial_keys[kd.owlevel - 1] |= 1 << kd.color_index
+        elif name in _TUI:
+            # Form item: tier_ids = [byte_idx, bit_idx] (and possibly more
+            # entries for progressive Vampire — first pair is the tier-1 bit).
+            byte_idx, bit_idx = _TUI[name].tier_ids[0:2]
+            if byte_idx == 0:
+                initial_form_unlocks  |= 1 << bit_idx
+            else:
+                initial_form_unlocks2 |= 1 << bit_idx
         elif name in _CC:
             for tid in _CC[name]:
                 if 0 <= tid < 0x65:
@@ -710,6 +740,8 @@ def write_tokens(world: "WL3World", patch: WL3ProcedurePatch) -> None:
                 initial_treasures[tid >> 3] |= 1 << (tid & 7)
     patch.write_token(APTokenTypes.WRITE, INITIAL_TREASURES_OFFSET, bytes(initial_treasures))
     patch.write_token(APTokenTypes.WRITE, INITIAL_KEYS_OFFSET, bytes(initial_keys))
+    patch.write_token(APTokenTypes.WRITE, INITIAL_TRANSFORM_UNLOCKS_OFFSET,  bytes([initial_form_unlocks]))
+    patch.write_token(APTokenTypes.WRITE, INITIAL_TRANSFORM_UNLOCKS2_OFFSET, bytes([initial_form_unlocks2]))
 
     patch.write_token(APTokenTypes.WRITE, CHEST_TABLE_OFFSET, bytes(chest_assignments))
 
