@@ -456,20 +456,24 @@ class WL3World(World):
         #
         # We do NOT pre-place ability items — once these 5 keys open 5 levels,
         # AP has plenty of sphere room to handle abilities organically.
+        if ks:
+            pflocation = "Key"
+        else:
+            pflocation = "Chest"
         _LEVEL_KEY_UNLOCKS: Dict[str, List[str]] = {
-            "Axe":            ["The Peaceful Village - Grey Chest",
-                               "The Vast Plain - Grey Chest"],
-            "Ornamental Fan": ["The Stagnant Swamp - Grey Chest"],
-            "Sky Key":        ["Above the Clouds - Grey Chest"],
-            "Torch":          ["Forest of Fear - Grey Chest"],
-            "Jar":            ["A Town in Chaos - Grey Chest"],
+            "Axe":            ["The Peaceful Village - Grey " + pflocation,
+                               "The Vast Plain - Grey " + pflocation],
+            "Ornamental Fan": ["The Stagnant Swamp - Grey " + pflocation],
+            "Sky Key":        ["Above the Clouds - Grey " + pflocation],
+            "Torch":          ["Forest of Fear - Grey " + pflocation],
+            "Jar":            ["A Town in Chaos - Grey " + pflocation],
         }
 
         pool    = self.multiworld.itempool
         rng     = self.multiworld.random
         # Locations opened so far (start with sphere-0). When we place a key
         # at one, its unlocks join the queue.
-        remaining = ["Out of the Woods - Grey Chest"]
+        remaining = ["Out of the Woods - Grey " + pflocation]
 
         while remaining:
             loc_name = remaining.pop(0)
