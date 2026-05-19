@@ -885,7 +885,6 @@ def set_rules(world: "WL3World") -> None:
         chest_logic["The Tidal Coast"][blue] = _c(_has("Garlic"),_o(_c(has_flippers_1,_has("Sapling of Growth")),_has("Flat Form")))
         chest_logic["Sea Turtle Rocks"][grey] = _c(can_pound_cracked_blocks,_has("Spiked Helmet"),_o(has_flippers_1,_c(can_fly,_has("Flat Form"))))
         chest_logic["Sea Turtle Rocks"][red] = _c(_has("Scepter"), can_pound_cracked_blocks, _o(has_flippers_1,_has("Flat Form")))
-        chest_logic["Desert Ruins"][blue] = _c(_o(can_pound_solid_blocks, _has("Zombie Form")), _o(has_grab_1, can_bounce), _o(has_overalls_1, _c(_has("Spiked Helmet"), _has("Flat Form"))))
         chest_logic["The Pool of Rain"][blue] = _c(_o(has_flippers_1,_has("Flat Form")),_has("Air Pump"))
         chest_logic["Beneath the Waves"][grey] = _o(has_flippers_1,_has("Flat Form"))
         chest_logic["Beneath the Waves"][red] = _c(_o(has_flippers_1,_has("Flat Form")),_o(_has("High Jump Boots"),can_fly))
