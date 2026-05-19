@@ -248,8 +248,8 @@ CHEST_RULES: dict = {
     ],
     "The Grasslands": [
         _o(has_overalls_1, can_fly),                                                 # grey
-        _c(_has("Magic Seeds"), _o(has_overalls_1, _has("Zombie Form"))),            # red
-        _c(_o(_has("Flute"), can_fly), has_flippers_1),                              # green
+        _c(_has("Magic Seeds"), _o(can_pound_cracked_blocks, _has("Zombie Form"))),  # red
+        _c(_o(_has("Flute"), _has("Puffy Form")), has_flippers_1),                   # green
         can_jump_high,                                                               # blue
     ],
     "The Big Bridge": [
@@ -263,8 +263,9 @@ CHEST_RULES: dict = {
         None,                                                                        # grey
         has_glass_eyes,                                                              # red
         _has("Statue"),                                                              # green
-        _c(has_golden_eyes, _has("Garlic"), has_grab_2, _has("Spiked Helmet"),
-           _has("Statue"), _has("High Jump Boots")),                                 # blue
+        _c(_c(has_golden_eyes, _has("Statue")), 
+           _o(_c(_has("Garlic"), has_grab_2, _has("Spiked Helmet"), _has("High Jump Boots")),
+              _c(_has("Yarn Form"), can_jump_high))),                                # blue
     ],
     "The Steep Canyon": [
         None,                                                                        # grey
@@ -330,7 +331,7 @@ CHEST_RULES: dict = {
         None,                                                                        # grey
         _c(_has("Mystery Handle"), _o(has_grab_2, can_bounce)),                      # red
         _c(_has("Mystery Handle"), has_grab_1),                                      # green
-        _o(_has("Demon's Blood"), _has("Zombie Form"), has_vampire_2),               # blue
+        _o(_has("Demon's Blood"), _has("Zombie Form")),                              # blue
     ],
 }
 
@@ -419,7 +420,7 @@ KEY_RULES: dict = {
     "The Grasslands": [
         None,                                                                        # grey
         None,                                                                        # red
-        _o(_has("Flute"), can_fly),                                                  # green
+        _o(_has("Flute"), _has("Puffy Form")),                                       # green
         _o(can_jump_high),                                                           # blue
     ],
     "The Big Bridge": [
@@ -488,7 +489,7 @@ KEY_RULES: dict = {
     "The East Crater": [
         _c(_o(has_grab_1, _has("Zombie Form")),
            _o(can_shake_screen, can_fly)),                                           # grey
-        _c(_o(can_pass_through_fire), _o(_has("Zombie Form"), has_grab_1),
+        _c(_o(can_pass_through_fire), 
            _o(_c(has_grab_1, _o(can_pound_cracked_blocks)), _has("Zombie Form"))),   # red
         _c(has_grab_1, _o(_has("Jackhammer"), can_fly)),                             # green
         _c(_o(can_jump_high), _has("Pick Axe"), has_grab_1),                         # blue
@@ -637,12 +638,12 @@ COIN_RULES: dict = {
         _c(_o(can_pound_cracked_blocks, _has("Yarn Form")), _o(has_grab_1, can_bounce)),#8
     ],
     "The Grasslands": [
-        _o(_has("Flute"), can_fly),                                                     #1
+        _o(_has("Flute"), _has("Puffy Form")),                                          #1
         _has("Magic Seeds"),                                                            #2
         None,                                                                           #3
         _o(_c(_has("High Jump Boots"),has_grab_1),can_bounce),                          #4
         can_jump_high,                                                                  #5
-        _o(_has("Flute"), can_fly),                                                     #6
+        _o(_has("Flute"), _has("Puffy Form")),                                          #6
         can_jump_high,                                                                  #7
         _has("Magic Seeds"),                                                            #8
     ],
@@ -822,7 +823,7 @@ def set_rules(world: "WL3World") -> None:
         chest_logic["Desert Ruins"][blue] = _c(has_overalls_1, _o(can_jump_high, has_grab_1), _o(can_pound_solid_blocks, _has("Zombie Form")))
         chest_logic["The Grasslands"][red] = _c(_o(_has("Magic Seeds"), has_vampire_2), _o(can_pound_cracked_blocks, _has("Zombie Form")))
         chest_logic["The Grasslands"][green] = _c(_o(_has("Flute"), _has("High Jump Boots"), can_fly), has_flippers_1)
-        chest_logic["Tower of Revival"][blue] = _c(has_golden_eyes, _has("Garlic"), has_grab_2, _has("Spiked Helmet"), _has("Statue"), can_jump_high)
+        chest_logic["Tower of Revival"][blue] = _c(_c(has_golden_eyes, _has("Statue"), can_jump_high), _o(_c(_has("Garlic"), has_grab_2, _has("Spiked Helmet")),_has("Yarn Form")))
         chest_logic["Above the Clouds"][red] = _o(_c(_has("High Jump Boots"), _has("Spiked Helmet")), can_bounce)
         chest_logic["The East Crater"][blue] = _c(_has("Pick Axe"), has_grab_1)
         key_logic["Out of the Woods"][red] = _o(can_pound_cracked_blocks, _has("Garlic"))
@@ -839,7 +840,6 @@ def set_rules(world: "WL3World") -> None:
         key_logic["The East Crater"][blue] = _c(_has("Pick Axe"), has_grab_1)
         # Coins are 0 indexed, so one less than their counterparts on the level maps
         coin_logic["Out of the Woods"][0] = _o(_c(_has("High Jump Boots"), has_grab_1), can_fly)
-        coin_logic["Out of the Woods"][3] = _o(has_flippers_2, has_storm_pouch, can_fly)
         coin_logic["Out of the Woods"][6] = _o(can_pound_cracked_blocks, _has("Garlic"))
         coin_logic["The Peaceful Village"][3] = _c(_o(_has("Flute"),can_jump_high),_o(_has("Zombie Form"),can_pound_cracked_blocks))
         coin_logic["The Vast Plain"][3] = _o(can_pound_cracked_blocks, _has("Zombie Form"))
@@ -850,12 +850,14 @@ def set_rules(world: "WL3World") -> None:
         coin_logic["A Town in Chaos"][4] = _c(_o(has_grab_2, can_kill_frogs), _o(_c(can_shake_screen, _has("High Jump Boots")), can_bounce))
         coin_logic["A Town in Chaos"][7] = _c(_o(has_grab_2, can_kill_frogs), _o(_c(can_shake_screen, _has("High Jump Boots")), _has("Puffy Form"), _has("Bouncy Form")))
         coin_logic["Beneath the Waves"][4] = _c(has_chemicals,has_flippers_1,_o(_c(can_shake_screen,has_grab_1),has_grab_2,can_pass_spikes,can_fly))
-        coin_logic["Beneath the Waves"][6] = _c(has_flippers_2, _o(_c(has_grab_2, _has("Spiked Helmet")), can_bounce))
+        coin_logic["Beneath the Waves"][6] = _c(_o(has_flippers_2, _c(has_flippers_1, can_sink_in_water)), _o(_c(has_grab_2, _has("Spiked Helmet")), can_bounce))
         coin_logic["The West Crater"][1] = _o(_c(_has("Rust Spray"),can_pound_cracked_blocks),_c(_has("Bouncy Form"),_has("Spiked Helmet"),can_fly))
         coin_logic["The Grasslands"][0] = _o(_has("Flute"), can_fly, _has("High Jump Boots"))
         coin_logic["The Grasslands"][5] = _o(_has("Flute"), can_fly, _has("High Jump Boots"))
         coin_logic["The Big Bridge"][7] = _c(_o(has_flippers_1,has_grab_1),_o(_c(_has("Garlic"),_o(can_shake_screen,can_bounce)),can_fly))
         coin_logic["Tower of Revival"][0] = _c(has_golden_eyes, _has("Garlic"), has_grab_2, _has("Spiked Helmet"), _has("Statue"), can_jump_high)
+        coin_logic["Castle of Illusions"][1] = _o(_c(_o(_c(has_grab_1,has_sun_medallion),has_grab_2),_has("High Jump Boots")), can_bounce)
+        coin_logic["Castle of Illusions"][2] = _o(_c(_o(_c(has_grab_1,has_sun_medallion),has_grab_2),can_shake_screen,_has("High Jump Boots")), can_bounce)  
         coin_logic["Castle of Illusions"][5] = _c(_o(_has("Castle Brick"), has_vampire_2), _o(has_grab_1, can_fly, _has("Zombie Form")))
         coin_logic["Castle of Illusions"][6] = _c(_o(_has("Castle Brick"), has_vampire_2), _o(has_grab_1, can_fly, _has("Zombie Form")))        
 
@@ -866,16 +868,15 @@ def set_rules(world: "WL3World") -> None:
         chest_logic["Beneath the Waves"][blue] = _c(has_flippers_1,_o(has_grab_1,_has("Fat Form")))
         chest_logic["Above the Clouds"][blue] = _c(_has("Scissors"),_has("Full Moon Gong"),has_overalls_2,has_grab_1,can_jump_high)
         key_logic["The Volcano's Base"][red] = _o(_has("Truck Wheel"),_has("Flat Form"),can_fly)
-        key_logic["A Town in Chaos"][green] = _c(can_kill_frogs,_o(can_shake_screen,can_fly))
+        key_logic["A Town in Chaos"][green] = _c(_o(can_kill_frogs,has_grab_2),_o(_c(can_shake_screen, can_jump_high),can_bounce))
         key_logic["Above the Clouds"][red] = _o(_c(_has("High Jump Boots"),has_grab_1),can_bounce)
         key_logic["The East Crater"][grey] = _o(has_grab_1,_has("Zombie Form"))
         key_logic["The Frigid Sea"][red] = _o(has_grab_1,can_bounce)
         # Coins are 0 indexed, so one less than their counterparts on the level maps
+        coin_logic["Out of the Woods"][3] = _o(has_flippers_2, has_storm_pouch, can_fly)
         coin_logic["The Pool of Rain"][5] = _c(has_flippers_1,_has("Spiked Helmet"))
         coin_logic["The Pool of Rain"][6] = _c(has_flippers_1,_has("Spiked Helmet"))
-        coin_logic["The Frigid Sea"][3] = _o(has_grab_1,can_bounce)
-        coin_logic["Castle of Illusions"][1] = _o(_c(_o(_c(has_grab_1,has_sun_medallion),has_grab_2),_has("High Jump Boots")), can_bounce)
-        coin_logic["Castle of Illusions"][2] = _o(_c(_o(_c(has_grab_1,has_sun_medallion),has_grab_2),can_shake_screen,_has("High Jump Boots")), can_bounce)        
+        coin_logic["The Frigid Sea"][3] = _o(has_grab_1,can_bounce)      
 
     # Override some level requirements if glitches are in logic (overwrites difficulty options, we assume glitched players can do most tricks)
     if glitches >= easy_glitches:
@@ -884,6 +885,7 @@ def set_rules(world: "WL3World") -> None:
         chest_logic["The Tidal Coast"][blue] = _c(_has("Garlic"),_o(_c(has_flippers_1,_has("Sapling of Growth")),_has("Flat Form")))
         chest_logic["Sea Turtle Rocks"][grey] = _c(can_pound_cracked_blocks,_has("Spiked Helmet"),_o(has_flippers_1,_c(can_fly,_has("Flat Form"))))
         chest_logic["Sea Turtle Rocks"][red] = _c(_has("Scepter"), can_pound_cracked_blocks, _o(has_flippers_1,_has("Flat Form")))
+        chest_logic["Desert Ruins"][blue] = _c(_o(can_pound_solid_blocks, _has("Zombie Form")), _o(has_grab_1, can_bounce), _o(has_overalls_1, _c(_has("Spiked Helmet"), _has("Flat Form"))))
         chest_logic["The Pool of Rain"][blue] = _c(_o(has_flippers_1,_has("Flat Form")),_has("Air Pump"))
         chest_logic["Beneath the Waves"][grey] = _o(has_flippers_1,_has("Flat Form"))
         chest_logic["Beneath the Waves"][red] = _c(_o(has_flippers_1,_has("Flat Form")),_o(_has("High Jump Boots"),can_fly))
@@ -891,11 +893,10 @@ def set_rules(world: "WL3World") -> None:
         chest_logic["Beneath the Waves"][blue] = _c(_o(has_flippers_1,_has("Flat Form")),_o(has_grab_1,_has("Fat Form")),_o(_has("High Jump Boots"),can_fly))
         chest_logic["The Grasslands"][green] = _o(_c(_o(_has("Flute"),can_fly,_has("High Jump Boots")),_o(has_flippers_1,_c(_has("Flat Form"),_has("Puffy Form")))))
         chest_logic["The Big Bridge"][red] = _c(_o(has_flippers_1,_has("Flat Form")),_o(can_pound_cracked_blocks,_has("Zombie Form")))
-        chest_logic["The Big Bridge"][green] = _c(_o(has_flippers_1,_has("Flat Form")),has_grab_1,_o(can_pound_cracked_blocks,_has("Zombie Form")))
-        chest_logic["The Big Bridge"][blue] = _c(_has("Scepter"),_o(_has("Flat Form"),_c(has_flippers_1,_o(_c(_has("Garlic"),_has("Spiked Helmet")),_has("Puffy Form")))))
+        chest_logic["The Big Bridge"][blue] = _c(_has("Scepter"),_o(_has("Flat Form"),has_flippers_1),_o(_c(_has("Garlic"),_has("Spiked Helmet")),_has("Puffy Form")))
         chest_logic["The Steep Canyon"][green] = _c(_has("Foot of Stone"),_o(has_flippers_2,_has("Flat Form")),_o(can_shake_screen,can_fly))
         chest_logic["The Steep Canyon"][blue] = _c(_has("Rust Spray"), _o(can_pound_cracked_blocks, _has("Zombie Form"), _c(_has("Flat Form"), _has("Spiked Helmet"))))
-        chest_logic["Cave of Flames"][blue] = _c(_o(_has("Rust Spray"),_c(_has("Flat Form"),_has("Bouncy Form"))),can_pound_cracked_blocks,_o(_c(has_grab_1,_has("High Jump Boots")),can_bounce))
+        chest_logic["Cave of Flames"][blue] = _c(_o(_has("Rust Spray"),_c(_has("Flat Form"),_has("Bouncy Form"))),_o(_c(has_grab_1,_has("High Jump Boots")),can_bounce))
         chest_logic["Above the Clouds"][blue] = _c(_has("Scissors"),_has("Full Moon Gong"),_o(_c(_has("High Jump Boots"),can_shake_screen,has_grab_1),_c(can_jump_high,_has("Flat Form"),_has("Spiked Helmet"))))
         chest_logic["The Stagnant Swamp"][red] = _c(_has("Foot of Stone"),_o(has_overalls_1,has_vampire_2,_c(has_flippers_2, _has("High Jump Boots")),_c(_has("Flat Form"),_has("Puffy Form"))))
         chest_logic["The Frigid Sea"][green] = _c(_has("Scepter"),_o(has_flippers_1,_has("Flat Form")))
@@ -908,11 +909,12 @@ def set_rules(world: "WL3World") -> None:
         key_logic["The Pool of Rain"][blue] = _c(_o(has_flippers_1,_has("Flat Form")),_has("Air Pump"))
         key_logic["Beneath the Waves"][blue] = _c(_o(has_flippers_1,_has("Flat Form")), has_chemicals)
         key_logic["The Big Bridge"][red] = _c(_o(has_flippers_1,_has("Flat Form")),_o(can_pound_cracked_blocks,_has("Zombie Form")))
+        key_logic["The Big Bridge"][green] = _c(_o(has_flippers_1,_has("Flat Form")),has_grab_1,_o(can_pound_cracked_blocks,_has("Zombie Form")))
         key_logic["The Big Bridge"][blue] = _c(_o(has_flippers_1,_has("Flat Form")), _o(_has("Garlic"), can_fly))
         key_logic["The Steep Canyon"][green] = _c(_has("Foot of Stone"),_o(has_flippers_2,_has("Flat Form")),_o(can_shake_screen,can_fly))
         key_logic["The Steep Canyon"][blue] = _c(_has("Rust Spray"), _o(can_pound_cracked_blocks, _has("Zombie Form"), _c(_has("Flat Form"), _has("Spiked Helmet"))))
         key_logic["Cave of Flames"][grey] = _o(has_grab_1, _c(_has("Flat Form"), _has("Spiked Helmet")))
-        key_logic["Cave of Flames"][blue] = _c(_o(_has("Rust Spray"),_c(_has("Flat Form"),_has("Bouncy Form"))),can_pound_cracked_blocks,_o(_c(has_grab_1,_has("High Jump Boots")),can_bounce))
+        key_logic["Cave of Flames"][blue] = _c(_o(_has("Rust Spray"),_c(_has("Flat Form"),_has("Bouncy Form"))),_o(_c(has_grab_1,_has("High Jump Boots")),can_bounce))
         key_logic["The Frigid Sea"][green] = _c(_has("Scepter"),_o(has_flippers_1,_has("Flat Form")))
         key_logic["The Frigid Sea"][blue] = _o(has_sun_medallion,has_flippers_2,_has("Flat Form"))
         key_logic["The East Crater"][red] = _c(_o(can_pass_through_fire), _o(_has("Zombie Form"), has_grab_1),_o(_c(has_grab_1, _o(can_pound_cracked_blocks)), _has("Zombie Form"), _c(_has("Flat Form"),_has("Spiked Helmet"))))
@@ -926,6 +928,7 @@ def set_rules(world: "WL3World") -> None:
         coin_logic["The Tidal Coast"][4] = _c(_o(has_flippers_1,_has("Flat Form")), has_grab_1)
         coin_logic["The Tidal Coast"][6] = _c(_has("Garlic"),_o(_c(has_flippers_1,_has("Sapling of Growth")),_has("Flat Form")))
         coin_logic["The Tidal Coast"][7] = _c(_has("Garlic"),_o(_c(has_flippers_1,_has("Sapling of Growth")),_has("Flat Form")))
+        coin_logic["Desert Ruins"][2] = _c(_o(can_pound_solid_blocks, _has("Zombie Form")), _o(has_grab_1, can_bounce), _o(has_overalls_1,_c(_has("Spiked Helmet"), _has("Flat Form"))))
         coin_logic["The Volcano's Base"][7] = _c(_o(_has("Foot of Stone"),_c(_has("Flat Form"),_has("Spiked Helmet"))),_o(_has("Flat Form"),has_flippers_1))
         coin_logic["The Pool of Rain"][1] = _o(has_flippers_1,_has("Flat Form"))
         coin_logic["The Pool of Rain"][2] = _o(has_flippers_2,_has("Flat Form"))
@@ -936,7 +939,7 @@ def set_rules(world: "WL3World") -> None:
         coin_logic["The Big Bridge"][2] = _c(_o(can_pound_cracked_blocks,_has("Zombie Form")),_o(has_flippers_1,_has("Flat Form")))
         coin_logic["The Big Bridge"][3] = _c(_o(can_pound_cracked_blocks,_has("Zombie Form")),_o(has_flippers_1,_has("Flat Form")))
         coin_logic["The Big Bridge"][4] = _c(_has("Scepter"),_o(has_flippers_1,_has("Flat Form")))
-        coin_logic["The Big Bridge"][5] = _c(_has("Scepter"),_o(_has("Flat Form"),_c(has_flippers_1,_o(_c(_has("Garlic"),_has("Spiked Helmet")),_has("Puffy Form")))))
+        coin_logic["The Big Bridge"][5] = _c(_has("Scepter"),_o(_has("Flat Form"),has_flippers_1),_o(_c(_has("Garlic"),_has("Spiked Helmet")),_has("Puffy Form")))
         coin_logic["The Big Bridge"][6] = _c(_o(has_flippers_1,_has("Flat Form")),_o(can_pound_cracked_blocks,_has("Zombie Form")),_o(can_shake_screen,can_fly))
         coin_logic["The Big Bridge"][7] = _c(_o(has_flippers_1,_has("Flat Form")),_o(_c(_has("Garlic"),_o(can_shake_screen,can_bounce)),can_fly))
         coin_logic["The Steep Canyon"][3] = _c(_has("Foot of Stone"),_o(has_flippers_2,_has("Flat Form")),_o(can_shake_screen,can_fly))
@@ -953,7 +956,7 @@ def set_rules(world: "WL3World") -> None:
         chest_logic["The Peaceful Village"][green] = _o(can_pound_cracked_blocks,_has("Zombie Form"))
         chest_logic["The Tidal Coast"][green] = None
         chest_logic["The Grasslands"][blue] = None
-        chest_logic["A Town in Chaos"][green] = _c(_o(has_grab_2,can_kill_frogs),_has("High Jump Boots"),_o(can_shake_screen,_has("Spiked Helmet"),can_bounce))
+        chest_logic["A Town in Chaos"][green] = _c(_o(has_grab_2,can_kill_frogs),_o(can_shake_screen,can_bounce))
         chest_logic["Castle of Illusions"][grey] = None
         chest_logic["The East Crater"][red] = _c(can_pass_through_fire,_o(_c(has_grab_1,has_overalls_1),_has("Fire Form")))
         key_logic["Out of the Woods"][green] = None
@@ -962,14 +965,17 @@ def set_rules(world: "WL3World") -> None:
         key_logic["The Grasslands"][blue] = None
         key_logic["A Town in Chaos"][green] = _c(_o(has_grab_2,can_kill_frogs),_o(can_shake_screen,_has("Spiked Helmet"),can_fly),_has("High Jump Boots"))
         key_logic["Cave of Flames"][red] = None
-        key_logic["Castle of Illusions"][red] = _o(has_overalls_2,can_jump_high)
-        key_logic["The East Crater"][red] = _c(can_pass_through_fire,_o(_c(has_grab_1,can_pound_cracked_blocks),_has("Zombie Form")))
+        key_logic["Castle of Illusions"][red] = _o(can_shake_screen,can_jump_high)
+        coin_logic["The Peaceful Village"][3] = _o(_has("Zombie Form"),can_pound_cracked_blocks)
+        coin_logic["The Peaceful Village"][4] = None
         # Coins are 0 indexed, so one less than their counterparts on the level maps
         coin_logic["The Peaceful Village"][3] = _o(_has("Zombie Form"),can_pound_cracked_blocks)
     if glitches >= easy_glitches and difficulty >= knowledge_checks:
         chest_logic["The Big Bridge"][green] = _c(_o(has_flippers_1,_has("Flat Form")),_o(has_grab_1,can_fly,can_shake_screen),_o(can_pound_cracked_blocks,_has("Zombie Form")))
         key_logic["The Big Bridge"][blue] = _c(_o(has_flippers_1,_has("Flat Form"),has_grab_1), _o(_has("Garlic"), can_fly))
+        coin_logic["Beneath the Waves"][4] = _c(has_chemicals,_o(has_flippers_1,_has("Flat Form")),_o(_c(can_shake_screen,has_grab_1),has_grab_2,can_pass_spikes,can_fly))
     if glitches >= easy_glitches and difficulty >= hard_logic:
+        coin_logic["Out of the Woods"][3] = _o(has_flippers_2,has_storm_pouch,can_fly,_has("Flat Form"))
         chest_logic["Beneath the Waves"][red] = _c(_o(has_flippers_1,_has("Flat Form")))
         chest_logic["Beneath the Waves"][green] = _c(_o(has_flippers_1,_has("Flat Form")),_o(has_grab_1,_has("Yarn Form"),_c(_has("Flat Form"),_has("Spiked Helmet"))))
         chest_logic["Beneath the Waves"][blue] = _c(_o(has_flippers_1,_has("Flat Form")),_o(has_grab_1,_has("Fat Form")))
