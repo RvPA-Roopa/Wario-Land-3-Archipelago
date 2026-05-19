@@ -28,9 +28,21 @@ class DifficultyOptions(Choice):
     default = 0
 
 
-class MinorGlitches(Toggle):
-    """Sets whether minor glitches, like wall jumps, may be required in logic."""
+class MinorGlitches(Choice):
+    """Sets whether minor glitches may be required in logic.
+    Easy glitches: Simple glitches such as water walking or block clipping with flat form.
+    All glitches: Everything from easy glitches as well as things like wall jumps and screen wrapping."""
     display_name = "Minor Glitches"
+    option_none = 0
+    option_easy_glitches = 1
+    option_all_glitches = 2
+    # Aliases below for compatibility with old YAMLs
+    alias_true = 2
+    alias_false = 0
+    alias_yes = 2
+    alias_no = 0
+    alias_on = 2
+    alias_off = 0
     default = 0
 
 
