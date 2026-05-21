@@ -536,7 +536,7 @@ class WL3Client(BizHawkClient):
             # Recount progressive items from scratch after a server reset.
             self._prog_counts = {}
             for net_item in ctx.items_received:
-                if net_item.item in PROGRESSIVE_ITEMS:
+                if net_item.item in PROGRESSIVE_ITEMS or net_item.item == PROGRESSIVE_VAMPIRE_AP_ID:
                     self._prog_counts[net_item.item] = self._prog_counts.get(net_item.item, 0) + 1
 
         # ---- Grant any newly received items ----
@@ -552,7 +552,7 @@ class WL3Client(BizHawkClient):
             net_item = ctx.items_received[self._items_handled]
             ap_id = net_item.item
             self._cached_received.add(ap_id)
-            if ap_id in PROGRESSIVE_ITEMS:
+            if ap_id in PROGRESSIVE_ITEMS or ap_id == PROGRESSIVE_VAMPIRE_AP_ID:
                 self._prog_counts[ap_id] = self._prog_counts.get(ap_id, 0) + 1
             # silent=True on catch-up batch only suppresses trap dispatch;
             # idempotent bit-sets (treasures, keys, transforms) still apply.
@@ -638,15 +638,20 @@ class WL3Client(BizHawkClient):
             return
         if ap_id == PROGRESSIVE_VAMPIRE_AP_ID:
             # 1st receipt sets Vampire (bit 1); 2nd sets Bat (bit 6).
-            # Idempotent: reading current state lets reconnects/resyncs behave.
+            # Use cumulative receipt count from _prog_counts — NOT current WRAM
+            # state — because the ROM may have already granted Vampire when the
+            # player collected the in-game chest, and reading "vampire already
+            # set" would then incorrectly grant Bat on the AP receipt.
+            count = self._prog_counts.get(PROGRESSIVE_VAMPIRE_AP_ID, 0)
             cur = (await read(ctx.bizhawk_ctx, [(ADDR_TRANSFORM_UNLOCKS_WRAM, 1, "WRAM")]))[0][0]
-            if not (cur & (1 << 1)):
-                new = cur | (1 << 1)
-            else:
-                new = cur | (1 << 6)
+            new = cur
+            if count >= 1:
+                new |= (1 << 1)
+            if count >= 2:
+                new |= (1 << 6)
             if new != cur:
                 await write(ctx.bizhawk_ctx, [(ADDR_TRANSFORM_UNLOCKS_WRAM, bytes([new]), "WRAM")])
-            logger.debug(f"[WL3] Progressive Vampire → wTransformUnlocks 0x{new:02X}")
+            logger.debug(f"[WL3] Progressive Vampire #{count} → wTransformUnlocks 0x{new:02X}")
             return
         if ap_id in TRANSFORM_UNLOCK_AP_IDS:
             # Set one or more bits in wTransformUnlocks / wTransformUnlocks2.
@@ -883,11 +888,9 @@ class WL3Client(BizHawkClient):
         # Compute target bits
         want1 = 0
         want2 = 0
-        prog_vamp_count = 0
         for ap_id in self._cached_received:
             if ap_id == PROGRESSIVE_VAMPIRE_AP_ID:
-                prog_vamp_count += 1
-                continue
+                continue   # handled below via _prog_counts (set can't track count)
             pairs = TRANSFORM_UNLOCK_AP_IDS.get(ap_id)
             if not pairs:
                 continue
@@ -896,7 +899,9 @@ class WL3Client(BizHawkClient):
                     want1 |= (1 << bit_idx)
                 else:
                     want2 |= (1 << bit_idx)
-        # Progressive Vampire: 1st copy = bit 1 (Vampire), 2nd copy = bit 6 (Bat)
+        # Progressive Vampire: 1st copy = bit 1 (Vampire), 2nd copy = bit 6 (Bat).
+        # _cached_received is a set and can't see count>1, so use _prog_counts.
+        prog_vamp_count = self._prog_counts.get(PROGRESSIVE_VAMPIRE_AP_ID, 0)
         if prog_vamp_count >= 1:
             want1 |= (1 << 1)
         if prog_vamp_count >= 2:
@@ -1030,7 +1035,12 @@ class WL3Client(BizHawkClient):
         # by then the ROM has already set them so the write is a no-op.
         if self._prev_end_screen == 0:
             for ap_id, count in self._prog_counts.items():
-                tier_ids = PROGRESSIVE_ITEMS[ap_id]
+                # _prog_counts also tracks PROGRESSIVE_VAMPIRE_AP_ID (which is
+                # NOT in PROGRESSIVE_ITEMS — it sets transformation bits, not
+                # treasure tier bits). Skip it here.
+                tier_ids = PROGRESSIVE_ITEMS.get(ap_id)
+                if tier_ids is None:
+                    continue
                 if count >= 1:
                     t = tier_ids[0]
                     ap_bits[t >> 3] |= 1 << (t & 7)
