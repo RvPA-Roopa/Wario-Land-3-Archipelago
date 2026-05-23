@@ -811,6 +811,9 @@ class WL3World(World):
     # ------------------------------------------------------------------
 
     def fill_slot_data(self) -> Dict[str, Any]:
+        from BaseClasses import ItemClassification
+        from .items import ITEM_TABLE, KEY_ITEM_TABLE, KEYRING_ITEM_TABLE
+
         loc_items = {}
         all_locs = {**LOCATION_TABLE, **KEY_LOCATION_TABLE}
         for loc_name, loc_data in all_locs.items():
@@ -820,11 +823,29 @@ class WL3World(World):
                     "item": loc.item.name,
                     "player": loc.item.player,
                 }
+
+        # Names of every item the apworld classifies as progression — the
+        # client uses this to filter candidates for golf_par_hints == progression.
+        # Includes regular treasures, keys/keyrings, and progressive items.
+        progression_names: list = []
+        for name, data in ITEM_TABLE.items():
+            if data.classification == ItemClassification.progression:
+                progression_names.append(name)
+        for name, data in KEY_ITEM_TABLE.items():
+            cls = getattr(data, "classification", ItemClassification.progression)
+            if cls == ItemClassification.progression:
+                progression_names.append(name)
+        for name, data in KEYRING_ITEM_TABLE.items():
+            cls = getattr(data, "classification", ItemClassification.progression)
+            if cls == ItemClassification.progression:
+                progression_names.append(name)
+
         return {
             "death_link":              bool(self.options.death_link),
             "death_mode":              int(self.options.death_mode),
             "combined_items":          int(self.options.combined_items),
             "golf_par_hints":          int(self.options.golf_par_hints),
             "golf_par_hint_frequency": int(self.options.golf_par_hint_frequency),
+            "progression_item_names":  progression_names,
             "loc_items":               loc_items,
         }

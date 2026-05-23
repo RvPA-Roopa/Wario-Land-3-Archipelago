@@ -161,13 +161,13 @@ KEYRING_BASE_ITEM_ID = BASE_ITEM_ID + 700  # 7_770_700 (one per level, owlevel-1
 
 # Item name categories for GolfParHints. Matched against the item name in
 # self._loc_items (populated from slot_data["loc_items"]).
+# The "Progression" category is sourced from slot_data["progression_item_names"]
+# (computed in apworld fill_slot_data from ItemClassification.progression),
+# not hardcoded here, so the set reflects whichever items are progression
+# under the player's current option mix.
 MUSIC_BOX_ITEM_NAMES: set = {
     "Red Music Box", "Blue Music Box", "Yellow Music Box",
     "Green Music Box", "Gold Music Box",
-}
-PROGRESSIVE_ITEM_NAMES: set = {
-    "Progressive Overalls", "Progressive Grab",
-    "Progressive Flippers", "Progressive Vampire",
 }
 
 
@@ -257,6 +257,9 @@ class WL3Client(BizHawkClient):
         self._loc_items:       dict = {}       # loc_id → {"item": name, "player": slot}
         self._trap_queue:      list = []       # pending ROM trap IDs waiting for a safe frame
         self._par_hints_sent:  set  = set()    # AP location IDs we've already par-hinted this session
+        self._shown_hints:     set  = set()    # (item_id, loc_id, finder_slot) tuples we've already
+                                                # surfaced in-game (PrintJSON Hint dedup, survives single
+                                                # session — resets on reconnect)
         # --- DeathLink ---
         self._death_link_enabled: bool = False  # True when slot_data["death_link"] is on
         self._death_link_tag_sent: bool = False # True after we've added "DeathLink" to ctx.tags
@@ -272,11 +275,15 @@ class WL3Client(BizHawkClient):
     # ------------------------------------------------------------------
 
     def on_package(self, ctx: "BizHawkClientContext", cmd: str, args: dict) -> None:
-        """Handle server packets we care about. Currently: inbound DeathLink
-        Bounced packets — set _force_game_over_pending so the next watcher
-        tick writes wForceGameOver=1 and ROM trips the Game Over screen.
-        Also marks _suppress_next_send so the resulting wState=$0C doesn't
-        echo the death back to the server."""
+        """Handle server packets we care about.
+        - Bounced DeathLink: set _force_game_over_pending so the next watcher
+          tick writes wForceGameOver=1 and ROM trips the Game Over screen.
+          Also marks _suppress_next_send so the resulting wState=$0C doesn't
+          echo the death back to the server.
+        - PrintJSON Hint: surface a hint in-game whenever a hint involving us
+          is created (either an item going to us, or one of our items being
+          revealed to someone else). Deduped via self._shown_hints so server
+          re-broadcasts on reconnect don't spam the player."""
         if cmd == "Bounced":
             tags = args.get("tags", []) or []
             if "DeathLink" not in tags:
@@ -291,6 +298,73 @@ class WL3Client(BizHawkClient):
             logger.info(f"[WL3] DeathLink: {cause}")
             self._suppress_next_send = True
             self._force_game_over_pending = True
+            return
+
+        if cmd == "PrintJSON" and args.get("type") == "Hint":
+            self._handle_hint_packet(ctx, args)
+            return
+
+    def _handle_hint_packet(self, ctx: "BizHawkClientContext", args: dict) -> None:
+        """Queue an in-game message for a hint involving our slot.
+        Shows hints where the item is going TO us (we're the receiver), and
+        also hints where the item is coming FROM our world (one of our
+        locations was revealed). Skips hints that are already 'found' (the
+        location was checked, so the hint is fulfilled — no actionable info).
+        """
+        item = args.get("item")
+        receiving = args.get("receiving")
+        if item is None:
+            return
+        # AP can send either a NetworkItem namedtuple (attribute access)
+        # or a plain dict (`.get()`), depending on host version. Handle both.
+        try:
+            if hasattr(item, "item"):
+                item_id     = int(item.item)
+                location_id = int(item.location)
+                finder_slot = int(item.player)
+            else:
+                item_id     = int(item["item"])
+                location_id = int(item["location"])
+                finder_slot = int(item["player"])
+        except (TypeError, ValueError, KeyError, AttributeError):
+            return
+        # Skip already-fulfilled hints (server re-broadcasts these on connect).
+        if args.get("found"):
+            return
+        # Only care if this hint involves us.
+        is_for_us  = (receiving == ctx.slot)
+        is_from_us = (finder_slot == ctx.slot)
+        if not (is_for_us or is_from_us):
+            return
+        # Dedup so server re-broadcasts don't re-show the same hint.
+        key = (item_id, location_id, finder_slot)
+        if key in self._shown_hints:
+            return
+        self._shown_hints.add(key)
+
+        try:
+            item_name = ctx.item_names.lookup_in_slot(item_id, receiving) if ctx.item_names else f"ITEM {item_id}"
+        except Exception:
+            item_name = f"ITEM {item_id}"
+        try:
+            loc_name = ctx.location_names.lookup_in_slot(location_id, finder_slot) if ctx.location_names else f"LOC {location_id}"
+        except Exception:
+            loc_name = f"LOC {location_id}"
+
+        # Schedule an async coroutine to queue the messages. on_package is sync
+        # but _show_msg is just a list append, so we can call it directly here
+        # via the underlying _msg_queue append.
+        if is_for_us:
+            self._msg_queue.append(f"HINT {item_name}")
+        else:
+            # An item of ours is being hinted to player `receiving` — show that.
+            other_name = "P?"
+            if ctx.player_names and receiving in ctx.player_names:
+                other_name = ctx.player_names[receiving]
+            self._msg_queue.append(f"{other_name} HINT {item_name}")
+        self._msg_queue.append(f"AT {loc_name}")
+        logger.debug(f"[WL3] Hint shown in-game: {item_name} @ {loc_name} "
+                     f"(for={is_for_us}, from={is_from_us})")
 
     async def validate_rom(self, ctx: "BizHawkClientContext") -> bool:
         """Return True if a patched WL3 ROM is loaded in mGBA."""
@@ -992,30 +1066,33 @@ class WL3Client(BizHawkClient):
             loc_name = None
 
         # Force-create a hint on the AP server for the picked location.
-        # create_as_hint=2 ignores the hint-point cost.
+        # create_as_hint=2 ignores the hint-point cost. The server will
+        # broadcast a PrintJSON Hint packet that our on_package handler
+        # picks up and shows in-game — no need to duplicate the message
+        # here. Records local dedup so we don't re-scout the same location.
         try:
             await ctx.send_msgs([{
                 "cmd": "LocationScouts",
                 "locations": [loc_id],
                 "create_as_hint": 2,
             }])
-            # Record so we don't pick this location again this session.
             self._par_hints_sent.add(loc_id)
         except Exception as e:
             logger.warning(f"[WL3] Par-hint LocationScouts send failed: {e}")
-
-        # In-game message — split into 2 short rows since lines are narrow.
-        await self._show_msg(ctx, f"HINT {item_name}")
-        if loc_name:
-            await self._show_msg(ctx, f"AT {loc_name}")
-        logger.info(f"[WL3] Par hint: {item_name} at {loc_name or f'loc {loc_id}'}")
+        logger.info(f"[WL3] Par hint requested: {item_name} at {loc_name or f'loc {loc_id}'}")
 
     def _gather_par_hint_candidates(self, ctx: "BizHawkClientContext", mode: int) -> set:
         """Return the set of AP location IDs that match the category,
         are still unchecked, and have an item in our loc_items map.
-        mode: 1=music boxes, 2=progressive items, 3=anything."""
+        mode: 1=music boxes, 2=progression items, 3=anything.
+        For mode 2, the progression set comes from slot_data (computed in
+        apworld fill_slot_data) so it reflects ItemClassification.progression
+        for the actual seed."""
         if not self._loc_items:
             return set()
+        progression_set: set = set()
+        if mode == 2 and ctx.slot_data:
+            progression_set = set(ctx.slot_data.get("progression_item_names") or [])
         candidates: set = set()
         missing = ctx.missing_locations or set()
         for loc_key, info in self._loc_items.items():
@@ -1027,7 +1104,7 @@ class WL3Client(BizHawkClient):
             item_name = info.get("item", "")
             if mode == 1 and item_name not in MUSIC_BOX_ITEM_NAMES:
                 continue
-            if mode == 2 and item_name not in PROGRESSIVE_ITEM_NAMES:
+            if mode == 2 and item_name not in progression_set:
                 continue
             # mode == 3 (anything): no category filter
             candidates.add(loc_id)

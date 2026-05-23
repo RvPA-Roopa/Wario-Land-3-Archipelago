@@ -120,24 +120,25 @@ class IHateGolf(Toggle):
 
 
 class GolfParHints(Choice):
-    """Hint an AP item when you clear a Golf Building course at par or better.
-    Nothing:           Never fire hints.
-    Music Boxes:       Hint a Music Box location.
-    Progressive Items: Hint a Progressive Overalls / Grab / Flippers / Vampire.
-    Anything:          Hint any unhinted, unchecked AP item.
+    """Hint an AP item when you clear a Golf Building hole or course at par or better.
+    Nothing:          Vanilla, no hints are given.
+    Music Boxes:      Hints a Music Box location.
+    Progression:      Hints any item AP classifies as progression (keys, music
+                      boxes, progression treasures, forms, abilities, etc.).
+    Anything:         Hints any unhinted, unchecked AP item.
     If the chosen category has no unhinted matches left, falls back to Anything."""
     display_name = "Golf Par Hints"
-    option_nothing           = 0
-    option_music_boxes       = 1
-    option_progressive_items = 2
-    option_anything          = 3
+    option_nothing     = 0
+    option_music_boxes = 1
+    option_progression = 2
+    option_anything    = 3
     default = 0
 
 
 class GolfParHintFrequency(Choice):
-    """When the Golf Par Hints feature fires its hint.
+    """Choose whether clearing a hole or course at par-or-better fires a hint.
     Per Hole:   Each hole cleared at par-or-better fires a hint.
-    Per Course: Only the 4th hole fires, and only if all 4 holes of the course
+    Per Course: Only the 5th hole fires, and only if all 5 holes of the course
                 were cleared at par-or-better."""
     display_name = "Golf Par Hint Frequency"
     option_per_hole   = 0
