@@ -114,7 +114,7 @@ class GolfBuilding(Choice):
 class IHateGolf(Toggle):
     """Automatically win the golf mini-game as soon as it starts.
     The hole is immediately cleared without having to play.
-    Does not work correctly with the Golf Building"""
+    Has no effect in the Golf Building — those courses always run vanilla."""
     display_name = "I Hate Golf"
     default = 0
 
