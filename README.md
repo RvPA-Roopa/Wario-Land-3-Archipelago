@@ -5,7 +5,7 @@
 
 ---
 
->HUGE SHOUTOUTS to snackerfork for the awesome AP logo, @lizzietwoshoes for separating chest/key logic (and logic help in general), and ivory for helping with logic too!
+>HUGE SHOUTOUTS to snackerfork for the awesome AP logo and keyring sprite, @lizzietwoshoes for separating chest/key logic (and logic help in general), and ivory for helping with logic too!
 
 ---
 
