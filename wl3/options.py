@@ -119,6 +119,32 @@ class IHateGolf(Toggle):
     default = 0
 
 
+class GolfParHints(Choice):
+    """Hint an AP item when you clear a Golf Building course at par or better.
+    Nothing:           Never fire hints.
+    Music Boxes:       Hint a Music Box location.
+    Progressive Items: Hint a Progressive Overalls / Grab / Flippers / Vampire.
+    Anything:          Hint any unhinted, unchecked AP item.
+    If the chosen category has no unhinted matches left, falls back to Anything."""
+    display_name = "Golf Par Hints"
+    option_nothing           = 0
+    option_music_boxes       = 1
+    option_progressive_items = 2
+    option_anything          = 3
+    default = 0
+
+
+class GolfParHintFrequency(Choice):
+    """When the Golf Par Hints feature fires its hint.
+    Per Hole:   Each hole cleared at par-or-better fires a hint.
+    Per Course: Only the 4th hole fires, and only if all 4 holes of the course
+                were cleared at par-or-better."""
+    display_name = "Golf Par Hint Frequency"
+    option_per_hole   = 0
+    option_per_course = 1
+    default = 0
+
+
 class MusicShuffle(Choice):
     """Randomize the background music played in each level.
     Split: Day and night music are shuffled within their own groups (day with day, night with night).
@@ -296,6 +322,8 @@ class WL3Options(PerGameCommonOptions):
     golf_price:                   GolfPrice
     golf_building:                GolfBuilding
     i_hate_golf:                  IHateGolf
+    golf_par_hints:               GolfParHints
+    golf_par_hint_frequency:      GolfParHintFrequency
     start_with_magnifying_glass:  StartWithMagnifyingGlass
     reduce_flashing:              ReduceFlashing
     non_stop_chests:              NonStopChests

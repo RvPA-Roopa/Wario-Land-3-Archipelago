@@ -107,21 +107,23 @@ ADDR_MSG_TIMER_WRAM       = 0x121B # wMsgTimer (1 byte)
 ADDR_MSG_READY_WRAM       = 0x121C # wMsgReady (1 byte, set to 1 to trigger)
 ADDR_MSG_ROWS_WRAM        = 0x121E # wMsgRows (1 byte, 1-3)
 ADDR_PENDING_TRAP_WRAM    = 0x1227 # wPendingTrap (1 byte — AP trap queue, bank 1 0xD227)
-ADDR_TRANSFORM_UNLOCKS_WRAM  = 0x1228 # wTransformUnlocks  (bank 1 0xD228)
-ADDR_TRANSFORM_UNLOCKS2_WRAM = 0x1229 # wTransformUnlocks2 (bank 1 0xD229)
-ADDR_CLIENT_HEARTBEAT_WRAM   = 0x149D # wClientHeartbeat (bank 1 0xD49D) — write
+ADDR_PAR_HINT_REQUEST_WRAM   = 0x1228 # wParHintRequest (1 byte — Golf Building par hint trigger, bank 1 0xD228)
+ADDR_ALL_PAR_THIS_COURSE_WRAM = 0x1229 # wAllParThisCourse (1 byte — ROM-internal per-course tracker, bank 1 0xD229)
+ADDR_TRANSFORM_UNLOCKS_WRAM  = 0x122A # wTransformUnlocks  (bank 1 0xD22A)
+ADDR_TRANSFORM_UNLOCKS2_WRAM = 0x122B # wTransformUnlocks2 (bank 1 0xD22B)
+ADDR_CLIENT_HEARTBEAT_WRAM   = 0x149F # wClientHeartbeat (bank 1 0xD49F) — write
                                        # ~30 each poll; ROM decrements per frame
                                        # and suppresses ROM-initiated pickup
                                        # messages while it's > 0.
-ADDR_TRANSFORM_FROM_TRAP_WRAM = 0x149E # wTransformFromTrap (bank 1 0xD49E) — set
+ADDR_TRANSFORM_FROM_TRAP_WRAM = 0x14A0 # wTransformFromTrap (bank 1 0xD4A0) — set
                                        # to 1 alongside wPendingTrap when delivering
                                        # a trap so ROM blocks Select-cancel; ROM
                                        # clears it when transformation ends.
-ADDR_FORCE_GAME_OVER_WRAM    = 0x149F  # wForceGameOver (bank 1 0xD49F) — write 1
+ADDR_FORCE_GAME_OVER_WRAM    = 0x14A1  # wForceGameOver (bank 1 0xD4A1) — write 1
                                        # on inbound DeathLink; ROM main state
                                        # poll flips wState to ST_GAME_OVER and
                                        # clears the byte.
-ADDR_COIN_FLAGS_WRAM         = 0x14A0  # wCoinFlags (bank 1 0xD4A0) — 25 bytes,
+ADDR_COIN_FLAGS_WRAM         = 0x14A2  # wCoinFlags (bank 1 0xD4A2) — 25 bytes,
                                        # 1 bit per musical coin per level
                                        # (200 total). Bit (level-1)*8+idx
                                        # set on coinsanity pickup.
@@ -156,6 +158,17 @@ KEY_BASE_LOC_ID  = 7_770_400        # AP location ID = KEY_BASE_LOC_ID + (owleve
 COIN_BASE_LOC_ID = 7_770_500        # AP location ID = COIN_BASE_LOC_ID + (owlevel-1)*8 + coin_idx
 KEY_BASE_ITEM_ID = BASE_ITEM_ID + 300  # 7_770_300
 KEYRING_BASE_ITEM_ID = BASE_ITEM_ID + 700  # 7_770_700 (one per level, owlevel-1 offset)
+
+# Item name categories for GolfParHints. Matched against the item name in
+# self._loc_items (populated from slot_data["loc_items"]).
+MUSIC_BOX_ITEM_NAMES: set = {
+    "Red Music Box", "Blue Music Box", "Yellow Music Box",
+    "Green Music Box", "Gold Music Box",
+}
+PROGRESSIVE_ITEM_NAMES: set = {
+    "Progressive Overalls", "Progressive Grab",
+    "Progressive Flippers", "Progressive Vampire",
+}
 
 
 LEVEL_NAMES: dict[int, str] = {
@@ -243,6 +256,7 @@ class WL3Client(BizHawkClient):
         self._saved_pal7:      bytes = None    # saved BG palette 7 to restore after message
         self._loc_items:       dict = {}       # loc_id → {"item": name, "player": slot}
         self._trap_queue:      list = []       # pending ROM trap IDs waiting for a safe frame
+        self._par_hints_sent:  set  = set()    # AP location IDs we've already par-hinted this session
         # --- DeathLink ---
         self._death_link_enabled: bool = False  # True when slot_data["death_link"] is on
         self._death_link_tag_sent: bool = False # True after we've added "DeathLink" to ctx.tags
@@ -608,6 +622,14 @@ class WL3Client(BizHawkClient):
             except RequestFailedError:
                 pass
 
+        # ---- Poll Golf Building par-hint trigger ----
+        # ROM sets wParHintRequest=1 in GolfHoleState_Cleared when the player
+        # clears a hole in the Golf Building at par-or-better (frequency rules
+        # per the ROM GolfParHintFrequencyOpt byte). Client picks an unhinted
+        # location matching the configured GolfParHints mode and force-hints
+        # it via LocationScouts, then clears the flag.
+        await self._process_par_hint_trigger(ctx)
+
         # ---- Update opened-chest bitmask in WRAM ----
         await self._update_opened_chests(ctx)
 
@@ -920,6 +942,96 @@ class WL3Client(BizHawkClient):
                 await write(ctx.bizhawk_ctx, [(ADDR_TRANSFORM_UNLOCKS2_WRAM, bytes([new2]), "WRAM")])
         except RequestFailedError:
             pass
+
+    async def _process_par_hint_trigger(self, ctx: "BizHawkClientContext") -> None:
+        """ROM sets wParHintRequest=1 when the player clears a Golf Building
+        hole at par-or-better (per_hole frequency) or a whole course at
+        par-or-better (per_course frequency). Read the flag; if set, clear it
+        and dispatch a free hint for an unhinted location matching the
+        configured GolfParHints mode. Falls back to 'anything' if the chosen
+        category has no unhinted candidates left."""
+        if not ctx.slot_data:
+            return
+        try:
+            cur = (await read(ctx.bizhawk_ctx, [(ADDR_PAR_HINT_REQUEST_WRAM, 1, "WRAM")]))[0][0]
+        except RequestFailedError:
+            return
+        if cur == 0:
+            return
+        # Clear the flag first so we don't fire again on the next tick if
+        # something downstream fails. Idempotent: a missed hint is better
+        # than a runaway loop.
+        try:
+            await write(ctx.bizhawk_ctx, [(ADDR_PAR_HINT_REQUEST_WRAM, bytes([0]), "WRAM")])
+        except RequestFailedError:
+            return
+
+        mode = int(ctx.slot_data.get("golf_par_hints", 0))
+        if mode == 0:  # Nothing
+            return
+
+        candidates = self._gather_par_hint_candidates(ctx, mode)
+        if not candidates and mode != 3:
+            # Configured category is exhausted — fall back to Anything.
+            candidates = self._gather_par_hint_candidates(ctx, 3)
+        if not candidates:
+            await self._show_msg(ctx, "NO HINTS LEFT")
+            return
+
+        import random
+        loc_id = random.choice(sorted(candidates))
+        info = self._loc_items.get(str(loc_id)) or self._loc_items.get(loc_id)
+        if not info:
+            return
+        item_name = info["item"]
+        loc_name = None
+        try:
+            if ctx.location_names:
+                loc_name = ctx.location_names.lookup_in_game(loc_id)
+        except Exception:
+            loc_name = None
+
+        # Force-create a hint on the AP server for the picked location.
+        # create_as_hint=2 ignores the hint-point cost.
+        try:
+            await ctx.send_msgs([{
+                "cmd": "LocationScouts",
+                "locations": [loc_id],
+                "create_as_hint": 2,
+            }])
+            # Record so we don't pick this location again this session.
+            self._par_hints_sent.add(loc_id)
+        except Exception as e:
+            logger.warning(f"[WL3] Par-hint LocationScouts send failed: {e}")
+
+        # In-game message — split into 2 short rows since lines are narrow.
+        await self._show_msg(ctx, f"HINT {item_name}")
+        if loc_name:
+            await self._show_msg(ctx, f"AT {loc_name}")
+        logger.info(f"[WL3] Par hint: {item_name} at {loc_name or f'loc {loc_id}'}")
+
+    def _gather_par_hint_candidates(self, ctx: "BizHawkClientContext", mode: int) -> set:
+        """Return the set of AP location IDs that match the category,
+        are still unchecked, and have an item in our loc_items map.
+        mode: 1=music boxes, 2=progressive items, 3=anything."""
+        if not self._loc_items:
+            return set()
+        candidates: set = set()
+        missing = ctx.missing_locations or set()
+        for loc_key, info in self._loc_items.items():
+            loc_id = int(loc_key) if isinstance(loc_key, str) else loc_key
+            if loc_id not in missing:
+                continue   # already checked → can't hint
+            if loc_id in self._par_hints_sent:
+                continue   # already par-hinted this session → don't repeat
+            item_name = info.get("item", "")
+            if mode == 1 and item_name not in MUSIC_BOX_ITEM_NAMES:
+                continue
+            if mode == 2 and item_name not in PROGRESSIVE_ITEM_NAMES:
+                continue
+            # mode == 3 (anything): no category filter
+            candidates.add(loc_id)
+        return candidates
 
     async def _update_opened_chests(self, ctx: "BizHawkClientContext") -> None:
         """Write wOpenedChests (13 bytes) based on which AP locations are checked.

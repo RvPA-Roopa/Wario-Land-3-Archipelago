@@ -251,6 +251,7 @@ COMBINED_COMPANION_TABLE_OFFSET  = 0x003A05   # CombinedCompanionTable (101 byte
 TRANSFORMS_REQUIRE_ITEMS_OFFSET  = 0x003A6A   # TransformsRequireItems byte in Home bank
 DEATH_MODE_OPT_OFFSET            = 0x003A6B   # DeathModeOpt byte in Home bank (0=none, 1=grabs, 2=grabs+golf)
 BIG_COINSANITY_OPT_OFFSET        = 0x003A6C   # BigCoinsanityOpt byte in Home bank (0=vanilla coins, 1=portrait/suppress/AP-dispatch)
+GOLF_PAR_HINT_FREQ_OFFSET        = 0x003A6D   # GolfParHintFrequencyOpt byte in Home bank (0=per_hole, 1=per_course)
 TREASURE_OB_PALS_OFFSET          = 0x09AFC0   # TreasureOBPals table (indexed by treasure ID)
 
 # Combined-item companion chains: collecting key → also grant value (chained).
@@ -808,6 +809,14 @@ def write_tokens(world: "WL3World", patch: WL3ProcedurePatch) -> None:
     bigcoinsanity = int(world.options.bigcoinsanity)
     patch.write_token(APTokenTypes.WRITE, BIG_COINSANITY_OPT_OFFSET,
                       bytes([bigcoinsanity]))
+
+    # Golf Building par-hint frequency (0=per_hole, 1=per_course).
+    # Controls when the ROM sets wParHintRequest in GolfHoleState_Cleared.
+    # The hint MODE (nothing / music_boxes / progressive / anything) is
+    # client-side only, dispatched from the GolfParHints option.
+    golf_par_hint_freq = int(world.options.golf_par_hint_frequency)
+    patch.write_token(APTokenTypes.WRITE, GOLF_PAR_HINT_FREQ_OFFSET,
+                      bytes([golf_par_hint_freq]))
 
     # --- combined item companion table ---
     from .options import CombinedItems as _CI
