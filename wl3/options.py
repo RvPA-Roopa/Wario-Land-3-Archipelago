@@ -253,6 +253,14 @@ class BigCoinsanity(Toggle):
     default = 0
 
 
+class Enemizer(Toggle):
+    """Randomize enemy placement across levels. Walkable enemies (Snake,
+    Webber, Futamogu), stepping platforms, gates, and bosses stay at
+    their vanilla positions; ~1781 rooms get fresh enemy bundles."""
+    display_name = "Enemizer"
+    default = 0
+
+
 class TransformationShuffle(Toggle):
     """Shuffle transformation abilities (Zombie, Vampire, Fire, etc.) as items.
     When on, you must find each Form item to use that transformation via
@@ -329,6 +337,7 @@ class WL3Options(PerGameCommonOptions):
     reduce_flashing:              ReduceFlashing
     non_stop_chests:              NonStopChests
     bigcoinsanity:                BigCoinsanity
+    enemizer:                     Enemizer
     trap_fill:                    TrapFill
     death_link:                   DeathLink
     death_mode:                   DeathMode

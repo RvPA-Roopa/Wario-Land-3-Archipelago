@@ -934,6 +934,59 @@ def write_tokens(world: "WL3World", patch: WL3ProcedurePatch) -> None:
         for off in WARIO_SHIRT_OFFSETS:
             patch.write_token(APTokenTypes.WRITE, off, color_bytes)
 
+    # Enemizer — randomize enemy placement at AP gen time using the
+    # seeded world.random. Emits one big EnemizerGroups table write plus
+    # one byte per patched room enemy_group.
+    #
+    # If enemy_palette_shuffle is also on, precompute the shuffled palette
+    # bytes for every ENEMY_PALETTES entry (using the same seeds we just
+    # wrote into palette_params) and pass them to the enemizer. This
+    # keeps enemy palettes consistent: enemizer slots use the SAME
+    # shuffled colors as the vanilla palette area they were copied from.
+    if world.options.enemizer:
+        from . import enemizer as _enemizer
+        palette_overrides: dict[int, bytes] | None = None
+        if world.options.enemy_palette_shuffle:
+            import random as _rnd
+            palette_overrides = {}
+            # vanilla bytes come from the patch-time snapshot, but at gen
+            # time we don't have the ROM — so we compute the shuffled
+            # bytes using the SAME source data that apply_palette_shuffle
+            # will use. enemy_registry already has palette_bytes baked
+            # for every randomizable enemy at known offsets; OBJECT_GROUPS
+            # in enemizer_data.py has the same for every group. We
+            # rebuild the (offset → vanilla_bytes) map from those, then
+            # apply _recolor_palette with the entry seed.
+            from . import enemizer_data as _ed
+            from .enemy_registry import (SLOT_0_PACKAGES, SLOT_1_PACKAGES,
+                                         SLOT_2_PACKAGES, SLOT_3_PACKAGES)
+            offset_to_vanilla: dict[int, bytes] = {}
+            for pool in (SLOT_0_PACKAGES, SLOT_1_PACKAGES,
+                         SLOT_2_PACKAGES, SLOT_3_PACKAGES):
+                for pkg in pool.values():
+                    offset_to_vanilla[pkg["palette_offset"]] = bytes(pkg["palette_bytes"])
+            for rec in _ed.OBJECT_GROUPS.values():
+                for i, off in enumerate(rec["palette_offsets"]):
+                    if off:
+                        offset_to_vanilla.setdefault(off, bytes(rec["palette_bytes"][i]))
+            # Each ENEMY_PALETTES entry covers `length` bytes starting at
+            # `offset`. We chunk into 8-byte palettes and recolor each
+            # with rng.random() using the entry's seed (mirrors
+            # apply_palette_shuffle's enemy loop).
+            for entry in palette_params.get("enemy", []):
+                rng = _rnd.Random(entry["seed"])
+                base_off = entry["offset"]
+                length = entry["length"]
+                # Reconstruct vanilla bytes for this whole entry by
+                # concatenating the 8-byte sub-palettes (each at base+i*8).
+                for i in range(length // 8):
+                    sub_off = base_off + i * 8
+                    vanilla_chunk = offset_to_vanilla.get(sub_off, b"\x00" * 8)
+                    palette_overrides[sub_off] = _recolor_palette(vanilla_chunk, rng.random)
+
+        for off, data in _enemizer.generate_patch_writes(world.random, palette_overrides):
+            patch.write_token(APTokenTypes.WRITE, off, data)
+
     # Embed the base bsdiff4 patch and token data into self.files so
     # APProcedurePatch.write_contents() includes them in the output zip.
     here = os.path.dirname(os.path.abspath(__file__))
