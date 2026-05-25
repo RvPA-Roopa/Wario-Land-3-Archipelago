@@ -100,7 +100,7 @@ def _pick_random_per_slot(rng, fixed_slots: dict[int, dict]) -> list[dict]:
 
 def _emit_slot_bytes(chosen: list[dict],
                      target_data_counts: list[int],
-                     palette_overrides: dict | None = None) -> bytes:
+                     palette_lookup) -> bytes:
     out = bytearray()
     out.append(0x00)  # bank_offset
     # 4 gfx ptrs
@@ -121,21 +121,17 @@ def _emit_slot_bytes(chosen: list[dict],
             out.append((addr >> 8) & 0xff)
     # NULL terminator
     out.extend(b"\xff\xff")
-    # Palettes (4 × 8 bytes). Each registry package carries its baked
-    # palette bytes; protected custom-slot packages carry the same via
-    # "inline_palette". When palette_overrides is supplied (i.e. the
-    # apworld's enemy palette shuffle is on), we look up the source ROM
-    # offset for each palette and use the shuffled bytes instead so
-    # enemizer slots stay color-consistent with the rest of the ROM.
+    # Palettes (4 × 8 bytes). No vanilla palette bytes ship with the
+    # apworld — `palette_lookup(offset)` returns 8 bytes from the ROM
+    # at patch-apply time (it's wired to read either vanilla snapshot
+    # bytes or palette-shuffle-recolored bytes, depending on whether
+    # enemy_palette_shuffle is enabled).
     for pkg in chosen:
         src_off = pkg.get("palette_offset")
-        override = (palette_overrides.get(src_off) if palette_overrides
-                    and src_off else None)
-        if override is not None:
-            out.extend(override)
+        if src_off:
+            out.extend(palette_lookup(src_off))
         else:
-            inline = pkg.get("inline_palette") or pkg.get("palette_bytes")
-            out.extend(inline if inline else b"\x00" * 8)
+            out.extend(b"\x00" * 8)
     while len(out) < SLOT_SIZE:
         out.append(0x00)
     assert len(out) == SLOT_SIZE
@@ -149,7 +145,13 @@ def _emit_slot_bytes(chosen: list[dict],
 # ---------------------------------------------------------------------------
 def _group_signature(rec: dict) -> tuple | None:
     """Hashable key for a group's protection + data-section layout.
-    Returns None if no slot needs protection."""
+    Returns None if no slot needs protection.
+
+    Sig uses palette OFFSETS (not content) to avoid shipping vanilla
+    palette bytes. Two groups with the same palette CONTENT at different
+    offsets won't dedup — small efficiency loss, but the protected-slot
+    custom slots still work correctly because each one carries the
+    correct source offset for its locked palette."""
     if rec["bank_offset"] != 0:
         return None
     prot = rec["prot_per_slot"]
@@ -161,7 +163,6 @@ def _group_signature(rec: dict) -> tuple | None:
         if prot[i]:
             sig.append(("P", rec["gfx_addrs"][i],
                         tuple(rec["data_slot_addrs"][i]),
-                        bytes(rec["palette_bytes"][i]),
                         rec["palette_offsets"][i], cnt))
         else:
             sig.append(("U", cnt))
@@ -177,15 +178,15 @@ def _group_has_walkable_or_platform_gfx(rec: dict) -> bool:
 # ---------------------------------------------------------------------------
 # Main entry point
 # ---------------------------------------------------------------------------
-def generate_patch_writes(rng, palette_overrides: dict | None = None
+def generate_patch_writes(rng, palette_lookup
                           ) -> list[tuple[int, bytes]]:
     """Return list of (rom_offset, bytes) writes for the enemizer.
-    Caller writes them to the patch as APTokenTypes.WRITE entries.
 
-    If palette_overrides is supplied (offset → shuffled 8-byte palette),
-    enemizer slots use those bytes wherever their source palette offset
-    matches — keeps enemizer enemies color-consistent with vanilla rooms
-    when the apworld's enemy palette shuffle is enabled.
+    palette_lookup is a callable: palette_lookup(rom_offset) -> bytes
+    (8 bytes of palette data). At patch-apply time it returns either the
+    vanilla palette bytes (read from the ROM snapshot) or the post-
+    shuffle bytes (recolored with the same seed apply_palette_shuffle
+    will use), so enemizer slots stay color-consistent.
     """
     groups = enemizer_data.OBJECT_GROUPS
     wgid_to_real = enemizer_data.WGID_TO_REAL_GID
@@ -229,30 +230,28 @@ def generate_patch_writes(rng, palette_overrides: dict | None = None
         chosen = _pick_random_per_slot(rng, fixed_slots={})
         composed.extend(_emit_slot_bytes(
             chosen, [len(pkg["data_addrs"]) for pkg in chosen],
-            palette_overrides))
+            palette_lookup))
     for sig in sigs_to_emit:
         fixed: dict[int, dict] = {}
         data_counts = []
         for i, part in enumerate(sig):
             if part[0] == "P":
-                _, gfx_addr, data_addrs, pal_bytes, pal_off, cnt = part
+                _, gfx_addr, data_addrs, pal_off, cnt = part
                 fixed[i] = {
                     "gfx_addr": gfx_addr,
                     "data_addrs": list(data_addrs),
-                    "inline_palette": pal_bytes,
-                    "palette_bytes": pal_bytes,
                     "palette_offset": pal_off,
                 }
                 data_counts.append(cnt)
             else:
                 data_counts.append(part[1])
         chosen = _pick_random_per_slot(rng, fixed)
-        composed.extend(_emit_slot_bytes(chosen, data_counts, palette_overrides))
+        composed.extend(_emit_slot_bytes(chosen, data_counts, palette_lookup))
     while len(composed) < TABLE_SIZE:
         chosen = _pick_random_per_slot(rng, fixed_slots={})
         composed.extend(_emit_slot_bytes(
             chosen, [len(pkg["data_addrs"]) for pkg in chosen],
-            palette_overrides))
+            palette_lookup))
     assert len(composed) == TABLE_SIZE
 
     writes: list[tuple[int, bytes]] = [
