@@ -270,6 +270,14 @@ class WL3Client(BizHawkClient):
         self._force_game_over_pending: bool = False  # set by on_package on inbound DeathLink;
                                                       # game_watcher writes wForceGameOver=1 and clears
 
+        # --- Tracker autotabbing ---
+        # Publishes the current "location" (level index, 0=Temple, 1-25=
+        # main levels, 26=Golf Building, -1=menu/title) to AP DataStorage
+        # under key f"wl3_current_level_{slot}". PopTracker / generic AP
+        # trackers can SetNotify on that key to auto-tab as the player
+        # enters/leaves levels.
+        self._last_published_level: int = -2   # sentinel so first poll always sends
+
     # ------------------------------------------------------------------
     # on_package — server-pushed packets (DeathLink Bounced, etc.)
     # ------------------------------------------------------------------
@@ -713,6 +721,9 @@ class WL3Client(BizHawkClient):
         # so reload doesn't lose progress. Idempotent — only writes if changed.
         await self._resync_transform_unlocks(ctx)
 
+        # ---- Tracker autotabbing: publish current level to DataStorage ----
+        await self._publish_current_level(ctx)
+
     # ------------------------------------------------------------------
     # Item granting helpers
     # ------------------------------------------------------------------
@@ -977,6 +988,68 @@ class WL3Client(BizHawkClient):
             logger.debug(f"[WL3] Set treasure 0x{treasure_id:02X}: WRAM[0x{addr:04X}] 0x{cur:02X}→0x{new_val:02X}")
         except RequestFailedError as e:
             logger.warning(f"[WL3] Failed to set treasure 0x{treasure_id:02X}: {e}")
+
+    async def _publish_current_level(self, ctx: "BizHawkClientContext") -> None:
+        """Publish the player's current level to AP DataStorage as
+        ``wl3_current_level_{slot}`` so PopTracker (or any AP tracker)
+        can auto-tab on the matching level.
+
+        Value semantics:
+          * -1  : not connected / no slot known
+          *  0  : Temple, title screen, menu, or any non-overworld /
+                  non-in-level state
+          * 1-25: main level index (matches LEVEL_OUT_OF_THE_WOODS .. ,
+                  per src/constants/level_constants.asm)
+          * 26  : Golf Building
+
+        Edge-triggered: only sends a Set msg when the computed value
+        changes since the last publish.
+        """
+        if ctx.server is None or ctx.slot is None:
+            return
+        try:
+            data = await read(ctx.bizhawk_ctx, [
+                (0xC09B, 1, "System Bus"),   # wState
+                (0xCA0B, 1, "System Bus"),   # wLevel  (in-level byte)
+                (0x200F, 1, "WRAM"),         # wOWLevel (bank 2 $D00F)
+            ])
+        except RequestFailedError:
+            return
+        state    = data[0][0]
+        w_level  = data[1][0]
+        ow_level = data[2][0]
+
+        ST_OVERWORLD = 0x01
+        ST_LEVEL     = 0x02
+        if state == ST_LEVEL:
+            if w_level == 0xC8:        # THE_TEMPLE
+                level = 0
+            elif w_level == 0xFF:      # GOLF_BUILDING
+                level = 26
+            else:
+                level = (w_level >> 3) + 1   # (wLevel / 8) + 1, 1-based
+        elif state == ST_OVERWORLD:
+            level = ow_level   # already 0=Temple, 1-25=main levels
+        else:
+            level = 0          # title/menu/cutscene → no tab
+
+        if level == self._last_published_level:
+            return
+        self._last_published_level = level
+        key = f"wl3_current_level_{ctx.slot}"
+        try:
+            await ctx.send_msgs([{
+                "cmd": "Set",
+                "key": key,
+                "default": 0,
+                "want_reply": False,
+                "operations": [{"operation": "replace", "value": level}],
+            }])
+            logger.info(f"[WL3 tracker] {key} = {level}")
+        except Exception:
+            # never break the watcher loop on a publish error
+            pass
+
 
     async def _resync_transform_unlocks(self, ctx: "BizHawkClientContext") -> None:
         """Rebuild wTransformUnlocks/2 from cached_received in case the player
