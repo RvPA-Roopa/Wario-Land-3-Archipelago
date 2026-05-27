@@ -261,6 +261,15 @@ class Enemizer(Toggle):
     default = 0
 
 
+class HiddenPassagesRevealed(Toggle):
+    """Show hidden breakable passages by overlaying the visible cracked-
+    block tile graphics onto each hidden (NonCracked) block per room.
+    Block IDs, functions, and break behavior are unchanged — only the
+    rendered tile graphics. Per-room accurate; no spillover."""
+    display_name = "Hidden Passages Revealed"
+    default = 0
+
+
 class TransformationShuffle(Toggle):
     """Shuffle transformation abilities (Zombie, Vampire, Fire, etc.) as items.
     When on, you must find each Form item to use that transformation via
@@ -338,6 +347,7 @@ class WL3Options(PerGameCommonOptions):
     non_stop_chests:              NonStopChests
     bigcoinsanity:                BigCoinsanity
     enemizer:                     Enemizer
+    hidden_passages_revealed:     HiddenPassagesRevealed
     trap_fill:                    TrapFill
     death_link:                   DeathLink
     death_mode:                   DeathMode

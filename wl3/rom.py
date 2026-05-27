@@ -242,6 +242,7 @@ LEVEL_MUSIC_OFFSET               = 0x03FE40   # LevelMusic table (25 levels × 1
 MUSIC_BOXES_REQUIRED_OFFSET      = 0x080F23   # MusicBoxesRequired byte in Bank 20
 START_WITH_AXE_OFFSET            = 0x080F24   # StartWithAxeOpt byte in Bank 20
 START_WITH_MAG_GLASS_OFFSET      = 0x080F25   # StartWithMagnifyingGlassOpt byte in Bank 20
+HIDDEN_PASSAGES_REVEALED_OFFSET  = 0x080F26   # HiddenPassagesRevealedOpt byte in Bank 20
 GOLF_PRICE_OPT_OFFSET            = 0x003A00   # GolfPriceOpt byte in Home bank
 GOLF_BUILDING_OPT_OFFSET         = 0x003A01   # GolfBuildingOpt byte in Home bank
 DISABLE_PAL_CYCLE_OFFSET         = 0x003A02   # DisablePalCycleOpt byte in Home bank
@@ -981,6 +982,13 @@ def write_tokens(world: "WL3World", patch: WL3ProcedurePatch) -> None:
         color_bytes = bytes([gbc_color & 0xFF, (gbc_color >> 8) & 0xFF])
         for off in WARIO_SHIRT_OFFSETS:
             patch.write_token(APTokenTypes.WRITE, off, color_bytes)
+
+    # Hidden Passages Revealed — flip the ROM flag byte; the in-ROM
+    # RevealHiddenBlocksInRoom routine runs at room load and overlays
+    # cracked-block tile indices onto hidden block slots in
+    # wRoomBlockTiles. Behavior/IDs unchanged, only the rendered tiles.
+    patch.write_token(APTokenTypes.WRITE, HIDDEN_PASSAGES_REVEALED_OFFSET,
+                      bytes([1 if world.options.hidden_passages_revealed else 0]))
 
     # Enemizer — deferred to patch-apply time so vanilla palette bytes
     # never ship in the apworld. Gen-time only rolls the seed; the
