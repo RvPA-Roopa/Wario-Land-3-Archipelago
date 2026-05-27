@@ -996,10 +996,11 @@ def write_tokens(world: "WL3World", patch: WL3ProcedurePatch) -> None:
     # read from the ROM snapshot. The file is always written so the
     # procedure step always has its input — `enabled: false` skips work.
     enemizer_params = {
-        "enabled": bool(world.options.enemizer),
-        "seed": world.random.getrandbits(32) if world.options.enemizer else 0,
+        "enabled": getattr(world.options, "enemizer", False) and bool(world.options.enemizer),
+        "seed": world.random.getrandbits(32) if getattr(world.options, "enemizer", False) and world.options.enemizer else 0,
         "use_palette_overrides": (
-            bool(world.options.enemizer)
+            getattr(world.options, "enemizer", False)
+            and bool(world.options.enemizer)
             and bool(world.options.enemy_palette_shuffle)
         ),
     }

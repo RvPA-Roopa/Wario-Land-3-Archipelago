@@ -253,19 +253,16 @@ class BigCoinsanity(Toggle):
     default = 0
 
 
-class Enemizer(Toggle):
-    """Randomize enemy placement across levels. Walkable enemies (Snake,
-    Webber, Futamogu), stepping platforms, gates, and bosses stay at
-    their vanilla positions; ~1781 rooms get fresh enemy bundles."""
-    display_name = "Enemizer"
-    default = 0
+# class Enemizer(Toggle):
+#     """Randomize enemy placement across levels. Walkable enemies (Snake,
+#     Webber, Futamogu), stepping platforms, gates, and bosses stay at
+#     their vanilla positions; ~1781 rooms get fresh enemy bundles."""
+#     display_name = "Enemizer"
+#     default = 0
 
 
 class HiddenPassagesRevealed(Toggle):
-    """Show hidden breakable passages by overlaying the visible cracked-
-    block tile graphics onto each hidden (NonCracked) block per room.
-    Block IDs, functions, and break behavior are unchanged — only the
-    rendered tile graphics. Per-room accurate; no spillover."""
+    """Hidden passages are revealed with their corresponding cracked/non-cracked blocks"""
     display_name = "Hidden Passages Revealed"
     default = 0
 
@@ -346,7 +343,7 @@ class WL3Options(PerGameCommonOptions):
     reduce_flashing:              ReduceFlashing
     non_stop_chests:              NonStopChests
     bigcoinsanity:                BigCoinsanity
-    enemizer:                     Enemizer
+    # enemizer:                     Enemizer
     hidden_passages_revealed:     HiddenPassagesRevealed
     trap_fill:                    TrapFill
     death_link:                   DeathLink
