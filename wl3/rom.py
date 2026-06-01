@@ -436,7 +436,16 @@ class WL3PatchExtension(APPatchExtension):
         if not params.get("enabled"):
             return rom   # Enemizer option off — skip silently
         rom = bytearray(rom)
-        vanilla = caller._wl3_vanilla
+        # CRITICAL: read palettes from the POST-BSDIFF rom (hacked layout),
+        # NOT from caller._wl3_vanilla. enemizer_data.py stores HACKED-ROM
+        # palette offsets — bsdiff has already relocated each vanilla
+        # palette by ENEMIZER_SLOT_COUNT*4 bytes (the dispatch-table growth
+        # in bank $19). Reading from the vanilla snapshot at those offsets
+        # would pull non-palette bytes; rom[off] reads the correct relocated
+        # palette bytes.
+        vanilla = caller._wl3_vanilla  # still needed for the palette-shuffle
+                                       # override path (which uses vanilla
+                                       # palette_offsets.py offsets).
 
         # Build (offset → shuffled bytes) lookup if enemy_palette_shuffle
         # is also on. Mirrors apply_palette_shuffle's enemy loop using
@@ -456,7 +465,10 @@ class WL3PatchExtension(APPatchExtension):
 
         def palette_lookup(off: int) -> bytes:
             ov = palette_overrides.get(off)
-            return ov if ov is not None else bytes(vanilla[off:off + 8])
+            # When override is absent, pull from the hacked-layout rom so
+            # enemizer_data.py's hacked offsets resolve to the actual
+            # vanilla palette bytes (relocated by bsdiff).
+            return ov if ov is not None else bytes(rom[off:off + 8])
 
         from . import enemizer as _enemizer
         rng = _random.Random(params["seed"])
