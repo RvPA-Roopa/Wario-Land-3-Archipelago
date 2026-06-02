@@ -352,9 +352,9 @@ class WL3Options(PerGameCommonOptions):
     death_mode:                   DeathMode
     # Cosmetics
     music_shuffle:                MusicShuffle
-    enemy_palette_shuffle:        EnemyPaletteShuffle
-    level_bg_palette_shuffle:     LevelBGPaletteShuffle
     overworld_bg_palette_shuffle: OverworldBGPaletteShuffle
+    level_bg_palette_shuffle:     LevelBGPaletteShuffle
+    enemy_palette_shuffle:        EnemyPaletteShuffle
     wario_overalls_shuffle:       WarioOverallsShuffle
     wario_shirt_shuffle:          WarioShirtShuffle
 
