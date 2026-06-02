@@ -179,7 +179,8 @@ CHEST_RULES: dict = {
         _o(_has("Flute"), can_jump_high),                                            # red
         _c(_o(_has("Flute"), can_jump_high), 
            _o(can_pound_cracked_blocks, _has("Zombie Form"))),                       # green
-        can_pound_large_solid_blocks,                                                # blue
+        _o(can_pound_large_solid_blocks,
+           _c(_o(can_shake_screen,_has("Zombie Form")),_has("Garlic"))),             # blue
     ],
     "The Vast Plain": [
         None,                                                                        # grey
@@ -352,7 +353,8 @@ KEY_RULES: dict = {
         None,                                                                        # grey
         _o(_has("Flute"), can_jump_high, can_pound_solid_blocks),                    # red
         _o(_has("Flute"), can_jump_high),                                            # green
-        can_pound_large_solid_blocks,                                                # blue
+        _o(can_pound_large_solid_blocks,
+           _c(_o(can_shake_screen,_has("Zombie Form")),_has("Garlic"))),             # blue
     ],
     "The Vast Plain": [
         None,                                                                        # grey
