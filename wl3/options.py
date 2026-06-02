@@ -164,16 +164,17 @@ class EnemyPaletteShuffle(Toggle):
     default = 0
 
 
-class LevelBGPaletteShuffle(Choice):
-    """Randomize level/room background (BG) palettes.
-    Off: no changes
-    Simple: Changes palettes slightly less aggressively
-    Full: Fully randomizes background palettes without restrictions
+class LevelBGPaletteShuffle(Toggle):
+    """Randomize level background (BG) palettes.
     """
     display_name = "Level/Room BG Palette Shuffle"
-    option_off = 0
-    option_simple = 1
-    option_full = 2
+    default = 0
+
+
+class OverworldBGPaletteShuffle(Toggle):
+    """Randomize the title menu and overworld map background palettes. 
+    Does NOT affect key portrait colors."""
+    display_name = "Overworld BG Palette Shuffle"
     default = 0
 
 
@@ -353,6 +354,7 @@ class WL3Options(PerGameCommonOptions):
     music_shuffle:                MusicShuffle
     enemy_palette_shuffle:        EnemyPaletteShuffle
     level_bg_palette_shuffle:     LevelBGPaletteShuffle
+    overworld_bg_palette_shuffle: OverworldBGPaletteShuffle
     wario_overalls_shuffle:       WarioOverallsShuffle
     wario_shirt_shuffle:          WarioShirtShuffle
 
