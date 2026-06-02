@@ -538,7 +538,7 @@ COIN_RULES: dict = {
         _o(has_chemicals, can_pass_spikes),                                             #3
         can_pound_cracked_blocks,                                                       #4
         _o(has_flippers_1,_has("Zombie Form")),                                         #5
-        _o(_has("Magic Seeds"),can_fly),                                                #6
+        _o(_has("Magic Seeds"),_c(can_fly,has_chemicals)),                              #6
         has_chemicals,                                                                  #7
         _o(_has("Magic Seeds"),can_fly),                                                #8
     ],
