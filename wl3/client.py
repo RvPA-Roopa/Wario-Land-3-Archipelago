@@ -107,21 +107,23 @@ ADDR_MSG_TIMER_WRAM       = 0x121B # wMsgTimer (1 byte)
 ADDR_MSG_READY_WRAM       = 0x121C # wMsgReady (1 byte, set to 1 to trigger)
 ADDR_MSG_ROWS_WRAM        = 0x121E # wMsgRows (1 byte, 1-3)
 ADDR_PENDING_TRAP_WRAM    = 0x1227 # wPendingTrap (1 byte — AP trap queue, bank 1 0xD227)
-ADDR_TRANSFORM_UNLOCKS_WRAM  = 0x1228 # wTransformUnlocks  (bank 1 0xD228)
-ADDR_TRANSFORM_UNLOCKS2_WRAM = 0x1229 # wTransformUnlocks2 (bank 1 0xD229)
-ADDR_CLIENT_HEARTBEAT_WRAM   = 0x149D # wClientHeartbeat (bank 1 0xD49D) — write
+ADDR_PAR_HINT_REQUEST_WRAM   = 0x1228 # wParHintRequest (1 byte — Golf Building par hint trigger, bank 1 0xD228)
+ADDR_ALL_PAR_THIS_COURSE_WRAM = 0x1229 # wAllParThisCourse (1 byte — ROM-internal per-course tracker, bank 1 0xD229)
+ADDR_TRANSFORM_UNLOCKS_WRAM  = 0x122A # wTransformUnlocks  (bank 1 0xD22A)
+ADDR_TRANSFORM_UNLOCKS2_WRAM = 0x122B # wTransformUnlocks2 (bank 1 0xD22B)
+ADDR_CLIENT_HEARTBEAT_WRAM   = 0x149F # wClientHeartbeat (bank 1 0xD49F) — write
                                        # ~30 each poll; ROM decrements per frame
                                        # and suppresses ROM-initiated pickup
                                        # messages while it's > 0.
-ADDR_TRANSFORM_FROM_TRAP_WRAM = 0x149E # wTransformFromTrap (bank 1 0xD49E) — set
+ADDR_TRANSFORM_FROM_TRAP_WRAM = 0x14A0 # wTransformFromTrap (bank 1 0xD4A0) — set
                                        # to 1 alongside wPendingTrap when delivering
                                        # a trap so ROM blocks Select-cancel; ROM
                                        # clears it when transformation ends.
-ADDR_FORCE_GAME_OVER_WRAM    = 0x149F  # wForceGameOver (bank 1 0xD49F) — write 1
+ADDR_FORCE_GAME_OVER_WRAM    = 0x14A1  # wForceGameOver (bank 1 0xD4A1) — write 1
                                        # on inbound DeathLink; ROM main state
                                        # poll flips wState to ST_GAME_OVER and
                                        # clears the byte.
-ADDR_COIN_FLAGS_WRAM         = 0x14A0  # wCoinFlags (bank 1 0xD4A0) — 25 bytes,
+ADDR_COIN_FLAGS_WRAM         = 0x14A2  # wCoinFlags (bank 1 0xD4A2) — 25 bytes,
                                        # 1 bit per musical coin per level
                                        # (200 total). Bit (level-1)*8+idx
                                        # set on coinsanity pickup.
@@ -156,6 +158,17 @@ KEY_BASE_LOC_ID  = 7_770_400        # AP location ID = KEY_BASE_LOC_ID + (owleve
 COIN_BASE_LOC_ID = 7_770_500        # AP location ID = COIN_BASE_LOC_ID + (owlevel-1)*8 + coin_idx
 KEY_BASE_ITEM_ID = BASE_ITEM_ID + 300  # 7_770_300
 KEYRING_BASE_ITEM_ID = BASE_ITEM_ID + 700  # 7_770_700 (one per level, owlevel-1 offset)
+
+# Item name categories for GolfParHints. Matched against the item name in
+# self._loc_items (populated from slot_data["loc_items"]).
+# The "Progression" category is sourced from slot_data["progression_item_names"]
+# (computed in apworld fill_slot_data from ItemClassification.progression),
+# not hardcoded here, so the set reflects whichever items are progression
+# under the player's current option mix.
+MUSIC_BOX_ITEM_NAMES: set = {
+    "Red Music Box", "Blue Music Box", "Yellow Music Box",
+    "Green Music Box", "Gold Music Box",
+}
 
 
 LEVEL_NAMES: dict[int, str] = {
@@ -243,6 +256,10 @@ class WL3Client(BizHawkClient):
         self._saved_pal7:      bytes = None    # saved BG palette 7 to restore after message
         self._loc_items:       dict = {}       # loc_id → {"item": name, "player": slot}
         self._trap_queue:      list = []       # pending ROM trap IDs waiting for a safe frame
+        self._par_hints_sent:  set  = set()    # AP location IDs we've already par-hinted this session
+        self._shown_hints:     set  = set()    # (item_id, loc_id, finder_slot) tuples we've already
+                                                # surfaced in-game (PrintJSON Hint dedup, survives single
+                                                # session — resets on reconnect)
         # --- DeathLink ---
         self._death_link_enabled: bool = False  # True when slot_data["death_link"] is on
         self._death_link_tag_sent: bool = False # True after we've added "DeathLink" to ctx.tags
@@ -253,16 +270,28 @@ class WL3Client(BizHawkClient):
         self._force_game_over_pending: bool = False  # set by on_package on inbound DeathLink;
                                                       # game_watcher writes wForceGameOver=1 and clears
 
+        # --- Tracker autotabbing ---
+        # Publishes the current "location" (level index, 0=Temple, 1-25=
+        # main levels, 26=Golf Building, -1=menu/title) to AP DataStorage
+        # under key f"wl3_current_level_{slot}". PopTracker / generic AP
+        # trackers can SetNotify on that key to auto-tab as the player
+        # enters/leaves levels.
+        self._last_published_level: int = -2   # sentinel so first poll always sends
+
     # ------------------------------------------------------------------
     # on_package — server-pushed packets (DeathLink Bounced, etc.)
     # ------------------------------------------------------------------
 
     def on_package(self, ctx: "BizHawkClientContext", cmd: str, args: dict) -> None:
-        """Handle server packets we care about. Currently: inbound DeathLink
-        Bounced packets — set _force_game_over_pending so the next watcher
-        tick writes wForceGameOver=1 and ROM trips the Game Over screen.
-        Also marks _suppress_next_send so the resulting wState=$0C doesn't
-        echo the death back to the server."""
+        """Handle server packets we care about.
+        - Bounced DeathLink: set _force_game_over_pending so the next watcher
+          tick writes wForceGameOver=1 and ROM trips the Game Over screen.
+          Also marks _suppress_next_send so the resulting wState=$0C doesn't
+          echo the death back to the server.
+        - PrintJSON Hint: surface a hint in-game whenever a hint involving us
+          is created (either an item going to us, or one of our items being
+          revealed to someone else). Deduped via self._shown_hints so server
+          re-broadcasts on reconnect don't spam the player."""
         if cmd == "Bounced":
             tags = args.get("tags", []) or []
             if "DeathLink" not in tags:
@@ -277,6 +306,73 @@ class WL3Client(BizHawkClient):
             logger.info(f"[WL3] DeathLink: {cause}")
             self._suppress_next_send = True
             self._force_game_over_pending = True
+            return
+
+        if cmd == "PrintJSON" and args.get("type") == "Hint":
+            self._handle_hint_packet(ctx, args)
+            return
+
+    def _handle_hint_packet(self, ctx: "BizHawkClientContext", args: dict) -> None:
+        """Queue an in-game message for a hint involving our slot.
+        Shows hints where the item is going TO us (we're the receiver), and
+        also hints where the item is coming FROM our world (one of our
+        locations was revealed). Skips hints that are already 'found' (the
+        location was checked, so the hint is fulfilled — no actionable info).
+        """
+        item = args.get("item")
+        receiving = args.get("receiving")
+        if item is None:
+            return
+        # AP can send either a NetworkItem namedtuple (attribute access)
+        # or a plain dict (`.get()`), depending on host version. Handle both.
+        try:
+            if hasattr(item, "item"):
+                item_id     = int(item.item)
+                location_id = int(item.location)
+                finder_slot = int(item.player)
+            else:
+                item_id     = int(item["item"])
+                location_id = int(item["location"])
+                finder_slot = int(item["player"])
+        except (TypeError, ValueError, KeyError, AttributeError):
+            return
+        # Skip already-fulfilled hints (server re-broadcasts these on connect).
+        if args.get("found"):
+            return
+        # Only care if this hint involves us.
+        is_for_us  = (receiving == ctx.slot)
+        is_from_us = (finder_slot == ctx.slot)
+        if not (is_for_us or is_from_us):
+            return
+        # Dedup so server re-broadcasts don't re-show the same hint.
+        key = (item_id, location_id, finder_slot)
+        if key in self._shown_hints:
+            return
+        self._shown_hints.add(key)
+
+        try:
+            item_name = ctx.item_names.lookup_in_slot(item_id, receiving) if ctx.item_names else f"ITEM {item_id}"
+        except Exception:
+            item_name = f"ITEM {item_id}"
+        try:
+            loc_name = ctx.location_names.lookup_in_slot(location_id, finder_slot) if ctx.location_names else f"LOC {location_id}"
+        except Exception:
+            loc_name = f"LOC {location_id}"
+
+        # Schedule an async coroutine to queue the messages. on_package is sync
+        # but _show_msg is just a list append, so we can call it directly here
+        # via the underlying _msg_queue append.
+        if is_for_us:
+            self._msg_queue.append(f"HINT {item_name}")
+        else:
+            # An item of ours is being hinted to player `receiving` — show that.
+            other_name = "P?"
+            if ctx.player_names and receiving in ctx.player_names:
+                other_name = ctx.player_names[receiving]
+            self._msg_queue.append(f"{other_name} HINT {item_name}")
+        self._msg_queue.append(f"AT {loc_name}")
+        logger.debug(f"[WL3] Hint shown in-game: {item_name} @ {loc_name} "
+                     f"(for={is_for_us}, from={is_from_us})")
 
     async def validate_rom(self, ctx: "BizHawkClientContext") -> bool:
         """Return True if a patched WL3 ROM is loaded in mGBA."""
@@ -536,7 +632,7 @@ class WL3Client(BizHawkClient):
             # Recount progressive items from scratch after a server reset.
             self._prog_counts = {}
             for net_item in ctx.items_received:
-                if net_item.item in PROGRESSIVE_ITEMS:
+                if net_item.item in PROGRESSIVE_ITEMS or net_item.item == PROGRESSIVE_VAMPIRE_AP_ID:
                     self._prog_counts[net_item.item] = self._prog_counts.get(net_item.item, 0) + 1
 
         # ---- Grant any newly received items ----
@@ -552,7 +648,7 @@ class WL3Client(BizHawkClient):
             net_item = ctx.items_received[self._items_handled]
             ap_id = net_item.item
             self._cached_received.add(ap_id)
-            if ap_id in PROGRESSIVE_ITEMS:
+            if ap_id in PROGRESSIVE_ITEMS or ap_id == PROGRESSIVE_VAMPIRE_AP_ID:
                 self._prog_counts[ap_id] = self._prog_counts.get(ap_id, 0) + 1
             # silent=True on catch-up batch only suppresses trap dispatch;
             # idempotent bit-sets (treasures, keys, transforms) still apply.
@@ -608,6 +704,14 @@ class WL3Client(BizHawkClient):
             except RequestFailedError:
                 pass
 
+        # ---- Poll Golf Building par-hint trigger ----
+        # ROM sets wParHintRequest=1 in GolfHoleState_Cleared when the player
+        # clears a hole in the Golf Building at par-or-better (frequency rules
+        # per the ROM GolfParHintFrequencyOpt byte). Client picks an unhinted
+        # location matching the configured GolfParHints mode and force-hints
+        # it via LocationScouts, then clears the flag.
+        await self._process_par_hint_trigger(ctx)
+
         # ---- Update opened-chest bitmask in WRAM ----
         await self._update_opened_chests(ctx)
 
@@ -616,6 +720,9 @@ class WL3Client(BizHawkClient):
         # wTransformUnlocks/2. Rebuild the bits from cached_received every tick
         # so reload doesn't lose progress. Idempotent — only writes if changed.
         await self._resync_transform_unlocks(ctx)
+
+        # ---- Tracker autotabbing: publish current level to DataStorage ----
+        await self._publish_current_level(ctx)
 
     # ------------------------------------------------------------------
     # Item granting helpers
@@ -638,15 +745,20 @@ class WL3Client(BizHawkClient):
             return
         if ap_id == PROGRESSIVE_VAMPIRE_AP_ID:
             # 1st receipt sets Vampire (bit 1); 2nd sets Bat (bit 6).
-            # Idempotent: reading current state lets reconnects/resyncs behave.
+            # Use cumulative receipt count from _prog_counts — NOT current WRAM
+            # state — because the ROM may have already granted Vampire when the
+            # player collected the in-game chest, and reading "vampire already
+            # set" would then incorrectly grant Bat on the AP receipt.
+            count = self._prog_counts.get(PROGRESSIVE_VAMPIRE_AP_ID, 0)
             cur = (await read(ctx.bizhawk_ctx, [(ADDR_TRANSFORM_UNLOCKS_WRAM, 1, "WRAM")]))[0][0]
-            if not (cur & (1 << 1)):
-                new = cur | (1 << 1)
-            else:
-                new = cur | (1 << 6)
+            new = cur
+            if count >= 1:
+                new |= (1 << 1)
+            if count >= 2:
+                new |= (1 << 6)
             if new != cur:
                 await write(ctx.bizhawk_ctx, [(ADDR_TRANSFORM_UNLOCKS_WRAM, bytes([new]), "WRAM")])
-            logger.debug(f"[WL3] Progressive Vampire → wTransformUnlocks 0x{new:02X}")
+            logger.debug(f"[WL3] Progressive Vampire #{count} → wTransformUnlocks 0x{new:02X}")
             return
         if ap_id in TRANSFORM_UNLOCK_AP_IDS:
             # Set one or more bits in wTransformUnlocks / wTransformUnlocks2.
@@ -877,17 +989,77 @@ class WL3Client(BizHawkClient):
         except RequestFailedError as e:
             logger.warning(f"[WL3] Failed to set treasure 0x{treasure_id:02X}: {e}")
 
+    async def _publish_current_level(self, ctx: "BizHawkClientContext") -> None:
+        """Publish the player's current level to AP DataStorage as
+        ``wl3_current_level_{slot}`` so PopTracker (or any AP tracker)
+        can auto-tab on the matching level.
+
+        Value semantics:
+          * -1  : not connected / no slot known
+          *  0  : Temple, title screen, menu, or any non-overworld /
+                  non-in-level state
+          * 1-25: main level index (matches LEVEL_OUT_OF_THE_WOODS .. ,
+                  per src/constants/level_constants.asm)
+          * 26  : Golf Building
+
+        Edge-triggered: only sends a Set msg when the computed value
+        changes since the last publish.
+        """
+        if ctx.server is None or ctx.slot is None:
+            return
+        try:
+            data = await read(ctx.bizhawk_ctx, [
+                (0xC09B, 1, "System Bus"),   # wState
+                (0xCA0B, 1, "System Bus"),   # wLevel  (in-level byte)
+                (0x200F, 1, "WRAM"),         # wOWLevel (bank 2 $D00F)
+            ])
+        except RequestFailedError:
+            return
+        state    = data[0][0]
+        w_level  = data[1][0]
+        ow_level = data[2][0]
+
+        ST_OVERWORLD = 0x01
+        ST_LEVEL     = 0x02
+        if state == ST_LEVEL:
+            if w_level == 0xC8:        # THE_TEMPLE
+                level = 0
+            elif w_level == 0xFF:      # GOLF_BUILDING
+                level = 26
+            else:
+                level = (w_level >> 3) + 1   # (wLevel / 8) + 1, 1-based
+        elif state == ST_OVERWORLD:
+            level = ow_level   # already 0=Temple, 1-25=main levels
+        else:
+            level = 0          # title/menu/cutscene → no tab
+
+        if level == self._last_published_level:
+            return
+        self._last_published_level = level
+        key = f"wl3_current_level_{ctx.slot}"
+        try:
+            await ctx.send_msgs([{
+                "cmd": "Set",
+                "key": key,
+                "default": 0,
+                "want_reply": False,
+                "operations": [{"operation": "replace", "value": level}],
+            }])
+            logger.info(f"[WL3 tracker] {key} = {level}")
+        except Exception:
+            # never break the watcher loop on a publish error
+            pass
+
+
     async def _resync_transform_unlocks(self, ctx: "BizHawkClientContext") -> None:
         """Rebuild wTransformUnlocks/2 from cached_received in case the player
         went to title and reloaded (which clears WRAM). Idempotent."""
         # Compute target bits
         want1 = 0
         want2 = 0
-        prog_vamp_count = 0
         for ap_id in self._cached_received:
             if ap_id == PROGRESSIVE_VAMPIRE_AP_ID:
-                prog_vamp_count += 1
-                continue
+                continue   # handled below via _prog_counts (set can't track count)
             pairs = TRANSFORM_UNLOCK_AP_IDS.get(ap_id)
             if not pairs:
                 continue
@@ -896,7 +1068,9 @@ class WL3Client(BizHawkClient):
                     want1 |= (1 << bit_idx)
                 else:
                     want2 |= (1 << bit_idx)
-        # Progressive Vampire: 1st copy = bit 1 (Vampire), 2nd copy = bit 6 (Bat)
+        # Progressive Vampire: 1st copy = bit 1 (Vampire), 2nd copy = bit 6 (Bat).
+        # _cached_received is a set and can't see count>1, so use _prog_counts.
+        prog_vamp_count = self._prog_counts.get(PROGRESSIVE_VAMPIRE_AP_ID, 0)
         if prog_vamp_count >= 1:
             want1 |= (1 << 1)
         if prog_vamp_count >= 2:
@@ -915,6 +1089,99 @@ class WL3Client(BizHawkClient):
                 await write(ctx.bizhawk_ctx, [(ADDR_TRANSFORM_UNLOCKS2_WRAM, bytes([new2]), "WRAM")])
         except RequestFailedError:
             pass
+
+    async def _process_par_hint_trigger(self, ctx: "BizHawkClientContext") -> None:
+        """ROM sets wParHintRequest=1 when the player clears a Golf Building
+        hole at par-or-better (per_hole frequency) or a whole course at
+        par-or-better (per_course frequency). Read the flag; if set, clear it
+        and dispatch a free hint for an unhinted location matching the
+        configured GolfParHints mode. Falls back to 'anything' if the chosen
+        category has no unhinted candidates left."""
+        if not ctx.slot_data:
+            return
+        try:
+            cur = (await read(ctx.bizhawk_ctx, [(ADDR_PAR_HINT_REQUEST_WRAM, 1, "WRAM")]))[0][0]
+        except RequestFailedError:
+            return
+        if cur == 0:
+            return
+        # Clear the flag first so we don't fire again on the next tick if
+        # something downstream fails. Idempotent: a missed hint is better
+        # than a runaway loop.
+        try:
+            await write(ctx.bizhawk_ctx, [(ADDR_PAR_HINT_REQUEST_WRAM, bytes([0]), "WRAM")])
+        except RequestFailedError:
+            return
+
+        mode = int(ctx.slot_data.get("golf_par_hints", 0))
+        if mode == 0:  # Nothing
+            return
+
+        candidates = self._gather_par_hint_candidates(ctx, mode)
+        if not candidates and mode != 3:
+            # Configured category is exhausted — fall back to Anything.
+            candidates = self._gather_par_hint_candidates(ctx, 3)
+        if not candidates:
+            await self._show_msg(ctx, "NO HINTS LEFT")
+            return
+
+        import random
+        loc_id = random.choice(sorted(candidates))
+        info = self._loc_items.get(str(loc_id)) or self._loc_items.get(loc_id)
+        if not info:
+            return
+        item_name = info["item"]
+        loc_name = None
+        try:
+            if ctx.location_names:
+                loc_name = ctx.location_names.lookup_in_game(loc_id)
+        except Exception:
+            loc_name = None
+
+        # Force-create a hint on the AP server for the picked location.
+        # create_as_hint=2 ignores the hint-point cost. The server will
+        # broadcast a PrintJSON Hint packet that our on_package handler
+        # picks up and shows in-game — no need to duplicate the message
+        # here. Records local dedup so we don't re-scout the same location.
+        try:
+            await ctx.send_msgs([{
+                "cmd": "LocationScouts",
+                "locations": [loc_id],
+                "create_as_hint": 2,
+            }])
+            self._par_hints_sent.add(loc_id)
+        except Exception as e:
+            logger.warning(f"[WL3] Par-hint LocationScouts send failed: {e}")
+        logger.info(f"[WL3] Par hint requested: {item_name} at {loc_name or f'loc {loc_id}'}")
+
+    def _gather_par_hint_candidates(self, ctx: "BizHawkClientContext", mode: int) -> set:
+        """Return the set of AP location IDs that match the category,
+        are still unchecked, and have an item in our loc_items map.
+        mode: 1=music boxes, 2=progression items, 3=anything.
+        For mode 2, the progression set comes from slot_data (computed in
+        apworld fill_slot_data) so it reflects ItemClassification.progression
+        for the actual seed."""
+        if not self._loc_items:
+            return set()
+        progression_set: set = set()
+        if mode == 2 and ctx.slot_data:
+            progression_set = set(ctx.slot_data.get("progression_item_names") or [])
+        candidates: set = set()
+        missing = ctx.missing_locations or set()
+        for loc_key, info in self._loc_items.items():
+            loc_id = int(loc_key) if isinstance(loc_key, str) else loc_key
+            if loc_id not in missing:
+                continue   # already checked → can't hint
+            if loc_id in self._par_hints_sent:
+                continue   # already par-hinted this session → don't repeat
+            item_name = info.get("item", "")
+            if mode == 1 and item_name not in MUSIC_BOX_ITEM_NAMES:
+                continue
+            if mode == 2 and item_name not in progression_set:
+                continue
+            # mode == 3 (anything): no category filter
+            candidates.add(loc_id)
+        return candidates
 
     async def _update_opened_chests(self, ctx: "BizHawkClientContext") -> None:
         """Write wOpenedChests (13 bytes) based on which AP locations are checked.
@@ -1030,7 +1297,12 @@ class WL3Client(BizHawkClient):
         # by then the ROM has already set them so the write is a no-op.
         if self._prev_end_screen == 0:
             for ap_id, count in self._prog_counts.items():
-                tier_ids = PROGRESSIVE_ITEMS[ap_id]
+                # _prog_counts also tracks PROGRESSIVE_VAMPIRE_AP_ID (which is
+                # NOT in PROGRESSIVE_ITEMS — it sets transformation bits, not
+                # treasure tier bits). Skip it here.
+                tier_ids = PROGRESSIVE_ITEMS.get(ap_id)
+                if tier_ids is None:
+                    continue
                 if count >= 1:
                     t = tier_ids[0]
                     ap_bits[t >> 3] |= 1 << (t & 7)

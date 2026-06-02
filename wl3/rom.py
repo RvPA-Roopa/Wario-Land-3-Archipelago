@@ -242,6 +242,7 @@ LEVEL_MUSIC_OFFSET               = 0x03FE40   # LevelMusic table (25 levels × 1
 MUSIC_BOXES_REQUIRED_OFFSET      = 0x080F23   # MusicBoxesRequired byte in Bank 20
 START_WITH_AXE_OFFSET            = 0x080F24   # StartWithAxeOpt byte in Bank 20
 START_WITH_MAG_GLASS_OFFSET      = 0x080F25   # StartWithMagnifyingGlassOpt byte in Bank 20
+HIDDEN_PASSAGES_REVEALED_OFFSET  = 0x080F26   # HiddenPassagesRevealedOpt byte in Bank 20
 GOLF_PRICE_OPT_OFFSET            = 0x003A00   # GolfPriceOpt byte in Home bank
 GOLF_BUILDING_OPT_OFFSET         = 0x003A01   # GolfBuildingOpt byte in Home bank
 DISABLE_PAL_CYCLE_OFFSET         = 0x003A02   # DisablePalCycleOpt byte in Home bank
@@ -251,6 +252,7 @@ COMBINED_COMPANION_TABLE_OFFSET  = 0x003A05   # CombinedCompanionTable (101 byte
 TRANSFORMS_REQUIRE_ITEMS_OFFSET  = 0x003A6A   # TransformsRequireItems byte in Home bank
 DEATH_MODE_OPT_OFFSET            = 0x003A6B   # DeathModeOpt byte in Home bank (0=none, 1=grabs, 2=grabs+golf)
 BIG_COINSANITY_OPT_OFFSET        = 0x003A6C   # BigCoinsanityOpt byte in Home bank (0=vanilla coins, 1=portrait/suppress/AP-dispatch)
+GOLF_PAR_HINT_FREQ_OFFSET        = 0x003A6D   # GolfParHintFrequencyOpt byte in Home bank (0=per_hole, 1=per_course)
 TREASURE_OB_PALS_OFFSET          = 0x09AFC0   # TreasureOBPals table (indexed by treasure ID)
 
 # Combined-item companion chains: collecting key → also grant value (chained).
@@ -361,6 +363,11 @@ class WL3ProcedurePatch(APProcedurePatch, APTokenMixin):
         ("apply_tokens",          ["token_data.bin"]),
         ("apply_form_icons",      []),
         ("apply_palette_shuffle", ["palette_params.json"]),
+        # enemizer runs last so it can reuse palette_params (same seeds
+        # as apply_palette_shuffle) to keep enemizer slot palettes
+        # color-consistent with the vanilla rooms. enemizer_params.json
+        # is only included in the .apwl3 if the Enemizer option is on.
+        ("apply_enemizer",        ["enemizer_params.json", "palette_params.json"]),
     ]
 
     @classmethod
@@ -415,6 +422,61 @@ class WL3PatchExtension(APPatchExtension):
         return bytes(rom)
 
     @staticmethod
+    def apply_enemizer(caller, rom: bytes, params_filename: str,
+                       palette_params_filename: str) -> bytes:
+        """Generate enemizer EnemizerGroups table + room patches using
+        vanilla palette bytes read from the snapshot. Skipped silently
+        when enemizer_params.json isn't shipped (option off)."""
+        import json
+        import random as _random
+        raw = caller.get_file(params_filename)
+        if not raw:
+            return rom
+        params = json.loads(raw.decode("utf-8"))
+        if not params.get("enabled"):
+            return rom   # Enemizer option off — skip silently
+        rom = bytearray(rom)
+        # CRITICAL: read palettes from the POST-BSDIFF rom (hacked layout),
+        # NOT from caller._wl3_vanilla. enemizer_data.py stores HACKED-ROM
+        # palette offsets — bsdiff has already relocated each vanilla
+        # palette by ENEMIZER_SLOT_COUNT*4 bytes (the dispatch-table growth
+        # in bank $19). Reading from the vanilla snapshot at those offsets
+        # would pull non-palette bytes; rom[off] reads the correct relocated
+        # palette bytes.
+        vanilla = caller._wl3_vanilla  # still needed for the palette-shuffle
+                                       # override path (which uses vanilla
+                                       # palette_offsets.py offsets).
+
+        # Build (offset → shuffled bytes) lookup if enemy_palette_shuffle
+        # is also on. Mirrors apply_palette_shuffle's enemy loop using
+        # the same per-entry seeds so colors match.
+        palette_overrides: dict[int, bytes] = {}
+        if params.get("use_palette_overrides"):
+            pp_raw = caller.get_file(palette_params_filename)
+            if pp_raw:
+                pp = json.loads(pp_raw.decode("utf-8"))
+                for entry in pp.get("enemy", []):
+                    rng = _random.Random(entry["seed"])
+                    base = entry["offset"]
+                    for i in range(entry["length"] // 8):
+                        sub = base + i * 8
+                        van = bytes(vanilla[sub:sub + 8])
+                        palette_overrides[sub] = _recolor_palette(van, rng.random)
+
+        def palette_lookup(off: int) -> bytes:
+            ov = palette_overrides.get(off)
+            # When override is absent, pull from the hacked-layout rom so
+            # enemizer_data.py's hacked offsets resolve to the actual
+            # vanilla palette bytes (relocated by bsdiff).
+            return ov if ov is not None else bytes(rom[off:off + 8])
+
+        from . import enemizer as _enemizer
+        rng = _random.Random(params["seed"])
+        for off, data in _enemizer.generate_patch_writes(rng, palette_lookup):
+            rom[off:off + len(data)] = data
+        return bytes(rom)
+
+    @staticmethod
     def apply_palette_shuffle(caller, rom: bytes, params_filename: str) -> bytes:
         import json
         import random as _random
@@ -436,29 +498,25 @@ class WL3PatchExtension(APPatchExtension):
                 result.extend(_recolor_palette(chunk, rng.random))
             rom[offset:offset + len(result)] = bytes(result)
 
-        for entry in params.get("level_bg", []):
-            rng = _random.Random(entry["seed"])
-            offset = entry["offset"]
-            length = entry["length"]
-            mode = entry["mode"]
-            group_hue = entry.get("group_hue")
-            data = vanilla[offset:offset + length]
-            result = bytearray()
-            count = length // 8
-            if mode == 1:
-                num = min(count, 2)
-                chosen = set(rng.sample(range(count), num))
-            else:
-                chosen = None
-            for i in range(count):
-                chunk = data[i * 8:(i + 1) * 8]
-                if mode == 2:
-                    result.extend(_recolor_palette(chunk, rng.random, fixed_hue_rotate=group_hue))
-                elif mode == 1 and (i in chosen):
-                    result.extend(_shift_one_palette_color(chunk, rng.random))
-                else:
-                    result.extend(chunk)
-            rom[offset:offset + len(result)] = bytes(result)
+        # level_bg + overworld_bg share the exact same per-entry shape, so
+        # process them in one loop. Each entry: offset, length, group_hue,
+        # optional "source" ("vanilla" default; "rom" when the entry's
+        # offsets are HACKED-ROM offsets, e.g. title palettes shifted by
+        # the bank-1 growth and only present at their hacked location in
+        # the post-bsdiff rom).
+        for kind in ("level_bg", "overworld_bg"):
+            for entry in params.get(kind, []):
+                offset = entry["offset"]
+                length = entry["length"]
+                group_hue = entry["group_hue"]
+                src = rom if entry.get("source") == "rom" else vanilla
+                data = src[offset:offset + length]
+                result = bytearray()
+                for i in range(length // 8):
+                    chunk = data[i * 8:(i + 1) * 8]
+                    # rng arg is unused when fixed_hue_rotate is supplied
+                    result.extend(_recolor_palette(chunk, None, fixed_hue_rotate=group_hue))
+                rom[offset:offset + len(result)] = bytes(result)
 
         return bytes(rom)
 
@@ -479,16 +537,16 @@ def _floats_to_gbc(r: float, g: float, b: float) -> int:
 def _recolor_palette(data: bytes, rand, fixed_hue_rotate: float = None) -> bytes:
     """Recolor an 8-byte GBC palette.
 
-    Near-grayscale colors (s < 0.25) each get an independent random hue at
-    high saturation.  Saturated colors (s >= 0.25) are all hue-rotated by a
-    single shared random offset so their relative color relationships are
-    preserved.  Very dark colors (v < 0.15) are left unchanged.
+    Every color (near-gray and saturated alike) rotates by the same hue
+    offset — preserves both the within-palette relationships AND the
+    "shadow / edge / highlight" tones' low-saturation neutrality, so
+    edges between tiles don't get jagged hue jumps.  Very dark colors
+    (v < 0.15) are left unchanged so outlines stay outlines.
 
     If `fixed_hue_rotate` is provided, it is used as the shared rotation
     instead of a fresh random value — this lets multiple palettes in a
     palette-cycle group share a hue so cycle frames stay coherent.
     """
-    GRAY_THRESHOLD = 0.25
     grouped = fixed_hue_rotate is not None
     hue_rotate = fixed_hue_rotate if grouped else rand()
     out = bytearray(len(data))
@@ -496,86 +554,12 @@ def _recolor_palette(data: bytes, rand, fixed_hue_rotate: float = None) -> bytes
         color = data[i * 2] | (data[i * 2 + 1] << 8)
         r, g, b = _gbc_to_floats(color)
         h, s, v = colorsys.rgb_to_hsv(r, g, b)
-        if v < 0.15:
-            pass  # dark/outline colors — leave unchanged
-        elif s < GRAY_THRESHOLD:
-            # near-white / light-gray: assign a hue at moderate saturation.
-            # For grouped (palette-cycle) entries we derive the hue from the
-            # group rotation + color slot so every cycle frame's grayscale
-            # pixels share the same tint (no strobing on Above the Clouds day).
-            if grouped:
-                h = (hue_rotate + i * 0.13) % 1.0
-            else:
-                h = rand()
-            s = 0.45
-        else:
-            # saturated colors: rotate hue by shared offset
+        if v >= 0.15:
             h = (h + hue_rotate) % 1.0
         r, g, b = colorsys.hsv_to_rgb(h, s, v)
         new = _floats_to_gbc(r, g, b)
         out[i * 2]     = new & 0xFF
         out[i * 2 + 1] = (new >> 8) & 0xFF
-    return bytes(out)
-
-
-def _recolor_palette_bg_simple(data: bytes, rand) -> bytes:
-    """Apply a small, conservative hue shift to an 8-byte GBC palette.
-
-    Very dark colors (v < 0.12) and near-gray colors (s < 0.25) are left
-    unchanged to preserve outlines and subtle background tints. Saturated
-    colors are hue-rotated by a small shared offset to keep scenes coherent.
-    """
-    # Make the simple mode extremely mild: very small hue adjustments.
-    HUE_RANGE = 0.01  # maximum rotation in either direction (fraction of 1.0)
-    hue_rotate = (rand() - 0.5) * (HUE_RANGE * 2)
-    out = bytearray(len(data))
-    # Use slightly stricter thresholds so fewer colors are modified.
-    for i in range(len(data) // 2):
-        color = data[i * 2] | (data[i * 2 + 1] << 8)
-        r, g, b = _gbc_to_floats(color)
-        h, s, v = colorsys.rgb_to_hsv(r, g, b)
-        if v < 0.18:
-            # keep very dark (outlines)
-            pass
-        elif s < 0.35:
-            # keep near-gray/background tints for consistency
-            pass
-        else:
-            # apply only a very small hue rotation
-            h = (h + hue_rotate) % 1.0
-        r, g, b = colorsys.hsv_to_rgb(h, s, v)
-        new = _floats_to_gbc(r, g, b)
-        out[i * 2]     = new & 0xFF
-        out[i * 2 + 1] = (new >> 8) & 0xFF
-    return bytes(out)
-
-
-def _shift_one_palette_color(chunk: bytes, rand) -> bytes:
-    """Shift a single, non-dark, non-gray color within an 8-byte palette by a very small hue."""
-    out = bytearray(chunk)
-    # find a candidate color to shift: first color with v>=0.15 and s>=0.15
-    target = None
-    vals = []
-    for i in range(4):
-        color = chunk[i*2] | (chunk[i*2+1] << 8)
-        r, g, b = _gbc_to_floats(color)
-        h, s, v = colorsys.rgb_to_hsv(r, g, b)
-        vals.append((h, s, v, color))
-        if target is None and v >= 0.15 and s >= 0.15:
-            target = i
-    if target is None:
-        # fallback to second color (index 1) if no suitable candidate
-        target = 1 if len(vals) > 1 else 0
-
-    h, s, v, orig = vals[target]
-    # very small hue shift
-    HUE_RANGE = 0.005
-    hue_rotate = (rand() - 0.5) * (HUE_RANGE * 2)
-    h = (h + hue_rotate) % 1.0
-    r, g, b = colorsys.hsv_to_rgb(h, s, v)
-    new = _floats_to_gbc(r, g, b)
-    out[target * 2] = new & 0xFF
-    out[target * 2 + 1] = (new >> 8) & 0xFF
     return bytes(out)
 
 
@@ -809,6 +793,14 @@ def write_tokens(world: "WL3World", patch: WL3ProcedurePatch) -> None:
     patch.write_token(APTokenTypes.WRITE, BIG_COINSANITY_OPT_OFFSET,
                       bytes([bigcoinsanity]))
 
+    # Golf Building par-hint frequency (0=per_hole, 1=per_course).
+    # Controls when the ROM sets wParHintRequest in GolfHoleState_Cleared.
+    # The hint MODE (nothing / music_boxes / progressive / anything) is
+    # client-side only, dispatched from the GolfParHints option.
+    golf_par_hint_freq = int(world.options.golf_par_hint_frequency)
+    patch.write_token(APTokenTypes.WRITE, GOLF_PAR_HINT_FREQ_OFFSET,
+                      bytes([golf_par_hint_freq]))
+
     # --- combined item companion table ---
     from .options import CombinedItems as _CI
     ci_mode = int(world.options.combined_items)
@@ -852,6 +844,11 @@ def write_tokens(world: "WL3World", patch: WL3ProcedurePatch) -> None:
             world.options.level_bg_palette_shuffle or
             world.options.wario_overalls_shuffle or
             world.options.wario_shirt_shuffle):
+        # NOTE: overworld_bg_palette_shuffle intentionally NOT here. The
+        # DisablePalCycleOpt flag gates the in-level palette tick. Including
+        # it for the overworld shuffle was causing a freeze on day/night
+        # transitions even though the cycle code only affects level rooms —
+        # likely an indirect interaction. Re-enable only with a repro.
         patch.write_token(APTokenTypes.WRITE, DISABLE_PAL_CYCLE_OFFSET, bytes([1]))
 
     # --- palette shuffle: deferred to patch time ---
@@ -860,9 +857,10 @@ def write_tokens(world: "WL3World", patch: WL3ProcedurePatch) -> None:
     # palette bytes from the snapshot at patch time and runs the recolors with
     # these seeds. Vanilla palette bytes are NOT stored in the apworld.
     import json as _json
-    from .palette_offsets import ENEMY_PALETTES, LEVEL_BG_PALETTES
+    from .palette_offsets import (ENEMY_PALETTES, LEVEL_BG_PALETTES,
+                                    OVERWORLD_BG_PALETTES)
 
-    palette_params: dict = {"enemy": [], "level_bg": []}
+    palette_params: dict = {"enemy": [], "level_bg": [], "overworld_bg": []}
 
     if world.options.enemy_palette_shuffle:
         for offset, length, _group in ENEMY_PALETTES:
@@ -872,25 +870,58 @@ def write_tokens(world: "WL3World", patch: WL3ProcedurePatch) -> None:
                 "seed":   world.random.getrandbits(32),
             })
 
-    level_bg_mode = int(world.options.level_bg_palette_shuffle)
-    if level_bg_mode != 0:
-        # Per-cycle-group shared hue rotation: palettes in the same cycle group
-        # (e.g. Above the Clouds lightning flash) get the same hue so cycle
-        # frames don't strobe random colors. Roll the group hue once per group.
-        group_hue_cache: dict = {}
-        for offset, length, group in LEVEL_BG_PALETTES:
-            if group is not None:
-                if group not in group_hue_cache:
-                    group_hue_cache[group] = world.random.random()
-                group_hue = group_hue_cache[group]
-            else:
-                group_hue = None
+    if world.options.level_bg_palette_shuffle:
+        # Same shared-hue trick as the overworld: rotate every level BG
+        # palette by ONE seed-rolled hue so adjacent palette regions within
+        # a level/room don't get independently rotated and produce jagged
+        # color edges. Trade-off: all levels become tinted the same family,
+        # but within each level everything stays coherent.
+        shared_level_hue = world.random.random()
+        for offset, length, _group in LEVEL_BG_PALETTES:
             palette_params["level_bg"].append({
-                "offset":    offset,
-                "length":    length,
-                "mode":      level_bg_mode,
-                "seed":      world.random.getrandbits(32),
-                "group_hue": group_hue,
+                "offset": offset,
+                "length": length,
+                "group_hue": shared_level_hue,
+            })
+
+    if world.options.overworld_bg_palette_shuffle:
+        # All overworld palettes share ONE hue rotation so adjacent terrain
+        # types (mountain / ground / grass / etc — each in its own palette
+        # entry) stay thematically related instead of rotating independently
+        # and clashing at tile borders. Whole map gets uniformly tinted.
+        shared_ow_hue = world.random.random()
+        # OVERWORLD_BG_PALETTES includes labels that the engine ALSO uses as
+        # OBJ palette sources (loaded into wTempPals2). Recoloring those
+        # corrupts overworld OBJ palettes (star indicator, map-side OBJ
+        # tints) and softlocks the day/night transition — keep them vanilla.
+        # Sourced by grepping `ld hl, Pals_84xxx` followed by wTempPals2 /
+        # OBPI / rOBPI in src/engine/overworld/*.asm.
+        OW_OBJ_PALETTE_OFFSETS = {0x848e0, 0x84900, 0x84980, 0x84a20}
+        sorted_entries = sorted(OVERWORLD_BG_PALETTES, key=lambda e: e[0])
+        for i, (offset, length, _group) in enumerate(sorted_entries):
+            if offset in OW_OBJ_PALETTE_OFFSETS:
+                continue
+            if i + 1 < len(sorted_entries):
+                next_off = sorted_entries[i + 1][0]
+                length = min(length, next_off - offset)
+            palette_params["overworld_bg"].append({
+                "offset": offset,
+                "length": length,
+                "group_hue": shared_ow_hue,
+            })
+        # Title screen palettes — 4 × 64-byte sets (Pals_4f82/_4fc2/_5002/
+        # _5042). 4f82+5002 feed wTempPals1 (BG); 4fc2+5042 feed wTempPals2
+        # (OBJ). Including all 4 gives a coherent title recolor that matches
+        # the overworld's hue shift. Offsets are HACKED-ROM positions (bank
+        # 1 grew ~542 bytes vs vanilla), so they're flagged source="rom" to
+        # tell apply_palette_shuffle to read from the post-bsdiff rom.
+        TITLE_PALETTE_OFFSETS = [0x51a0, 0x51e0, 0x5220, 0x5260]
+        for offset in TITLE_PALETTE_OFFSETS:
+            palette_params["overworld_bg"].append({
+                "offset": offset,
+                "length": 64,
+                "group_hue": shared_ow_hue,
+                "source": "rom",
             })
 
     # Always write the file (even if both shuffles disabled) so apply_palette_shuffle
@@ -924,6 +955,30 @@ def write_tokens(world: "WL3World", patch: WL3ProcedurePatch) -> None:
         color_bytes = bytes([gbc_color & 0xFF, (gbc_color >> 8) & 0xFF])
         for off in WARIO_SHIRT_OFFSETS:
             patch.write_token(APTokenTypes.WRITE, off, color_bytes)
+
+    # Hidden Passages Revealed — flip the ROM flag byte; the in-ROM
+    # RevealHiddenBlocksInRoom routine runs at room load and overlays
+    # cracked-block tile indices onto hidden block slots in
+    # wRoomBlockTiles. Behavior/IDs unchanged, only the rendered tiles.
+    patch.write_token(APTokenTypes.WRITE, HIDDEN_PASSAGES_REVEALED_OFFSET,
+                      bytes([1 if world.options.hidden_passages_revealed else 0]))
+
+    # Enemizer — deferred to patch-apply time so vanilla palette bytes
+    # never ship in the apworld. Gen-time only rolls the seed; the
+    # deferred apply_enemizer step does composition using vanilla bytes
+    # read from the ROM snapshot. The file is always written so the
+    # procedure step always has its input — `enabled: false` skips work.
+    # bool() on an AP Toggle returns True/False based on its value; using
+    # `Toggle and X` short-circuits to the Toggle object itself when the
+    # value is falsy, which then explodes the JSON encoder.
+    enemizer_on = bool(getattr(world.options, "enemizer", False))
+    enemizer_params = {
+        "enabled": enemizer_on,
+        "seed": world.random.getrandbits(32) if enemizer_on else 0,
+        "use_palette_overrides": enemizer_on and bool(world.options.enemy_palette_shuffle),
+    }
+    patch.write_file("enemizer_params.json",
+                     _json.dumps(enemizer_params).encode("utf-8"))
 
     # Embed the base bsdiff4 patch and token data into self.files so
     # APProcedurePatch.write_contents() includes them in the output zip.

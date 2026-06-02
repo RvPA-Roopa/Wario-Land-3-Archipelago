@@ -48,6 +48,7 @@ from .options import (WL3Options, MusicBoxShuffle, KeyShuffle, CombinedItems,
                       GolfPrice, GolfBuilding, IHateGolf,
                       StartWithMagnifyingGlass, ReduceFlashing, NonStopChests, TrapFill,
                       MusicShuffle, EnemyPaletteShuffle, LevelBGPaletteShuffle,
+                      OverworldBGPaletteShuffle,
                       WarioOverallsShuffle, WarioShirtShuffle, DifficultyOptions, MinorGlitches)
 from .regions import create_regions
 from .rom import WL3ProcedurePatch, write_tokens, KEY_COLOR_PALS, OBPAL_TREASURE_PURPLE
@@ -180,9 +181,9 @@ class WL3WebWorld(WebWorld):
         OptionGroup("Quality of Life", [GolfPrice, GolfBuilding, IHateGolf,
                                        StartWithMagnifyingGlass, ReduceFlashing,
                                        NonStopChests, TrapFill]),
-        OptionGroup("Cosmetics", [MusicShuffle, EnemyPaletteShuffle,
-                                  LevelBGPaletteShuffle,
-                                   WarioOverallsShuffle, WarioShirtShuffle]),
+        OptionGroup("Cosmetics", [MusicShuffle, OverworldBGPaletteShuffle,
+                                  LevelBGPaletteShuffle, EnemyPaletteShuffle,
+                                  WarioOverallsShuffle, WarioShirtShuffle]),
     ]
 
 
@@ -456,20 +457,24 @@ class WL3World(World):
         #
         # We do NOT pre-place ability items — once these 5 keys open 5 levels,
         # AP has plenty of sphere room to handle abilities organically.
+        if ks:
+            pflocation = "Key"
+        else:
+            pflocation = "Chest"
         _LEVEL_KEY_UNLOCKS: Dict[str, List[str]] = {
-            "Axe":            ["The Peaceful Village - Grey Chest",
-                               "The Vast Plain - Grey Chest"],
-            "Ornamental Fan": ["The Stagnant Swamp - Grey Chest"],
-            "Sky Key":        ["Above the Clouds - Grey Chest"],
-            "Torch":          ["Forest of Fear - Grey Chest"],
-            "Jar":            ["A Town in Chaos - Grey Chest"],
+            "Axe":            ["The Peaceful Village - Grey " + pflocation,
+                               "The Vast Plain - Grey " + pflocation],
+            "Ornamental Fan": ["The Stagnant Swamp - Grey " + pflocation],
+            "Sky Key":        ["Above the Clouds - Grey " + pflocation],
+            "Torch":          ["Forest of Fear - Grey " + pflocation],
+            "Jar":            ["A Town in Chaos - Grey " + pflocation],
         }
 
         pool    = self.multiworld.itempool
         rng     = self.multiworld.random
         # Locations opened so far (start with sphere-0). When we place a key
         # at one, its unlocks join the queue.
-        remaining = ["Out of the Woods - Grey Chest"]
+        remaining = ["Out of the Woods - Grey " + pflocation]
 
         while remaining:
             loc_name = remaining.pop(0)
@@ -807,6 +812,9 @@ class WL3World(World):
     # ------------------------------------------------------------------
 
     def fill_slot_data(self) -> Dict[str, Any]:
+        from BaseClasses import ItemClassification
+        from .items import ITEM_TABLE, KEY_ITEM_TABLE, KEYRING_ITEM_TABLE
+
         loc_items = {}
         all_locs = {**LOCATION_TABLE, **KEY_LOCATION_TABLE}
         for loc_name, loc_data in all_locs.items():
@@ -816,9 +824,29 @@ class WL3World(World):
                     "item": loc.item.name,
                     "player": loc.item.player,
                 }
+
+        # Names of every item the apworld classifies as progression — the
+        # client uses this to filter candidates for golf_par_hints == progression.
+        # Includes regular treasures, keys/keyrings, and progressive items.
+        progression_names: list = []
+        for name, data in ITEM_TABLE.items():
+            if data.classification == ItemClassification.progression:
+                progression_names.append(name)
+        for name, data in KEY_ITEM_TABLE.items():
+            cls = getattr(data, "classification", ItemClassification.progression)
+            if cls == ItemClassification.progression:
+                progression_names.append(name)
+        for name, data in KEYRING_ITEM_TABLE.items():
+            cls = getattr(data, "classification", ItemClassification.progression)
+            if cls == ItemClassification.progression:
+                progression_names.append(name)
+
         return {
-            "death_link":            bool(self.options.death_link),
-            "death_mode":            int(self.options.death_mode),
-            "combined_items":        int(self.options.combined_items),
-            "loc_items":             loc_items,
+            "death_link":              bool(self.options.death_link),
+            "death_mode":              int(self.options.death_mode),
+            "combined_items":          int(self.options.combined_items),
+            "golf_par_hints":          int(self.options.golf_par_hints),
+            "golf_par_hint_frequency": int(self.options.golf_par_hint_frequency),
+            "progression_item_names":  progression_names,
+            "loc_items":               loc_items,
         }
