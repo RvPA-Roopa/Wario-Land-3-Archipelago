@@ -261,14 +261,7 @@ class WL3World(World):
     def create_items(self) -> None:
         items: List[WL3Item] = []
         skip_items = set()
-        filler_items = []
-        for x in range(1,6):
-            filler_items.append("Clubs Crest (1 Coin)")
-        for x in range(1,3):
-            filler_items.append("Diamonds Crest (5 Coins)")
-        for x in range(1,2):
-            filler_items.append("Heart Crest (20 Coins)")
-        filler_items.append("Spades Crest (50 Coins)")
+        filler_items = ["Clubs Crest (1 Coin)"] * 15 + ["Diamonds Crest (5 Coins)"] * 10 + ["Heart Crest (20 Coins)"] * 5 + ["Spades Crest (50 Coins)"]
 
         if self.options.start_with_axe:
             skip_items.add("Axe")
