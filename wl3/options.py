@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from Options import Toggle, Choice, Range, PerGameCommonOptions
+from Options import Toggle, Choice, Range, OptionDict, PerGameCommonOptions
 
 
 # class StartingArea(Choice):
@@ -178,15 +178,43 @@ class OverworldBGPaletteShuffle(Toggle):
     default = 0
 
 
-class WarioOverallsShuffle(Toggle):
-    """Randomize Wario's overalls/outline color. (This will affect some other in-game colors)"""
-    display_name = "Wario Overalls Shuffle"
+class WarioPaletteShuffle(Choice):
+    """Set Wario's color palette: randomize or pick a preset.
+    Off:           No changes.
+    Shirt:         Randomize the shirt/highlight color (hat and eyes too).
+    Overalls:      Randomize the overalls/outline color (also a few other tones).
+    Both:          Randomize both independently.
+    Mario:         Red shirt, blue overalls.
+    Luigi:         Green shirt, blue overalls.
+    Waluigi:       Black shirt, dark blue overalls.
+    Modern Wario:  Yellow shirt, magenta overalls.
+    Fire:          White shirt, red overalls.
+    Ice:           Light blue shirt, red overalls.
+
+    Any hex set under Wario Colors overrides the corresponding slot here.
+    """
+    display_name = "Wario Palette Shuffle"
+    option_off          = 0
+    option_shirt        = 1
+    option_overalls     = 2
+    option_both         = 3
+    option_mario        = 4
+    option_luigi        = 5
+    option_waluigi      = 6
+    option_modern_wario = 7
+    option_fire         = 8
+    option_ice          = 9
     default = 0
 
-class WarioShirtShuffle(Toggle):
-    """Randomize Wario's shirt/highlight color. (This affects all the white of Wario, including his hat and eyes)"""
-    display_name = "Wario Shirt Shuffle"
-    default = 0
+
+class WarioColors(OptionDict):
+    """Custom hex colors for Wario shirt (also hat and eyes) and
+     overalls (also a few other in-game tones).
+    Values: hex like #RRGGBB / RRGGBB / #RGB / RGB. The closest GBC color is used.
+    (Example: shirt: '#daff47')
+    """
+    display_name = "Wario Colors"
+    default = {"shirt": "", "overalls": ""}
 
 
 
@@ -355,6 +383,6 @@ class WL3Options(PerGameCommonOptions):
     overworld_bg_palette_shuffle: OverworldBGPaletteShuffle
     level_bg_palette_shuffle:     LevelBGPaletteShuffle
     enemy_palette_shuffle:        EnemyPaletteShuffle
-    wario_overalls_shuffle:       WarioOverallsShuffle
-    wario_shirt_shuffle:          WarioShirtShuffle
+    wario_palette_shuffle:        WarioPaletteShuffle
+    wario_colors:                 WarioColors
 
