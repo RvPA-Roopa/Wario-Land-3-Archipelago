@@ -292,7 +292,8 @@ class Enemizer(Toggle):
 
 
 class HiddenPassagesRevealed(Toggle):
-    """Hidden passages are revealed with their corresponding cracked/non-cracked blocks"""
+    """Hidden passages are revealed with their corresponding cracked/non-cracked blocks
+    Currently, hidden throw/fire/yarn blocks aren't included in this"""
     display_name = "Hidden Passages Revealed"
     default = 0
 
