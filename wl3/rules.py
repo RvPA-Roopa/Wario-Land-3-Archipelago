@@ -879,6 +879,7 @@ def set_rules(world: "WL3World") -> None:
         coin_logic["The Pool of Rain"][5] = _c(has_flippers_1,_has("Spiked Helmet"))
         coin_logic["The Pool of Rain"][6] = _c(has_flippers_1,_has("Spiked Helmet"))
         coin_logic["The Frigid Sea"][3] = _o(has_grab_1,can_bounce)      
+        coin_logic["The Frigid Sea"][5] = _c(_has("Scepter"),has_flippers_1,_has("Spiked Helmet"))    
 
     # Override some level requirements if glitches are in logic (overwrites difficulty options, we assume glitched players can do most tricks)
     if glitches >= easy_glitches:
@@ -947,6 +948,9 @@ def set_rules(world: "WL3World") -> None:
         coin_logic["The Steep Canyon"][4] = _c(_has("Foot of Stone"),_o(has_flippers_2,_has("Flat Form")),_o(can_shake_screen,can_fly))
         coin_logic["The Steep Canyon"][5] = _c(_has("Foot of Stone"),_o(has_flippers_2,_has("Flat Form")),_o(can_shake_screen,can_fly))
         coin_logic["The Steep Canyon"][6] = _c(_has("Rust Spray"), _o(can_pound_cracked_blocks, _has("Zombie Form"), _c(_has("Flat Form"), _has("Spiked Helmet"))))
+        coin_logic["Cave of Flames"][5] = _c(_o(_has("Rust Spray"),_c(_has("Flat Form"),_has("Bouncy Form"))),can_pound_cracked_blocks,has_grab_1,can_jump_high)
+        coin_logic["Cave of Flames"][6] = _c(_o(_has("Rust Spray"),_c(_has("Flat Form"),_has("Bouncy Form"))),can_pound_cracked_blocks,has_grab_1,can_jump_high)
+        coin_logic["Cave of Flames"][7] = _c(_o(_has("Rust Spray"),_c(_has("Flat Form"),_has("Bouncy Form"))),can_pound_cracked_blocks,_o(_c(has_grab_1,_has("High Jump Boots")),can_bounce))
         coin_logic["The Frigid Sea"][1] = _o(has_sun_medallion,has_flippers_2,_has("Flat Form"))
         coin_logic["The Frigid Sea"][4] = _c(_has("Scepter"),_o(has_flippers_1,_has("Flat Form")))
         coin_logic["The Frigid Sea"][5] = _c(_has("Scepter"),_o(has_flippers_1,_has("Flat Form")),_has("Spiked Helmet"),_has("High Jump Boots"))
