@@ -257,9 +257,18 @@ class WL3World(World):
             n = min(count, len(level_names))
             self.keyringed_level_names = set(self.random.sample(level_names, n))
 
+
     def create_items(self) -> None:
         items: List[WL3Item] = []
         skip_items = set()
+        filler_items = []
+        for x in range(1,6):
+            filler_items.append("Clubs Crest (1 Coin)")
+        for x in range(1,3):
+            filler_items.append("Diamonds Crest (5 Coins)")
+        for x in range(1,2):
+            filler_items.append("Heart Crest (20 Coins)")
+        filler_items.append("Spades Crest (50 Coins)")
 
         if self.options.start_with_axe:
             skip_items.add("Axe")
@@ -333,16 +342,16 @@ class WL3World(World):
         base_total = sum(base_counts.values())
         slots_remaining = 100 - len(items)
         if slots_remaining >= base_total:
-            # Use the full distribution table; top up with extra Clubs Crests.
+            # Use the full distribution table; top up with extra filler crests.
             for name, count in base_counts.items():
                 for _ in range(count):
                     items.append(self.create_item(name))
             for _ in range(slots_remaining - base_total):
-                items.append(self.create_item("Clubs Crest (1 Coin)"))
+                items.append(self.create_item(self.random.choice(filler_items)))
         else:
-            # Less slots than the table wants — just fill with Clubs Crests.
+            # Less slots than the table wants — fill with extra filler crests.
             for _ in range(slots_remaining):
-                items.append(self.create_item("Clubs Crest (1 Coin)"))
+                items.append(self.create_item(self.random.choice(filler_items)))
 
         assert len(items) == 100, f"Expected 100 items, got {len(items)}"
 
@@ -358,14 +367,14 @@ class WL3World(World):
                 items.append(self.create_item(f"{level_name} Keyring"))
                 # 3 filler items to preserve pool size (keyring replaces 4 keys)
                 for _ in range(3):
-                    items.append(self.create_item("Clubs Crest (1 Coin)"))
+                    items.append(self.create_item(self.random.choice(filler_items)))
 
         # Big Coinsanity: 200 new coin locations need 200 new filler items so
-        # the pool stays balanced. Use Clubs Crests (1 coin each) — same filler
+        # the pool stays balanced. Use different Crests — same filler
         # as other slot-padding above. These become trap candidates downstream.
         if self.options.bigcoinsanity:
             for _ in range(200):
-                items.append(self.create_item("Clubs Crest (1 Coin)"))
+                items.append(self.create_item(self.random.choice(filler_items)))
 
         # Trap replacement: swap a % of filler items for random trap items.
         # Runs after key shuffle so keyring-padding fillers are also candidates.
