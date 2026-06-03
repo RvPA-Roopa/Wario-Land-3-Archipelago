@@ -264,6 +264,10 @@ class WL3World(World):
         if self.options.start_with_axe:
             skip_items.add("Axe")
             self.multiworld.push_precollected(self.create_item("Axe"))
+            
+        if self.options.start_with_magnifying_glass:
+            skip_items.add("Magnifying Glass")
+            self.multiworld.push_precollected(self.create_item("Magnifying Glass"))
 
         # Transformation Shuffle: 12 filler treasures are replaced by Form items.
         if self.options.transformation_shuffle:
