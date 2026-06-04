@@ -230,13 +230,14 @@ class CombinedItems(Choice):
     option_overworld = 1
     option_in_level  = 2
     option_both      = 3
-    default = 0
+    default = 3
 
 
 class KeyShuffle(Choice):
     """Controls how the 100 level keys (4 per level × 25 levels) are handled.
     Vanilla: Each key location is vanilla
     Full: Keys and treasures are shuffled together across all 200 locations. (This adds 100 checks)
+    During syncs, it is highly recommended to couple this option with a large number of keyrings below.
     """
     display_name = "Key Shuffle"
     option_vanilla = 0
@@ -273,7 +274,7 @@ class NonStopChests(Toggle):
     """Stay in the level after opening a treasure chest instead of exiting to
     the overworld."""
     display_name = "Non-Stop Chests"
-    default = 0
+    default = 1
 
 
 class BigCoinsanity(Toggle):
