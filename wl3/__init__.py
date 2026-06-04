@@ -49,7 +49,8 @@ from .options import (WL3Options, MusicBoxShuffle, KeyShuffle, CombinedItems,
                       StartWithMagnifyingGlass, ReduceFlashing, NonStopChests, TrapFill,
                       MusicShuffle, EnemyPaletteShuffle, LevelBGPaletteShuffle,
                       OverworldBGPaletteShuffle,
-                      WarioOverallsShuffle, WarioShirtShuffle, DifficultyOptions, MinorGlitches)
+                      WarioPaletteShuffle, WarioColors,
+                      DifficultyOptions, MinorGlitches)
 from .regions import create_regions
 from .rom import WL3ProcedurePatch, write_tokens, KEY_COLOR_PALS, OBPAL_TREASURE_PURPLE
 from .rules import MUSIC_BOXES, set_rules
@@ -183,7 +184,7 @@ class WL3WebWorld(WebWorld):
                                        NonStopChests, TrapFill]),
         OptionGroup("Cosmetics", [MusicShuffle, OverworldBGPaletteShuffle,
                                   LevelBGPaletteShuffle, EnemyPaletteShuffle,
-                                  WarioOverallsShuffle, WarioShirtShuffle]),
+                                  WarioPaletteShuffle, WarioColors]),
     ]
 
 
