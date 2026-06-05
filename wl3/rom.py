@@ -548,7 +548,10 @@ def _recolor_palette(data: bytes, rand, fixed_hue_rotate: float = None) -> bytes
     palette-cycle group share a hue so cycle frames stay coherent.
     """
     grouped = fixed_hue_rotate is not None
-    hue_rotate = fixed_hue_rotate if grouped else rand()
+    # Hue wraps, so rand()s near 0 or 1 produce near-vanilla shifts. Clamp the
+    # rolled value to [0.1, 0.9] so enemy_palette_shuffle always reads as a
+    # real recolor.
+    hue_rotate = fixed_hue_rotate if grouped else (0.1 + rand() * 0.8)
     out = bytearray(len(data))
     for i in range(len(data) // 2):
         color = data[i * 2] | (data[i * 2 + 1] << 8)
@@ -875,7 +878,9 @@ def write_tokens(world: "WL3World", patch: WL3ProcedurePatch) -> None:
         # a level/room don't get independently rotated and produce jagged
         # color edges. Trade-off: all levels become tinted the same family,
         # but within each level everything stays coherent.
-        shared_level_hue = world.random.random()
+        # Clamp away from 0/1 — hue wraps, so values near either end produce
+        # near-vanilla rotations. [0.1, 0.9] guarantees a visible shift.
+        shared_level_hue = world.random.uniform(0.1, 0.9)
         for offset, length, _group in LEVEL_BG_PALETTES:
             palette_params["level_bg"].append({
                 "offset": offset,
@@ -888,7 +893,7 @@ def write_tokens(world: "WL3World", patch: WL3ProcedurePatch) -> None:
         # types (mountain / ground / grass / etc — each in its own palette
         # entry) stay thematically related instead of rotating independently
         # and clashing at tile borders. Whole map gets uniformly tinted.
-        shared_ow_hue = world.random.random()
+        shared_ow_hue = world.random.uniform(0.1, 0.9)
         # OVERWORLD_BG_PALETTES includes labels that the engine ALSO uses as
         # OBJ palette sources (loaded into wTempPals2). Recoloring those
         # corrupts overworld OBJ palettes (star indicator, map-side OBJ
@@ -936,8 +941,7 @@ def write_tokens(world: "WL3World", patch: WL3ProcedurePatch) -> None:
     # logical "shirt yellow" and "overalls purple" live in vanilla) appear
     # to be loaded but unused by Wario's sprite tiles.
     # NOTE: This means changing "shirt" affects eye whites + gloves; changing
-    # "overalls" affects the outline. Presets are limited by this — they
-    # recolor highlights and outlines, not the actual yellow/purple parts.
+    # "overalls" affects the outline.
     WARIO_OVERALLS_OFFSETS = [
         0xc806, 0xc812, 0xc826, 0xc82e, 0xc836, 0xc83e, 0xc846, 0xc84e,
         0xc856, 0xc85a, 0xc85e, 0xc866, 0xc86e, 0xc876, 0xc87e, 0xc886,
@@ -970,26 +974,10 @@ def write_tokens(world: "WL3World", patch: WL3ProcedurePatch) -> None:
         gbc = (b5 << 10) | (g5 << 5) | r5
         return bytes([gbc & 0xFF, (gbc >> 8) & 0xFF])
 
-    # WarioPaletteShuffle:
-    #   0 off, 1 shirt shuffle, 2 overalls shuffle, 3 both shuffle,
-    #   4-9 named presets (mario / luigi / waluigi / modern_wario / fire / ice).
+    # WarioPaletteShuffle: 0 off, 1 shirt, 2 overalls, 3 both.
     # Color priority per slot (highest first):
-    #   custom hex (wario_colors dict) > preset > shuffle > vanilla (no write).
-    # Preset hex chosen from a Mario-Party-style reference image — bright
-    # primaries / denim blue for Mario+Luigi, dark navy for Waluigi, hot
-    # magenta for Modern Wario.
-    WARIO_PRESETS = {
-        4: {"shirt": "#E40010", "overalls": "#2046C9"},  # mario
-        5: {"shirt": "#34B233", "overalls": "#2046C9"},  # luigi
-        6: {"shirt": "#1A1A1A", "overalls": "#1A2A8A"},  # waluigi
-        7: {"shirt": "#FBC926", "overalls": "#E61D89"},  # modern_wario
-        8: {"shirt": "#FFFFFF", "overalls": "#CC1A1A"},  # fire
-        9: {"shirt": "#88DDFF", "overalls": "#CC1A1A"},  # ice
-    }
+    #   custom hex (wario_colors dict) > shuffle > vanilla (no write).
     wario_pal = int(world.options.wario_palette_shuffle)
-    preset = WARIO_PRESETS.get(wario_pal)
-    preset_shirt    = _hex_to_gbc_bytes(preset["shirt"])    if preset else None
-    preset_overalls = _hex_to_gbc_bytes(preset["overalls"]) if preset else None
 
     wc = world.options.wario_colors.value or {}
     custom_overalls = _hex_to_gbc_bytes(str(wc.get("overalls", "")))
@@ -998,8 +986,6 @@ def write_tokens(world: "WL3World", patch: WL3ProcedurePatch) -> None:
     # Overalls slot.
     if custom_overalls is not None:
         overalls_bytes = custom_overalls
-    elif preset_overalls is not None:
-        overalls_bytes = preset_overalls
     elif wario_pal in (2, 3):  # overalls or both shuffle
         r = world.random.randint(0, 23)
         g = world.random.randint(0, 23)
@@ -1015,8 +1001,6 @@ def write_tokens(world: "WL3World", patch: WL3ProcedurePatch) -> None:
     # Shirt slot.
     if custom_shirt is not None:
         shirt_bytes = custom_shirt
-    elif preset_shirt is not None:
-        shirt_bytes = preset_shirt
     elif wario_pal in (1, 3):  # shirt or both shuffle
         r = world.random.randint(8, 31)
         g = world.random.randint(8, 31)
