@@ -996,8 +996,8 @@ class WL3Client(BizHawkClient):
 
         Value semantics:
           * -1  : not connected / no slot known
-          *  0  : Temple, title screen, menu, or any non-overworld /
-                  non-in-level state
+          *  0  : not inside a level (overworld hovering, Temple, title,
+                  menu, cutscene, etc.) — tracker untabs
           * 1-25: main level index (matches LEVEL_OUT_OF_THE_WOODS .. ,
                   per src/constants/level_constants.asm)
           * 26  : Golf Building
@@ -1011,16 +1011,18 @@ class WL3Client(BizHawkClient):
             data = await read(ctx.bizhawk_ctx, [
                 (0xC09B, 1, "System Bus"),   # wState
                 (0xCA0B, 1, "System Bus"),   # wLevel  (in-level byte)
-                (0x200F, 1, "WRAM"),         # wOWLevel (bank 2 $D00F)
             ])
         except RequestFailedError:
             return
         state    = data[0][0]
         w_level  = data[1][0]
-        ow_level = data[2][0]
 
-        ST_OVERWORLD = 0x01
-        ST_LEVEL     = 0x02
+        ST_LEVEL      = 0x02
+        ST_PAUSE_MENU = 0x04
+        # Pause menu — keep the previous published level so the tracker
+        # stays tabbed on whichever level the player paused in.
+        if state == ST_PAUSE_MENU:
+            return
         if state == ST_LEVEL:
             if w_level == 0xC8:        # THE_TEMPLE
                 level = 0
@@ -1028,10 +1030,8 @@ class WL3Client(BizHawkClient):
                 level = 26
             else:
                 level = (w_level >> 3) + 1   # (wLevel / 8) + 1, 1-based
-        elif state == ST_OVERWORLD:
-            level = ow_level   # already 0=Temple, 1-25=main levels
         else:
-            level = 0          # title/menu/cutscene → no tab
+            level = 0          # overworld / title / menu / cutscene → no tab
 
         if level == self._last_published_level:
             return
