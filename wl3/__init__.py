@@ -258,6 +258,15 @@ class WL3World(World):
             n = min(count, len(level_names))
             self.keyringed_level_names = set(self.random.sample(level_names, n))
 
+        # Enemizer can drop form-dependent enemies (Snakes need Flute,
+        # Webbers need a charge form, etc.) into rooms outside their
+        # vanilla logical context. Force Transformation Shuffle on so
+        # the form items are placed in logic and AP guarantees the
+        # player has access to the right form before reaching those
+        # rooms.
+        if self.options.enemizer:
+            self.options.transformation_shuffle.value = 1
+
 
     def create_items(self) -> None:
         items: List[WL3Item] = []
