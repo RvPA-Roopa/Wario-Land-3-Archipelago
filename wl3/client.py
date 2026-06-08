@@ -88,9 +88,11 @@ COMBINED_LEVEL_UNLOCK_ITEMS: dict[int, list[int]] = {
 }
 
 # WRAM0 addresses — always accessible via System Bus (0xC000–0xCFFF)
-ADDR_LEVEL          = 0xCA0B   # wLevel:         (owlevel-1)*8 + state
+ADDR_LEVEL = 0xCA0B   # wLevel:         (owlevel-1)*8 + state
+ADDR_ROOM         = 0xC0C9   # wRoom (room ID, the last byte of room_data)
+ADDR_OBJECT_GROUP = 0xC0C8   # wObjectGroup (vanilla wgid 0x00-0x91 or enemizer 0x92+)
 ADDR_END_SCREEN     = 0xCED4   # wLevelEndScreen: 0=idle, 0x81–0x84=chest collecting
-ADDR_GAME_MODE      = 0xCA44   # wGameModeFlags:  bit 0 = MODE_GAME_CLEARED (final boss defeated)
+ADDR_GAME_MODE = 0xCA44   # wGameModeFlags:  bit 0 = MODE_GAME_CLEARED (final boss defeated)
 ADDR_CHEST_AP_KEY   = 0x2E58   # wChestAPKey (WRAM domain, bank 2 $DE58): chest-gave-key signal (1-4)
 
 # wTreasuresCollected and wUnlockedLevels are in WRAMX bank 2.
@@ -100,18 +102,18 @@ ADDR_TREASURES_WRAM     = 0x2000   # WRAM domain offset for wTreasuresCollected 
 ADDR_UNLOCKED_LEVELS_WRAM = 0x1163 # WRAM domain offset for wUnlockedLevels    (bank 1, 0xD163)
 ADDR_LEVEL_KEYS_WRAM      = 0x117C # WRAM domain offset for wLevelKeys         (bank 1, 0xD17C)
 ADDR_KEY_INVENTORY_WRAM   = 0x1195 # WRAM domain offset for wKeyInventory      (bank 1, 0xD195)
-ADDR_OPENED_CHESTS_WRAM   = 0x11AE # wOpenedChests — moved to AP Persistent    (bank 1, 0xD1AE)
+ADDR_OPENED_CHESTS_WRAM = 0x11AE # wOpenedChests — moved to AP Persistent    (bank 1, 0xD1AE)
                                    # to escape pause-menu collection screen wipe of $D800-$DFFF.
-ADDR_MSG_BUFFER_WRAM      = 0x11BB # wMsgBuffer (96 bytes)
-ADDR_MSG_TIMER_WRAM       = 0x121B # wMsgTimer (1 byte)
-ADDR_MSG_READY_WRAM       = 0x121C # wMsgReady (1 byte, set to 1 to trigger)
-ADDR_MSG_ROWS_WRAM        = 0x121E # wMsgRows (1 byte, 1-3)
-ADDR_PENDING_TRAP_WRAM    = 0x1227 # wPendingTrap (1 byte — AP trap queue, bank 1 0xD227)
-ADDR_PAR_HINT_REQUEST_WRAM   = 0x1228 # wParHintRequest (1 byte — Golf Building par hint trigger, bank 1 0xD228)
+ADDR_MSG_BUFFER_WRAM = 0x11BB # wMsgBuffer (96 bytes)
+ADDR_MSG_TIMER_WRAM = 0x121B # wMsgTimer (1 byte)
+ADDR_MSG_READY_WRAM = 0x121C # wMsgReady (1 byte, set to 1 to trigger)
+ADDR_MSG_ROWS_WRAM = 0x121E # wMsgRows (1 byte, 1-3)
+ADDR_PENDING_TRAP_WRAM = 0x1227 # wPendingTrap (1 byte — AP trap queue, bank 1 0xD227)
+ADDR_PAR_HINT_REQUEST_WRAM = 0x1228 # wParHintRequest (1 byte — Golf Building par hint trigger, bank 1 0xD228)
 ADDR_ALL_PAR_THIS_COURSE_WRAM = 0x1229 # wAllParThisCourse (1 byte — ROM-internal per-course tracker, bank 1 0xD229)
-ADDR_TRANSFORM_UNLOCKS_WRAM  = 0x122A # wTransformUnlocks  (bank 1 0xD22A)
+ADDR_TRANSFORM_UNLOCKS_WRAM = 0x122A # wTransformUnlocks  (bank 1 0xD22A)
 ADDR_TRANSFORM_UNLOCKS2_WRAM = 0x122B # wTransformUnlocks2 (bank 1 0xD22B)
-ADDR_CLIENT_HEARTBEAT_WRAM   = 0x149F # wClientHeartbeat (bank 1 0xD49F) — write
+ADDR_CLIENT_HEARTBEAT_WRAM = 0x149F # wClientHeartbeat (bank 1 0xD49F) — write
                                        # ~30 each poll; ROM decrements per frame
                                        # and suppresses ROM-initiated pickup
                                        # messages while it's > 0.
@@ -119,15 +121,15 @@ ADDR_TRANSFORM_FROM_TRAP_WRAM = 0x14A0 # wTransformFromTrap (bank 1 0xD4A0) — 
                                        # to 1 alongside wPendingTrap when delivering
                                        # a trap so ROM blocks Select-cancel; ROM
                                        # clears it when transformation ends.
-ADDR_FORCE_GAME_OVER_WRAM    = 0x14A1  # wForceGameOver (bank 1 0xD4A1) — write 1
+ADDR_FORCE_GAME_OVER_WRAM = 0x14A1  # wForceGameOver (bank 1 0xD4A1) — write 1
                                        # on inbound DeathLink; ROM main state
                                        # poll flips wState to ST_GAME_OVER and
                                        # clears the byte.
-ADDR_COIN_FLAGS_WRAM         = 0x14A2  # wCoinFlags (bank 1 0xD4A2) — 25 bytes,
+ADDR_COIN_FLAGS_WRAM = 0x14A2  # wCoinFlags (bank 1 0xD4A2) — 25 bytes,
                                        # 1 bit per musical coin per level
                                        # (200 total). Bit (level-1)*8+idx
                                        # set on coinsanity pickup.
-ADDR_STATE_WRAM              = 0x009B  # wState (WRAM0 0xC09B) — main state machine
+ADDR_STATE_WRAM = 0x009B  # wState (WRAM0 0xC09B) — main state machine
                                        # value; 0x0C = ST_GAME_OVER (DeathLink trigger).
 COINS_PER_LEVEL = 8
 
@@ -255,6 +257,10 @@ class WL3Client(BizHawkClient):
         self._msg_queue:        list = []       # queued messages to display one at a time
         self._saved_pal7:      bytes = None    # saved BG palette 7 to restore after message
         self._loc_items:       dict = {}       # loc_id → {"item": name, "player": slot}
+        # Room debug logging — tracks (wLevel, wRoom, wObjectGroup) and prints
+        # whenever any of them changes. Toggled via /roomdebug client command.
+        self._room_debug:     bool  = False
+        self._prev_room_dbg: tuple = (None, None, None)
         self._trap_queue:      list = []       # pending ROM trap IDs waiting for a safe frame
         self._par_hints_sent:  set  = set()    # AP location IDs we've already par-hinted this session
         self._shown_hints:     set  = set()    # (item_id, loc_id, finder_slot) tuples we've already
@@ -409,14 +415,34 @@ class WL3Client(BizHawkClient):
         # Always read game state so we can detect chests even when disconnected.
         try:
             read_result = await read(ctx.bizhawk_ctx, [
-                (ADDR_LEVEL,      1, "System Bus"),   # wLevel
-                (ADDR_END_SCREEN, 1, "System Bus"),   # wLevelEndScreen
+                (ADDR_LEVEL,         1, "System Bus"),   # wLevel
+                (ADDR_END_SCREEN,    1, "System Bus"),   # wLevelEndScreen
+                (ADDR_ROOM,          1, "System Bus"),   # wRoom
+                (ADDR_OBJECT_GROUP,  1, "System Bus"),   # wObjectGroup
             ])
         except RequestFailedError:
             return
 
         w_level    = read_result[0][0]
         end_screen = read_result[1][0]
+        w_room     = read_result[2][0]
+        w_obj_grp  = read_result[3][0]
+
+        # Room debug logging (toggled via /roomdebug command). Logs each time
+        # the (level, room, group) tuple changes so we can identify which
+        # LevelRooms_*.room_NN the player just entered.
+        if self._room_debug:
+            cur = (w_level, w_room, w_obj_grp)
+            if cur != self._prev_room_dbg:
+                owlevel = (w_level >> 3) + 1   # decode wLevel into 1..25 overworld level index
+                if w_obj_grp >= 0x92:
+                    slot_n = w_obj_grp - 0x92
+                    grp_desc = f"enemizer slot {slot_n}"
+                else:
+                    grp_desc = "vanilla"
+                logger.info(f"[WL3 room] lvl=0x{w_level:02x}(owlevel={owlevel}) "
+                            f"room=0x{w_room:02x} wgid=0x{w_obj_grp:02x} ({grp_desc})")
+                self._prev_room_dbg = cur
 
         # Bit 7 is set immediately after the color byte is written (set 7, [wLevelEndScreen]),
         # so the live value is 0x81–0x84, not 0x01–0x04.  Mask it off for comparison.
@@ -527,6 +553,7 @@ class WL3Client(BizHawkClient):
             ctx.command_processor.commands["levels"] = lambda *_: self._show_unlocked_levels(ctx)
             ctx.command_processor.commands["skip"] = lambda *_: self._skip_messages()
             ctx.command_processor.commands["keys"] = lambda *_: self._show_keys()
+            ctx.command_processor.commands["roomdebug"] = lambda *_: self._toggle_room_debug()
             self._cmd_registered = True
 
         # ---- Seed _checked_locs from wOpenedChests on first server connection ----
@@ -839,6 +866,20 @@ class WL3Client(BizHawkClient):
         count = len(self._msg_queue)
         self._msg_queue.clear()
         logger.info(f"[WL3] Skipped {count} queued message(s).")
+
+    def _toggle_room_debug(self) -> None:
+        """Toggle room change logging. Called by /roomdebug command. Each
+        time wLevel / wRoom / wObjectGroup changes, prints a line with the
+        new values (decimal + hex). Use it to identify exactly which
+        LevelRooms_*.room_NN you're in when something looks wrong."""
+        self._room_debug = not self._room_debug
+        state = "ON" if self._room_debug else "OFF"
+        logger.info(f"[WL3] Room debug logging: {state}")
+        if self._room_debug:
+            logger.info("[WL3] Format: lvl=<dec>(owlevel=<n>) room=0x<hex> wgid=0x<hex> "
+                        "(vanilla|enemizer slot N)")
+            # Reset so the next poll always emits an initial line.
+            self._prev_room_dbg = (None, None, None)
 
     def _show_keys(self) -> None:
         """Print held keys grouped by level. Called by /keys command."""
