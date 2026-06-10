@@ -1,6 +1,6 @@
 # Big Coin Locations
 
-Click any image to enlarge.
+Click any image to enlarge. Coins marked by @lizzietwoshoes
 
 ## Quick jump
 
