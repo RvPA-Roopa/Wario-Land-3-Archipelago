@@ -1,10 +1,5 @@
 # Big Coin Locations
 
-Every level in *Wario Land 3* has **8 musical big coins** scattered through it.
-With `big_coinsanity: true` each coin is an Archipelago check, so the apworld
-needs you to be able to find them. The image for each level below shows all
-eight coin positions on a single map.
-
 Click any image to enlarge.
 
 ## Quick jump
