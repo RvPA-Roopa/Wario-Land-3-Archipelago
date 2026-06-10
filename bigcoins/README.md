@@ -1,6 +1,7 @@
 # Big Coin Locations
 
-Click any image to enlarge. Coins marked by @lizzietwoshoes
+Click any image to enlarge. 
+Maps originally created by J. J. W. Mezun for warioland3.com, modified by lizzietwshoes
 
 ## Quick jump
 
