@@ -871,7 +871,6 @@ def set_rules(world: "WL3World") -> None:
         chest_logic["Beneath the Waves"][red] = has_flippers_1
         chest_logic["Beneath the Waves"][green] = _c(has_flippers_1,_o(has_grab_1,_has("Yarn Form")))
         chest_logic["Beneath the Waves"][blue] = _c(has_flippers_1,_o(has_grab_1,_has("Fat Form")))
-        chest_logic["Above the Clouds"][blue] = _c(_has("Scissors"),_has("Full Moon Gong"),has_overalls_2,has_grab_1,can_jump_high)
         key_logic["The Volcano's Base"][red] = _o(_has("Truck Wheel"),_has("Flat Form"),can_fly)
         key_logic["A Town in Chaos"][green] = _c(_o(can_kill_frogs,has_grab_2),_o(_c(can_shake_screen, can_jump_high),can_bounce))
         key_logic["Above the Clouds"][red] = _o(_c(_has("High Jump Boots"),has_grab_1),can_bounce)
