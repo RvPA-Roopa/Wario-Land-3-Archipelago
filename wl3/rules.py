@@ -712,7 +712,7 @@ COIN_RULES: dict = {
         None,                                                                           #2
         _c(_has("Foot of Stone"),_has("High Jump Boots")),                              #3
         _has("Foot of Stone"),                                                          #4
-        _c(_has("Foot of Stone"),can_jump_high),                                        #5
+        _has("Foot of Stone"),                                                          #5
         _has("Spiked Helmet"),                                                          #6
         _has("Explosive Plunger Box"),                                                  #7
         _c(_has("Foot of Stone"),_o(can_bounce,_c(_has("High Jump Boots"),has_grab_1))),#8
