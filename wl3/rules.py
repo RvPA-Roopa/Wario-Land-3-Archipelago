@@ -848,6 +848,7 @@ def set_rules(world: "WL3World") -> None:
         coin_logic["Out of the Woods"][6] = _o(can_pound_cracked_blocks, _has("Garlic"))
         coin_logic["The Peaceful Village"][3] = _c(_o(_has("Flute"),can_jump_high),_o(_has("Zombie Form"),can_pound_cracked_blocks))
         coin_logic["The Vast Plain"][3] = _o(can_pound_cracked_blocks, _has("Zombie Form"))
+        coin_logic["Bank of the Wild River"][4] = _o(_has("Air Pump"),can_fly)
         coin_logic["The Tidal Coast"][5] = _c(has_grab_1, _o(has_flippers_2, _c(has_flippers_1, _o(_has("Spiked Helmet"), _has("Zombie Form"))), _c(_has("Zombie Form"), can_sink_in_water)))
         coin_logic["Desert Ruins"][2] = _c(_o(can_pound_solid_blocks, _has("Zombie Form")), _o(has_grab_1, can_jump_high), has_overalls_1)
         coin_logic["The Volcano's Base"][4] = None
