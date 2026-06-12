@@ -26,15 +26,22 @@ from .enemy_registry import (SLOT_0_PACKAGES, SLOT_1_PACKAGES,
 # ---------------------------------------------------------------------------
 ENEMIZER_GROUP_ID_BASE = 0x92
 SLOT_SIZE              = 64
-NUM_RANDOM_SLOTS       = 36
-NUM_TOTAL_SLOTS        = 83
-NUM_CUSTOM_SLOTS       = NUM_TOTAL_SLOTS - NUM_RANDOM_SLOTS   # = 47
+NUM_TOTAL_SLOTS        = 82
 TABLE_SIZE             = SLOT_SIZE * NUM_TOTAL_SLOTS
 
-# Random pool sub-split — must match tools/enemize.py.
-NUM_RANDOM_ANY_SLOTS = 26
-NUM_RANDOM_THROWABLE = {0: 4, 1: 1, 2: 5, 3: 0}
-assert NUM_RANDOM_ANY_SLOTS + sum(NUM_RANDOM_THROWABLE.values()) == NUM_RANDOM_SLOTS
+# Option B partition — each color's 21/20 slot bucket dispatches through
+# CommonObjects_<Color> so chest/key sprites keep their vanilla color
+# after enemy_group remap. Per-bucket layout: most slots "any-random",
+# 3 throwable-forced slots (one each for VRAM slots 0/1/2 — vanilla has
+# no slot-3 throwables) so throw-block rooms in any color can still
+# reach a throwable. Must match src/constants/object_constants.asm.
+ENEMIZER_BUCKET_COUNTS = [21, 21, 20, 20]   # [Grey, Red, Green, Blue]
+assert sum(ENEMIZER_BUCKET_COUNTS) == NUM_TOTAL_SLOTS
+ENEMIZER_BUCKET_BASES = [0,
+                         ENEMIZER_BUCKET_COUNTS[0],
+                         ENEMIZER_BUCKET_COUNTS[0] + ENEMIZER_BUCKET_COUNTS[1],
+                         ENEMIZER_BUCKET_COUNTS[0] + ENEMIZER_BUCKET_COUNTS[1] + ENEMIZER_BUCKET_COUNTS[2]]
+THROWABLE_VRAM_SLOTS_PER_BUCKET = (0, 1, 2)   # one throwable slot per bucket per VRAM slot
 
 DUMMY_OBJECT_DATA_ADDR = 0x43c3
 
@@ -79,60 +86,172 @@ SLOT_PACKAGES = {
 }
 
 
+def _encode_data_ptr(addr: int, target_slot: int, native_slot: int) -> int:
+    """Encode a data_ptr for the engine's spawn-time bit extraction.
+
+    Vanilla (native == target): return addr unchanged → engine reads
+    bit 7 == 0, takes vanilla path, tile_offset = 0.
+
+    Cross-slot (native != target): bit 15 set, bits 13-14 hold
+    (target - native) mod 4 as tile_offset_index, bits 0-12 hold
+    (addr - $4000). Engine extracts tile_offset = index × $40 and
+    applies it to every OAM tile_id with mod-256 wrap so a slot-0
+    enemy placed in VRAM 1 renders with the right tiles."""
+    if native_slot == target_slot:
+        return addr
+    offset_idx = (target_slot - native_slot) & 3
+    rel = (addr - 0x4000) & 0x1FFF
+    return rel | (offset_idx << 13) | 0x8000
+
+
+def _encode_gfx_ptr(addr: int, target_slot: int, native_slot: int) -> int:
+    """Encode a gfx_ptr — mirror of _encode_data_ptr's layout but the
+    bits 13-14 hold the SOURCE slot (so the engine's DecodeGfxSlot
+    picks the right "Enemy Gfx 1 Slot N" bank to decompress from).
+
+    Vanilla (native == target): return addr unchanged → engine reads
+    from BANK("Enemy Gfx 1 Slot {target+1}") as today."""
+    if native_slot == target_slot:
+        return addr
+    rel = (addr - 0x4000) & 0x1FFF
+    return rel | (native_slot << 13) | 0x8000
+
+
 def _pick_random_per_slot(rng, fixed_slots: dict[int, dict],
-                          force_throwable_slot: int | None = None) -> list[dict]:
-    """Pick an enemy package per VRAM slot. fixed_slots maps slot_idx -> a
-    package dict (from a signature's protected slot); those slots are
-    returned as-is. If force_throwable_slot is set, that VRAM slot is
-    constrained to a throwable from THROWABLE_GFX_BY_SLOT[idx]."""
+                          force_throwable_slot: int | None = None,
+                          avoid_vanilla_gfx_addrs: tuple | None = None
+                          ) -> tuple[list[dict], list[int]]:
+    """Pick an enemy package per VRAM slot — native-only (no cross-slot).
+
+    fixed_slots maps slot_idx -> a package dict (from a sig's protected
+    slot); those slots are returned as-is.
+
+    force_throwable_slot: if VRAM slot i needs a throwable (for a
+    throw-block room), it's constrained to a throwable from
+    THROWABLE_GFX_BY_SLOT[i].
+
+    avoid_vanilla_gfx_addrs[i] is the vanilla room's gfx_addr for VRAM
+    slot i; when provided, slot i's random pool excludes packages with
+    that gfx_addr (falls back to full pool if non-vanilla pool < 2)."""
     chosen: list[Any] = [None, None, None, None]
+    native_slots: list[int] = [0, 1, 2, 3]
     for i in range(4):
         chosen[i] = fixed_slots.get(i)
 
-    def names_for(slot_idx: int) -> list[str]:
-        avail = sorted(SLOT_PACKAGES[slot_idx].keys())
-        if force_throwable_slot == slot_idx:
-            avail = [n for n in avail
-                     if n in THROWABLE_GFX_BY_SLOT.get(slot_idx, set())]
-        return avail
+    def random_pool(slot_idx: int) -> list[tuple[int, str]]:
+        """Cross-slot pool for non-throwable, non-protected slots —
+        UNION of enemies from all 4 native slots. Engine routes the gfx
+        bank via DecodeGfxSlot and applies tile_offset per the
+        data_ptr/gfx_ptr encoding. Per-tile gfx-size measurement showed
+        ALL 101 enemy gfx fit in the $40-tile VRAM budget, so cross-
+        slot shouldn't garble sprites by overflow — the earlier
+        "BrrrBear garbled" symptom was probably the hidden_blocks
+        memory corruption we've since fixed."""
+        candidates: list[tuple[int, str]] = []
+        for native in range(4):
+            for name in sorted(SLOT_PACKAGES[native].keys()):
+                candidates.append((native, name))
+        if avoid_vanilla_gfx_addrs is not None:
+            vanilla = avoid_vanilla_gfx_addrs[slot_idx]
+            if vanilla is not None:
+                non_match = [(ns, n) for ns, n in candidates
+                             if SLOT_PACKAGES[ns][n]["gfx_addr"] != vanilla]
+                if len(non_match) >= 2:
+                    candidates = non_match
+        return candidates
 
+    def throwable_pool(slot_idx: int) -> list[tuple[int, str]]:
+        """Cross-slot throwable pool — UNION of throwables from all
+        non-target native slots. Throw-block rooms typically have a
+        slot-N-native throwable in VRAM slot N (e.g. Spearhead/Silky in
+        VRAM 0); excluding the target's native throwables guarantees the
+        post-randomization throwable is visibly different from vanilla.
+        Falls back to including target-native if pool would otherwise be
+        empty (shouldn't happen with 6+ non-native throwables but safe)."""
+        candidates: list[tuple[int, str]] = []
+        for native, throw_names in THROWABLE_GFX_BY_SLOT.items():
+            if native == slot_idx:
+                continue   # skip same-slot natives → force cross-slot
+            for name in sorted(throw_names):
+                if name in SLOT_PACKAGES[native]:
+                    candidates.append((native, name))
+        if not candidates:
+            # Fallback: include target-native if the cross-slot pool is
+            # empty (would only happen with extreme registry exclusions).
+            for name in sorted(THROWABLE_GFX_BY_SLOT.get(slot_idx, set())):
+                if name in SLOT_PACKAGES[slot_idx]:
+                    candidates.append((slot_idx, name))
+        # Optional soft avoid_vanilla (sig context). Throwable any-random
+        # slots don't pass this, but custom-slot tb routes do.
+        if avoid_vanilla_gfx_addrs is not None:
+            vanilla = avoid_vanilla_gfx_addrs[slot_idx]
+            if vanilla is not None:
+                non_match = [(ns, n) for ns, n in candidates
+                             if SLOT_PACKAGES[ns][n]["gfx_addr"] != vanilla]
+                if len(non_match) >= 2:
+                    candidates = non_match
+        return candidates
+
+    # All slot picks now go through cross-slot pools (random_pool for
+    # generic picks, throwable_pool for tb_slot constraints). PAIRED_GFX
+    # filtering is preserved in case Sun/Moon ever return to the registry.
     # Slot 0
     if chosen[0] is None:
-        names = names_for(0)
-        if chosen[1] is not None:
-            names = [n for n in names if n not in PAIRED_GFX]
-        name0 = rng.choice(names)
-        chosen[0] = SLOT_PACKAGES[0][name0]
+        if force_throwable_slot == 0:
+            pool = throwable_pool(0)
+        else:
+            pool = random_pool(0)
+            if chosen[1] is not None:
+                pool = [(ns, n) for ns, n in pool if n not in PAIRED_GFX]
+        native_slots[0], name0 = rng.choice(pool)
+        chosen[0] = SLOT_PACKAGES[native_slots[0]][name0]
         name0_key = name0
     else:
         name0_key = None
 
     # Slot 1
     if chosen[1] is None:
-        if name0_key in PAIRED_GFX:
+        if force_throwable_slot == 1:
+            pool = throwable_pool(1)
+        elif name0_key in PAIRED_GFX:
             chosen[1] = SLOT_PACKAGES[1][PAIRED_GFX[name0_key]]
+            pool = None
         else:
-            names = [n for n in names_for(1) if n not in PAIRED_GFX_REVERSE]
-            chosen[1] = SLOT_PACKAGES[1][rng.choice(names)]
+            pool = [(ns, n) for ns, n in random_pool(1) if n not in PAIRED_GFX_REVERSE]
+        if pool is not None:
+            native_slots[1], name1 = rng.choice(pool)
+            chosen[1] = SLOT_PACKAGES[native_slots[1]][name1]
 
     # Slots 2 and 3
     for i in (2, 3):
         if chosen[i] is None:
-            chosen[i] = SLOT_PACKAGES[i][rng.choice(names_for(i))]
-    return chosen
+            if force_throwable_slot == i:
+                pool = throwable_pool(i)
+            else:
+                pool = random_pool(i)
+            native_slots[i], name = rng.choice(pool)
+            chosen[i] = SLOT_PACKAGES[native_slots[i]][name]
+    return chosen, native_slots
 
 
 def _emit_slot_bytes(chosen: list[dict],
                      target_data_counts: list[int],
-                     palette_lookup) -> bytes:
+                     palette_lookup,
+                     native_slots: list[int] | None = None) -> bytes:
+    if native_slots is None:
+        native_slots = [0, 1, 2, 3]
     out = bytearray()
     out.append(0x00)  # bank_offset
-    # 4 gfx ptrs
-    for pkg in chosen:
+    # 4 gfx ptrs — routed through _encode_gfx_ptr. For native picks
+    # (native_slots[i] == i) returns the addr unchanged so the byte
+    # sequence matches the pre-step-3 build exactly.
+    for i, pkg in enumerate(chosen):
         addr = pkg["gfx_addr"]
-        out.append(addr & 0xff)
-        out.append((addr >> 8) & 0xff)
-    # Data ptrs per slot, padded to target counts
+        enc = _encode_gfx_ptr(addr, target_slot=i, native_slot=native_slots[i])
+        out.append(enc & 0xff)
+        out.append((enc >> 8) & 0xff)
+    # Data ptrs per slot, padded — routed through _encode_data_ptr.
+    # Native picks → vanilla addr unchanged.
     for i, pkg in enumerate(chosen):
         target = target_data_counts[i]
         ptrs = list(pkg["data_addrs"])
@@ -140,9 +259,11 @@ def _emit_slot_bytes(chosen: list[dict],
             ptrs = ptrs[:target]
         while len(ptrs) < target:
             ptrs.append(DUMMY_OBJECT_DATA_ADDR)
+        native = native_slots[i]
         for addr in ptrs:
-            out.append(addr & 0xff)
-            out.append((addr >> 8) & 0xff)
+            enc = _encode_data_ptr(addr, target_slot=i, native_slot=native)
+            out.append(enc & 0xff)
+            out.append((enc >> 8) & 0xff)
     # NULL terminator
     out.extend(b"\xff\xff")
     # Palettes (4 × 8 bytes). No vanilla palette bytes ship with the
@@ -203,20 +324,39 @@ def _group_has_walkable_or_platform_gfx(rec: dict) -> bool:
 # Main entry point
 # ---------------------------------------------------------------------------
 def _compose_random_slot(rng, palette_lookup,
-                         force_throwable_slot: int | None = None) -> bytes:
-    chosen = _pick_random_per_slot(rng, fixed_slots={},
-                                   force_throwable_slot=force_throwable_slot)
-    return _emit_slot_bytes(
-        chosen, [len(pkg["data_addrs"]) for pkg in chosen], palette_lookup)
+                         force_throwable_slot: int | None = None
+                         ) -> tuple[bytes, tuple[int, int, int, int]]:
+    """Return (slot_bytes, gfx_addrs_tuple). The tuple lets the room
+    assignment step filter out slots whose VRAM-0 enemy matches the
+    room's vanilla VRAM-0 — implements the "don't roll vanilla in your
+    own room" rule (like palette shuffle clamping away from 0/1)."""
+    chosen, native_slots = _pick_random_per_slot(
+        rng, fixed_slots={}, force_throwable_slot=force_throwable_slot)
+    slot_bytes = _emit_slot_bytes(
+        chosen, [len(pkg["data_addrs"]) for pkg in chosen],
+        palette_lookup, native_slots=native_slots)
+    return slot_bytes, tuple(pkg["gfx_addr"] for pkg in chosen)
 
 
 def _compose_custom_slot(rng, sig: tuple, palette_lookup,
                          force_throwable_slot: int | None = None,
-                         rep_pal_offsets: list[int] | None = None) -> bytes:
-    """rep_pal_offsets[i] is the vanilla room's palette offset for slot i;
+                         rep_pal_offsets: list[int] | None = None,
+                         rep_vanilla_gfx_addrs: tuple | None = None
+                         ) -> tuple[bytes, tuple[int, int, int, int]]:
+    """Compose a custom slot that preserves the protected ("P") slots
+    from `sig` and randomizes the rest. Returns (slot_bytes,
+    gfx_addrs_tuple) — same shape as _compose_random_slot.
+
+    rep_pal_offsets[i] is the vanilla room's palette offset for slot i;
     when provided, unprotected slots use it instead of the picked enemy's
-    canonical palette — so randomized enemies pick up the room's palette
-    context instead of looking out-of-place colored."""
+    canonical palette so randomized enemies pick up the room's palette
+    context instead of looking out-of-place colored.
+
+    rep_vanilla_gfx_addrs[i] is the representative vanilla gfx_addr for
+    each VRAM slot. When provided, unprotected slots actively pick a
+    random enemy whose gfx_addr DIFFERS from vanilla so the custom slot
+    visibly differs from the room's vanilla bundle.
+    """
     fixed: dict[int, dict] = {}
     data_counts = []
     for i, part in enumerate(sig):
@@ -230,152 +370,238 @@ def _compose_custom_slot(rng, sig: tuple, palette_lookup,
             data_counts.append(cnt)
         else:
             data_counts.append(part[1])
-    chosen = _pick_random_per_slot(rng, fixed,
-                                   force_throwable_slot=force_throwable_slot)
+    chosen, native_slots = _pick_random_per_slot(
+        rng, fixed,
+        force_throwable_slot=force_throwable_slot,
+        avoid_vanilla_gfx_addrs=rep_vanilla_gfx_addrs)
     if rep_pal_offsets is not None:
         for i in range(4):
             if sig[i][0] == "U" and rep_pal_offsets[i]:
                 chosen[i] = dict(chosen[i])
                 chosen[i]["palette_offset"] = rep_pal_offsets[i]
-    return _emit_slot_bytes(chosen, data_counts, palette_lookup)
+    slot_bytes = _emit_slot_bytes(chosen, data_counts, palette_lookup,
+                                  native_slots=native_slots)
+    return slot_bytes, tuple(pkg["gfx_addr"] for pkg in chosen)
 
 
 def generate_patch_writes(rng, palette_lookup
                           ) -> list[tuple[int, bytes]]:
     """Return list of (rom_offset, bytes) writes for the enemizer.
 
-    Mirrors tools/enemize.py main(): random pool sub-split (most slots
-    are "any"; small per-VRAM-slot pools force a throwable for throw-
-    block room routing), regular custom slots per protection signature,
-    plus extra custom slots keyed by (sig, throwable_slot) so throw-
-    block rooms with protected groups also keep their solvability.
+    Option B v2: each color bucket independently runs the original
+    enemizer's any-random + throwable + custom-slot scheme. The 21 (or
+    20) slots per bucket are filled in this order:
+      1. K custom slots — one per (sig, tb_slot) throw-block combo that
+         appears in this color, then one per most-used signature
+         remaining, until the budget runs out.
+      2. 3 throwable any-random slots (VRAM 0/1/2).
+      3. Remaining = any-random fill.
+
+    Custom slots preserve the sig's protected VRAM slots verbatim
+    (Futamogu stepping stones, ClearGate progression blocks, etc.) and
+    randomize the unprotected slots — so a room with one Futamogu out of
+    4 enemies still gets fresh enemies in 3 of its 4 slots instead of
+    being skipped to vanilla like Option B v1 did.
+
+    Room routing:
+      - boss → vanilla
+      - sig + tb_slot has a matching (sig, tb_slot) custom → that slot
+      - sig has a regular custom → that slot
+      - sig has neither (budget overflowed) → vanilla
+      - no sig + tb_slot has throwable slot in color → throwable slot
+      - no sig → any-random in color (preferring non-vanilla VRAM-0)
     """
     groups = enemizer_data.OBJECT_GROUPS
     wgid_to_real = enemizer_data.WGID_TO_REAL_GID
-    rooms = enemizer_data.ROOM_OFFSETS  # list of (eg_off, wgid, throwable_slot)
+    wgid_to_color = enemizer_data.WGID_TO_COMMON_OBJECTS_COLOR
+    rooms = enemizer_data.ROOM_OFFSETS
 
-    # Bucket rooms by REAL ObjectGroupXX id (after dispatch translation).
-    rooms_per_real_gid: dict[int, list[int]] = {}
-    for eg_off, wgid, _ in rooms:
-        real_id = wgid_to_real.get(wgid)
-        if real_id is not None:
-            rooms_per_real_gid.setdefault(real_id, []).append(eg_off)
-
-    # Build signature -> real gids. Also remember the first group's
-    # palette offsets per sig — used as the representative vanilla room
-    # palette for unprotected slots in custom slot composition.
-    sig_to_real_gids: "OrderedDict[tuple, list[int]]" = OrderedDict()
-    sig_to_rep_pal_offs: dict[tuple, list[int]] = {}
-    for gid, rec in groups.items():
-        sig = _group_signature(rec)
-        if sig is None:
-            continue
-        sig_to_real_gids.setdefault(sig, []).append(gid)
-        sig_to_rep_pal_offs.setdefault(sig, list(rec["palette_offsets"]))
-
-    # Collect (sig, throwable_slot) combos needed for throw-block rooms
-    # with protected groups. Skip cases where the desired slot is already
-    # signature-protected (the vanilla throwable is preserved verbatim).
-    throwblock_keys: dict[tuple[tuple, int], None] = OrderedDict()
+    # Partition rooms by their vanilla CommonObjects color so we can
+    # compute usage-by-sig per bucket and allocate independently.
+    rooms_per_color: list[list[tuple[int, int, int | None]]] = [[], [], [], []]
     for eg_off, wgid, tb_slot in rooms:
-        if tb_slot is None:
-            continue
-        real_id = wgid_to_real.get(wgid)
-        if real_id is None or real_id not in groups:
-            continue
-        sig = _group_signature(groups[real_id])
-        if sig is None:
-            continue  # random-routed; handled by random sub-pool
-        if sig[tb_slot][0] == "P":
-            continue  # already preserved by signature
-        throwblock_keys[(sig, tb_slot)] = None
+        color = wgid_to_color.get(wgid)
+        if color is not None:
+            rooms_per_color[color].append((eg_off, wgid, tb_slot))
 
-    def usage(sig: tuple) -> int:
-        return sum(len(rooms_per_real_gid.get(gid, []))
-                   for gid in sig_to_real_gids[sig])
-    sigs_sorted = sorted(sig_to_real_gids.keys(), key=usage, reverse=True)
-
-    # Reserve throw-block customs first (solvability), fill the rest with
-    # regular sigs by usage.
-    reserved_tb = len(throwblock_keys)
-    regular_budget = max(0, NUM_CUSTOM_SLOTS - reserved_tb)
-    regular_sigs_to_emit = sigs_sorted[:regular_budget]
-
-    reg_custom_base = ENEMIZER_GROUP_ID_BASE + NUM_RANDOM_SLOTS
-    tb_custom_base  = reg_custom_base + len(regular_sigs_to_emit)
-
-    real_gid_to_regular_id: dict[int, int] = {}
-    for slot_idx, sig in enumerate(regular_sigs_to_emit):
-        cid = reg_custom_base + slot_idx
-        for gid in sig_to_real_gids[sig]:
-            real_gid_to_regular_id[gid] = cid
-    wgid_to_regular_id = {
-        wgid: real_gid_to_regular_id[real]
-        for wgid, real in wgid_to_real.items()
-        if real in real_gid_to_regular_id
-    }
-    tb_key_to_id: dict[tuple[tuple, int], int] = {}
-    for idx, key in enumerate(throwblock_keys.keys()):
-        tb_key_to_id[key] = tb_custom_base + idx
-
-    # Compose the EnemizerGroups table:
-    #   1. Any-random slots
-    #   2. Throwable-forced random slots (per VRAM slot)
-    #   3. Regular custom slots
-    #   4. Throw-block custom slots
     composed = bytearray()
-    for _ in range(NUM_RANDOM_ANY_SLOTS):
-        composed.extend(_compose_random_slot(rng, palette_lookup))
-    for vram_slot in (0, 1, 2, 3):
-        for _ in range(NUM_RANDOM_THROWABLE[vram_slot]):
-            composed.extend(_compose_random_slot(rng, palette_lookup,
-                                                 force_throwable_slot=vram_slot))
-    for sig in regular_sigs_to_emit:
-        composed.extend(_compose_custom_slot(rng, sig, palette_lookup))
-    for (sig, tb_slot) in throwblock_keys.keys():
-        composed.extend(_compose_custom_slot(
-            rng, sig, palette_lookup, force_throwable_slot=tb_slot))
-    while len(composed) < TABLE_SIZE:
-        composed.extend(_compose_random_slot(rng, palette_lookup))
-    assert len(composed) == TABLE_SIZE
+    slot_gfx_addrs: list[tuple[int, int, int, int]] = [None] * NUM_TOTAL_SLOTS
+    writes: list[tuple[int, bytes]] = []
 
-    writes: list[tuple[int, bytes]] = [
-        (enemizer_data.ENEMIZER_GROUPS_OFFSET, bytes(composed)),
-    ]
+    NUM_THROWABLE_PER_BUCKET = len(THROWABLE_VRAM_SLOTS_PER_BUCKET)
 
-    # Random pool ID ranges for routing.
-    any_pool = range(0, NUM_RANDOM_ANY_SLOTS)
-    throwable_pool: dict[int, range] = {}
-    cursor = NUM_RANDOM_ANY_SLOTS
-    for vs in (0, 1, 2, 3):
-        cnt = NUM_RANDOM_THROWABLE[vs]
-        throwable_pool[vs] = range(cursor, cursor + cnt)
-        cursor += cnt
+    for color in range(4):
+        bucket_base = ENEMIZER_BUCKET_BASES[color]
+        bucket_size = ENEMIZER_BUCKET_COUNTS[color]
+        color_rooms = rooms_per_color[color]
 
-    def pick_random_slot_id(force_slot: int | None) -> int:
-        if force_slot is not None and len(throwable_pool[force_slot]) > 0:
-            rel = rng.choice(list(throwable_pool[force_slot]))
-        else:
-            rel = rng.choice(list(any_pool))
-        return ENEMIZER_GROUP_ID_BASE + rel
+        # ---- Build per-color usage map ----
+        # For each ObjectGroup id (real_id) that any room of this color
+        # uses, count rooms. Then group by signature.
+        rooms_per_real_gid: dict[int, list[int]] = {}
+        for eg_off, wgid, _ in color_rooms:
+            real_id = wgid_to_real.get(wgid)
+            if real_id is not None:
+                rooms_per_real_gid.setdefault(real_id, []).append(eg_off)
 
-    # Patch each room's enemy_group byte.
-    for eg_off, wgid, tb_slot in rooms:
-        real_id = wgid_to_real.get(wgid)
-        real_g = groups.get(real_id) if real_id is not None else None
-        if real_g is not None and real_g["bank_offset"] != 0:
-            continue   # boss → vanilla
-        sig = _group_signature(real_g) if real_g is not None else None
-        # Throw-block custom slot if available.
-        if sig is not None and tb_slot is not None \
-                and (sig, tb_slot) in tb_key_to_id:
-            new = tb_key_to_id[(sig, tb_slot)]
-        elif wgid in wgid_to_regular_id:
-            new = wgid_to_regular_id[wgid]
-        elif sig is not None:
-            continue   # overflow protected → vanilla
-        else:
-            new = pick_random_slot_id(tb_slot)
-        writes.append((eg_off, bytes([new])))
+        # Sig dedup was attempted (commits earlier this session) but the
+        # max-count merge shifts data_ptr POSITIONS for rooms with
+        # smaller-count sigs: a room expecting position 4 = slot 3 ptr
+        # gets slot 2 ptr instead because the merged slot has an extra
+        # slot-2 entry between them. Crashes the room.
+        # Restoring 1-sig-per-slot allocation.
+        sig_to_real_gids: "OrderedDict[tuple, list[int]]" = OrderedDict()
+        sig_to_rep_pal_offs: dict[tuple, list[int]] = {}
+        sig_to_rep_gfx_addrs: dict[tuple, tuple] = {}
+        for gid in rooms_per_real_gid:
+            rec = groups.get(gid)
+            if rec is None:
+                continue
+            sig = _group_signature(rec)
+            if sig is None:
+                continue
+            sig_to_real_gids.setdefault(sig, []).append(gid)
+            sig_to_rep_pal_offs.setdefault(sig, list(rec["palette_offsets"]))
+            sig_to_rep_gfx_addrs.setdefault(sig, tuple(rec["gfx_addrs"]))
 
+        # Throw-block (sig, tb_slot) combos that appear in this color and
+        # need a custom-throwable slot to keep solvability.
+        throwblock_keys: dict[tuple[tuple, int], None] = OrderedDict()
+        for eg_off, wgid, tb_slot in color_rooms:
+            if tb_slot is None:
+                continue
+            real_id = wgid_to_real.get(wgid)
+            if real_id is None or real_id not in groups:
+                continue
+            sig = _group_signature(groups[real_id])
+            if sig is None:
+                continue  # routed through plain throwable slot, not custom
+            if sig[tb_slot][0] == "P":
+                continue  # vanilla already has the throwable in that slot
+            throwblock_keys[(sig, tb_slot)] = None
+
+        def sig_usage(sig: tuple) -> int:
+            return sum(len(rooms_per_real_gid.get(gid, []))
+                       for gid in sig_to_real_gids[sig])
+        sigs_sorted = sorted(sig_to_real_gids.keys(), key=sig_usage, reverse=True)
+
+        # ---- Allocate this bucket's slots ----
+        # Always reserve 3 throwable slots at the end.
+        custom_budget = bucket_size - NUM_THROWABLE_PER_BUCKET
+        # Tb-keys first (solvability priority), then regular sigs by
+        # usage, until budget is exhausted. Reserve 1 slot minimum for
+        # any-random so unprotected rooms in this color always have a
+        # destination.
+        max_customs = max(0, custom_budget - 1)
+        tb_keys_to_emit = list(throwblock_keys.keys())[:max_customs]
+        remaining = max_customs - len(tb_keys_to_emit)
+        regular_sigs_to_emit = sigs_sorted[:remaining]
+        num_any = bucket_size - NUM_THROWABLE_PER_BUCKET \
+                  - len(tb_keys_to_emit) - len(regular_sigs_to_emit)
+        assert num_any >= 1, f"color {color}: no any-random slots left"
+
+        # Compose in this layout order:
+        #   [any-random × num_any] [regular custom × N] [tb custom × M]
+        #   [throwable × 3 (VRAM 0/1/2)]
+        slot_idx = bucket_base
+        any_pool: list[int] = []
+        for _ in range(num_any):
+            slot_bytes, gfx_sig = _compose_random_slot(rng, palette_lookup)
+            composed.extend(slot_bytes)
+            slot_gfx_addrs[slot_idx] = gfx_sig
+            any_pool.append(slot_idx)
+            slot_idx += 1
+
+        sig_to_regular_id: dict[tuple, int] = {}
+        for sig in regular_sigs_to_emit:
+            slot_bytes, gfx_sig = _compose_custom_slot(
+                rng, sig, palette_lookup,
+                rep_pal_offsets=sig_to_rep_pal_offs[sig],
+                rep_vanilla_gfx_addrs=sig_to_rep_gfx_addrs[sig])
+            composed.extend(slot_bytes)
+            slot_gfx_addrs[slot_idx] = gfx_sig
+            sig_to_regular_id[sig] = slot_idx
+            slot_idx += 1
+
+        tb_key_to_id: dict[tuple[tuple, int], int] = {}
+        for (sig, tb_slot) in tb_keys_to_emit:
+            slot_bytes, gfx_sig = _compose_custom_slot(
+                rng, sig, palette_lookup,
+                force_throwable_slot=tb_slot,
+                rep_pal_offsets=sig_to_rep_pal_offs[sig],
+                rep_vanilla_gfx_addrs=sig_to_rep_gfx_addrs[sig])
+            composed.extend(slot_bytes)
+            slot_gfx_addrs[slot_idx] = gfx_sig
+            tb_key_to_id[(sig, tb_slot)] = slot_idx
+            slot_idx += 1
+
+        throwable_by_vram: dict[int, int] = {}
+        for vs in THROWABLE_VRAM_SLOTS_PER_BUCKET:
+            slot_bytes, gfx_sig = _compose_random_slot(
+                rng, palette_lookup, force_throwable_slot=vs)
+            composed.extend(slot_bytes)
+            slot_gfx_addrs[slot_idx] = gfx_sig
+            throwable_by_vram[vs] = slot_idx
+            slot_idx += 1
+
+        assert slot_idx == bucket_base + bucket_size, \
+            f"color {color}: composed {slot_idx - bucket_base} slots, expected {bucket_size}"
+
+        # Build wgid → regular_id mapping for this color.
+        wgid_to_regular_id: dict[int, int] = {}
+        for sig, custom_id in sig_to_regular_id.items():
+            for gid in sig_to_real_gids[sig]:
+                # Multiple wgids can map to the same real_id (color-
+                # specific aliasing); only patch the ones whose color
+                # actually matches this bucket.
+                for wgid, real in wgid_to_real.items():
+                    if real == gid and wgid_to_color.get(wgid) == color:
+                        wgid_to_regular_id[wgid] = custom_id
+
+        # ---- Patch room enemy_group bytes for this color ----
+        for eg_off, wgid, tb_slot in color_rooms:
+            real_id = wgid_to_real.get(wgid)
+            real_g = groups.get(real_id) if real_id is not None else None
+            if real_g is not None and real_g["bank_offset"] != 0:
+                continue   # boss → vanilla
+            # Specific gfx that require WHOLE-group vanilla preservation
+            # (per-slot sig protection isn't enough). Futamogu stepping
+            # stones, BigLeaf, etc. work fine with sig protection, but
+            # ZipLine specifically needs all 4 slots untouched — its rail
+            # spawn / cable BG references break when neighbouring slots
+            # get swapped. Add more gfx here if testing reveals others
+            # in the same class.
+            FORCE_VANILLA_GFX = {0x5d9b}   # ZipLineGfx
+            if real_g is not None:
+                gfx_addrs = set(real_g.get("gfx_addrs", []))
+                if gfx_addrs & FORCE_VANILLA_GFX:
+                    continue
+            sig = _group_signature(real_g) if real_g is not None else None
+
+            if sig is not None and tb_slot is not None \
+                    and (sig, tb_slot) in tb_key_to_id:
+                slot = tb_key_to_id[(sig, tb_slot)]
+            elif wgid in wgid_to_regular_id:
+                slot = wgid_to_regular_id[wgid]
+            elif sig is not None:
+                continue   # sig didn't fit in budget → vanilla
+            elif tb_slot is not None and tb_slot in throwable_by_vram:
+                slot = throwable_by_vram[tb_slot]
+            else:
+                # Unprotected, no throw-block: pick any-random, prefer
+                # one whose VRAM-0 gfx doesn't match this room's vanilla.
+                vanilla_gfx_addrs = tuple(real_g["gfx_addrs"]) if real_g else ()
+                vanilla_v0 = vanilla_gfx_addrs[0] if vanilla_gfx_addrs else None
+                candidates = list(any_pool)
+                if vanilla_v0 is not None:
+                    non_match = [s for s in candidates
+                                 if slot_gfx_addrs[s][0] != vanilla_v0]
+                    if non_match:
+                        candidates = non_match
+                slot = rng.choice(candidates)
+            writes.append((eg_off, bytes([ENEMIZER_GROUP_ID_BASE + slot])))
+
+    assert len(composed) == TABLE_SIZE, \
+        f"composed {len(composed)} bytes, expected {TABLE_SIZE}"
+    writes.insert(0, (enemizer_data.ENEMIZER_GROUPS_OFFSET, bytes(composed)))
     return writes

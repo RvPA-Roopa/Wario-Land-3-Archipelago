@@ -105,7 +105,7 @@ Have fun!! You will run into bugs, as this game is in a testing phase currently.
 | **Key Shuffle** | Whether keys are in their vanilla positions, or shuffled among the item pool |
 | **Keyring Count** | Number of levels (0–25) whose 4 keys are replaced by a single Keyring item; forces Key Shuffle = Full when above 0 |
 | **Transformation Shuffle** | Shuffle transformation abilities (Zombie, Vampire, Fire, etc.) as items — must find each Form item to use that transformation |
-| **Big Coinsanity** | Adds 200 big-coin (musical coin) location checks — 8 per level — to the pool |
+| **Big Coinsanity** | Adds 200 big-coin (musical coin) location checks — 8 per level — to the pool. See [bigcoins/](bigcoins/) for maps of every coin position in every level. |
 | **Golf Price** | Vanilla / Cheap / Free mini-game pricing |
 | **Golf Building** | Whether the Golf Building requires all 7 crayons or is always open (always free to play) |
 | **I Hate Golf** | Auto-wins each golf mini-game the moment it starts (does not work with the Golf Building) |
