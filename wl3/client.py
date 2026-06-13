@@ -261,6 +261,11 @@ class WL3Client(BizHawkClient):
         # whenever any of them changes. Toggled via /roomdebug client command.
         self._room_debug:     bool  = False
         self._prev_room_dbg: tuple = (None, None, None)
+        # Tracker debug logging — prints each "Set" published to DataStorage
+        # by _publish_current_level. The DataStorage publish itself always
+        # runs (the tracker keys keep updating regardless); this flag only
+        # gates the user-visible log line. Toggled via /debugtracker.
+        self._tracker_debug:  bool  = False
         self._trap_queue:      list = []       # pending ROM trap IDs waiting for a safe frame
         self._par_hints_sent:  set  = set()    # AP location IDs we've already par-hinted this session
         self._shown_hints:     set  = set()    # (item_id, loc_id, finder_slot) tuples we've already
@@ -554,6 +559,7 @@ class WL3Client(BizHawkClient):
             ctx.command_processor.commands["skip"] = lambda *_: self._skip_messages()
             ctx.command_processor.commands["keys"] = lambda *_: self._show_keys()
             ctx.command_processor.commands["roomdebug"] = lambda *_: self._toggle_room_debug()
+            ctx.command_processor.commands["debugtracker"] = lambda *_: self._toggle_tracker_debug()
             self._cmd_registered = True
 
         # ---- Seed _checked_locs from wOpenedChests on first server connection ----
@@ -893,6 +899,18 @@ class WL3Client(BizHawkClient):
             # Reset so the next poll always emits an initial line.
             self._prev_room_dbg = (None, None, None)
 
+    def _toggle_tracker_debug(self) -> None:
+        """Toggle the [WL3 tracker] console log line that fires whenever
+        _publish_current_level pushes a new value to AP DataStorage. The
+        DataStorage publish itself is ALWAYS on — PopTracker / generic AP
+        trackers need that key (`wl3_current_level_{slot}`) regardless —
+        this flag only gates the user-visible log line so it doesn't spam
+        the console during normal play. Use it to verify what level the
+        client thinks you're in when a tracker isn't auto-tabbing right."""
+        self._tracker_debug = not self._tracker_debug
+        state = "ON" if self._tracker_debug else "OFF"
+        logger.info(f"[WL3] Tracker debug logging: {state}")
+
     def _show_keys(self) -> None:
         """Print held keys grouped by level. Called by /keys command."""
         COLOR_NAMES = ["Grey", "Red", "Green", "Blue"]
@@ -1098,7 +1116,11 @@ class WL3Client(BizHawkClient):
                 "want_reply": False,
                 "operations": [{"operation": "replace", "value": level}],
             }])
-            logger.info(f"[WL3 tracker] {key} = {level}")
+            # Always publish the tracker key (autotabbing must keep working).
+            # Only emit the visible log line when /debugtracker is on so we
+            # don't spam the console for typical play sessions.
+            if self._tracker_debug:
+                logger.info(f"[WL3 tracker] {key} = {level}")
         except Exception:
             # never break the watcher loop on a publish error
             pass
