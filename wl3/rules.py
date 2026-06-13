@@ -29,7 +29,7 @@ from typing import TYPE_CHECKING, List
 from BaseClasses import CollectionState, LocationProgressType
 
 from .locations import COIN_LOCATION_TABLE, COLOR_NAMES, KEY_LOCATION_TABLE, LOCATION_TABLE
-from .options import (KeyShuffle, DifficultyOptions, MinorGlitches)
+from .options import (KeyShuffle, DifficultyOptions, MinorGlitches, Enemizer)
 
 if TYPE_CHECKING:
     from . import WL3World
@@ -145,6 +145,9 @@ def _o(*fns):
 
 def _has(item):
     return lambda s, p: has(item, s, p)
+
+def add_tf(location_dict, rule_id, *fns) -> None:
+    location_dict[rule_id] = _c(location_dict[rule_id], _o(*fns))
 
 # In-level change rule helpers
 has_storm_pouch  = _o(_has("Storm Pouch"), _c(_has("Pouch"), _has("Eye of the Storm")))
@@ -709,7 +712,7 @@ COIN_RULES: dict = {
         None,                                                                           #2
         _c(_has("Foot of Stone"),_has("High Jump Boots")),                              #3
         _has("Foot of Stone"),                                                          #4
-        _c(_has("Foot of Stone"),can_jump_high),                                        #5
+        _has("Foot of Stone"),                                                          #5
         _has("Spiked Helmet"),                                                          #6
         _has("Explosive Plunger Box"),                                                  #7
         _c(_has("Foot of Stone"),_o(can_bounce,_c(_has("High Jump Boots"),has_grab_1))),#8
@@ -845,6 +848,7 @@ def set_rules(world: "WL3World") -> None:
         coin_logic["Out of the Woods"][6] = _o(can_pound_cracked_blocks, _has("Garlic"))
         coin_logic["The Peaceful Village"][3] = _c(_o(_has("Flute"),can_jump_high),_o(_has("Zombie Form"),can_pound_cracked_blocks))
         coin_logic["The Vast Plain"][3] = _o(can_pound_cracked_blocks, _has("Zombie Form"))
+        coin_logic["Bank of the Wild River"][4] = _o(_has("Air Pump"),can_fly)
         coin_logic["The Tidal Coast"][5] = _c(has_grab_1, _o(has_flippers_2, _c(has_flippers_1, _o(_has("Spiked Helmet"), _has("Zombie Form"))), _c(_has("Zombie Form"), can_sink_in_water)))
         coin_logic["Desert Ruins"][2] = _c(_o(can_pound_solid_blocks, _has("Zombie Form")), _o(has_grab_1, can_jump_high), has_overalls_1)
         coin_logic["The Volcano's Base"][4] = None
@@ -857,7 +861,7 @@ def set_rules(world: "WL3World") -> None:
         coin_logic["The Grasslands"][0] = _o(_has("Flute"), can_fly, _has("High Jump Boots"))
         coin_logic["The Grasslands"][5] = _o(_has("Flute"), can_fly, _has("High Jump Boots"))
         coin_logic["The Big Bridge"][7] = _c(_o(has_flippers_1,has_grab_1),_o(_c(_has("Garlic"),_o(can_shake_screen,can_bounce)),can_fly))
-        coin_logic["Tower of Revival"][0] = _c(has_golden_eyes, _has("Garlic"), has_grab_2, _has("Spiked Helmet"), _has("Statue"), can_jump_high)
+        coin_logic["Tower of Revival"][0] = _c(has_golden_eyes, _has("Statue"), can_jump_high, _o(_c(_has("Garlic"), has_grab_2, _has("Spiked Helmet")), _has("Yarn Form")))
         coin_logic["Castle of Illusions"][1] = _o(_c(_o(_c(has_grab_1,has_sun_medallion),has_grab_2),_has("High Jump Boots")), can_bounce)
         coin_logic["Castle of Illusions"][2] = _o(_c(_o(_c(has_grab_1,has_sun_medallion),has_grab_2),can_shake_screen,_has("High Jump Boots")), can_bounce)  
         coin_logic["Castle of Illusions"][5] = _c(_o(_has("Castle Brick"), has_vampire_2), _o(has_grab_1, can_fly, _has("Zombie Form")))
@@ -868,7 +872,6 @@ def set_rules(world: "WL3World") -> None:
         chest_logic["Beneath the Waves"][red] = has_flippers_1
         chest_logic["Beneath the Waves"][green] = _c(has_flippers_1,_o(has_grab_1,_has("Yarn Form")))
         chest_logic["Beneath the Waves"][blue] = _c(has_flippers_1,_o(has_grab_1,_has("Fat Form")))
-        chest_logic["Above the Clouds"][blue] = _c(_has("Scissors"),_has("Full Moon Gong"),has_overalls_2,has_grab_1,can_jump_high)
         key_logic["The Volcano's Base"][red] = _o(_has("Truck Wheel"),_has("Flat Form"),can_fly)
         key_logic["A Town in Chaos"][green] = _c(_o(can_kill_frogs,has_grab_2),_o(_c(can_shake_screen, can_jump_high),can_bounce))
         key_logic["Above the Clouds"][red] = _o(_c(_has("High Jump Boots"),has_grab_1),can_bounce)
@@ -985,6 +988,174 @@ def set_rules(world: "WL3World") -> None:
         chest_logic["Beneath the Waves"][green] = _c(_o(has_flippers_1,_has("Flat Form")),_o(has_grab_1,_has("Yarn Form"),_c(_has("Flat Form"),_has("Spiked Helmet"))))
         chest_logic["Beneath the Waves"][blue] = _c(_o(has_flippers_1,_has("Flat Form")),_o(has_grab_1,_has("Fat Form")))
         
+    # Add Forms to certain check requirements if enemizer is turned on
+    if Enemizer:
+        add_tf(coin_logic["Out of the Woods"], 1, _has("Fire Form"), can_pound_solid_blocks)
+        add_tf(coin_logic["Out of the Woods"], 4, can_bounce)
+        add_tf(coin_logic["Out of the Woods"], 6, _has("Flat Form"))
+        add_tf(coin_logic["Out of the Woods"], 6, _has("Fat Form"), _has("Zombie Form"))
+        add_tf(chest_logic["The Peaceful Village"], red, _has("Fat Form"), _has("Zombie Form"))
+        add_tf(chest_logic["The Peaceful Village"], green, _has("Invisible Form"), can_fly)
+        add_tf(key_logic["The Peaceful Village"], grey, can_pound_solid_blocks, _has("Zombie Form"))
+        add_tf(key_logic["The Peaceful Village"], red, can_pound_solid_blocks, _has("Zombie Form"))
+        add_tf(coin_logic["The Peaceful Village"], 0, _has("Zombie Form"))
+        add_tf(coin_logic["The Peaceful Village"], 2, can_bounce)
+        add_tf(chest_logic["The Vast Plain"], grey, _has("Invisible Form"))
+        add_tf(chest_logic["The Vast Plain"], red, _has("Puffy Form"))
+        add_tf(chest_logic["The Vast Plain"], green, _has("Invisible Form"))
+        add_tf(chest_logic["The Vast Plain"], blue, _has("Invisible Form"))
+        add_tf(key_logic["The Vast Plain"], grey, _has("Invisible Form"))
+        add_tf(key_logic["The Vast Plain"], red, _has("Puffy Form")) # spiked helmet + flat form if easy glitches
+        add_tf(key_logic["The Vast Plain"], green, _has("Invisible Form"))
+        add_tf(key_logic["The Vast Plain"], blue, _has("Invisible Form"))
+        add_tf(coin_logic["The Vast Plain"], 1, _has("Invisible Form"))
+        add_tf(coin_logic["The Vast Plain"], 2, _c(_has("Invisible Form"), can_pass_spikes))
+        add_tf(coin_logic["The Vast Plain"], 3, _has("Puffy Form"))
+        add_tf(coin_logic["The Vast Plain"], 4, _has("Invisible Form"))
+        add_tf(coin_logic["The Vast Plain"], 5, _has("Invisible Form"))
+        add_tf(coin_logic["The Vast Plain"], 6, _c(_has("Invisible Form"), _o(_has("Zombie Form"), can_fly)))
+        add_tf(coin_logic["The Vast Plain"], 7, _c(_has("Invisible Form"), can_fly))
+        add_tf(chest_logic["Bank of the Wild River"], blue, _has("Fire Form"))
+        add_tf(key_logic["Bank of the Wild River"], blue, can_fly)
+        add_tf(coin_logic["Bank of the Wild River"], 0, can_fly) # remove if puffy spikes aren't randomized
+        add_tf(coin_logic["Bank of the Wild River"], 4, can_kill_frogs)
+        add_tf(coin_logic["Bank of the Wild River"], 5, _has("Fire Form"))
+        add_tf(coin_logic["Bank of the Wild River"], 7, _c(can_kill_frogs, can_fly)) # remove fly if bats aren't randomized
+        add_tf(chest_logic["The Tidal Coast"], grey, _has("Fire Form"))
+        add_tf(key_logic["The Tidal Coast"], grey, can_bounce) # garlic if knowledge checks
+        add_tf(coin_logic["The Tidal Coast"], 1, can_fly, _has("Flat Form"))
+        add_tf(coin_logic["The Tidal Coast"], 3, can_bounce)
+        add_tf(chest_logic["Sea Turtle Rocks"], red, _has("Fat Form"))
+        add_tf(key_logic["Sea Turtle Rocks"], red, _has("Fat Form"))
+        add_tf(chest_logic["Desert Ruins"], green, _has("Yarn Form"))
+        add_tf(chest_logic["Desert Ruins"], blue, can_fly) # remove if bats aren't randomized
+        add_tf(key_logic["Desert Ruins"], blue, can_fly) # remove if bats aren't randomized
+        add_tf(coin_logic["Desert Ruins"], 2, can_bounce) # remove if bats aren't randomized
+        add_tf(coin_logic["Desert Ruins"], 3, _has("Bouncy Form")) # remove if bats aren't randomized
+        add_tf(coin_logic["Desert Ruins"], 7, can_fly) # remove if bats aren't randomized
+        add_tf(coin_logic["The Volcano's Base"], 6, can_fly) # remove if bats aren't randomized
+        add_tf(coin_logic["The Volcano's Base"], 7, can_fly) # remove if bats aren't randomized
+        add_tf(coin_logic["The Pool of Rain"], 7, can_fly)
+        add_tf(chest_logic["The Pool of Rain"], blue, can_fly)
+        add_tf(chest_logic["A Town in Chaos"], red, _has("Zombie Form")) 
+        add_tf(chest_logic["A Town in Chaos"], green, can_fly) # remove if bats aren't randomized
+        add_tf(key_logic["A Town in Chaos"], green, _has("Fat Form"))
+        add_tf(coin_logic["A Town in Chaos"], 3, _has("Zombie Form")) # exception for can_bounce
+        add_tf(chest_logic["Beneath the Waves"], green, _has("Yarn Form"))
+        add_tf(chest_logic["Beneath the Waves"], blue, _has("Fat Form"))
+        add_tf(coin_logic["Beneath the Waves"], 4, can_pass_spikes, can_fly)
+        add_tf(coin_logic["Beneath the Waves"], 5, can_bounce)
+        add_tf(coin_logic["Beneath the Waves"], 6, can_bounce)
+        add_tf(coin_logic["Beneath the Waves"], 7, can_bounce)
+        add_tf(chest_logic["The West Crater"], grey, _has("Yarn Form"), _c(_has("Rust Spray"), can_pound_cracked_blocks))
+        add_tf(key_logic["The West Crater"], grey, _has("Fire Form"))
+        add_tf(coin_logic["The West Crater"], 0, can_bounce)
+        add_tf(coin_logic["The West Crater"], 1, _has("Yarn Form"), _c(_has("Rust Spray"), can_pound_cracked_blocks))
+        add_tf(coin_logic["The West Crater"], 3, _has("Fat Form"))
+        add_tf(chest_logic["The Grasslands"], blue, _has("Yarn Form"))
+        add_tf(key_logic["The Grasslands"], blue, can_bounce)
+        add_tf(coin_logic["The Grasslands"], 2, _has("Zombie Form"), can_fly) # remove if robots aren't randomized
+        add_tf(coin_logic["The Grasslands"], 6, can_bounce)
+        add_tf(coin_logic["The Big Bridge"], 4, has_flippers_2) # remove if bubbles aren't randomized
+        add_tf(coin_logic["The Big Bridge"], 6, can_fly) # remove if spiders aren't randomized
+        add_tf(coin_logic["The Big Bridge"], 7, can_fly) # remove if spiders aren't randomized
+        add_tf(chest_logic["Tower of Revival"], red, _c(_has("Fat Form"), _has("Fire Form"), _has("Zombie Form")))
+        add_tf(chest_logic["Tower of Revival"], blue, _c(_has("Flat Form"), _has("Yarn Form"))) # remove flat form if robots aren't randomized
+        add_tf(key_logic["Tower of Revival"], grey, can_fly)
+        add_tf(key_logic["Tower of Revival"], red, _c(_has("Fat Form"), _has("Fire Form"), _has("Zombie Form")))
+        add_tf(key_logic["Tower of Revival"], green, _has("Fat Form"))
+        add_tf(coin_logic["Tower of Revival"], 3, _has("Fat Form"))
+        add_tf(coin_logic["Tower of Revival"], 5, _has("Fat Form"))
+        add_tf(coin_logic["Tower of Revival"], 6, _c(_has("Fat Form"), _has("Fire Form"), _has("Zombie Form")))
+        add_tf(coin_logic["Tower of Revival"], 7, can_fly)
+        add_tf(chest_logic["The Steep Canyon"], red, can_fly)
+        add_tf(chest_logic["The Steep Canyon"], blue, _has("Fire Form")) # remove if fire isn't randomized, easy glitches exception
+        add_tf(key_logic["The Steep Canyon"], red, can_fly)
+        add_tf(key_logic["The Steep Canyon"], green, has_vampire_2) # remove if owls aren't randomized
+        add_tf(key_logic["The Steep Canyon"], blue, _has("Fire Form")) # remove if fire isn't randomized, easy glitches exception
+        add_tf(coin_logic["The Steep Canyon"], 2, can_fly)
+        add_tf(coin_logic["The Steep Canyon"], 3, has_vampire_2)
+        add_tf(coin_logic["The Steep Canyon"], 4, has_vampire_2)
+        add_tf(coin_logic["The Steep Canyon"], 6, _has("Fire Form")) # remove if fire isn't randomized, add easy glitches exception
+        add_tf(coin_logic["The Steep Canyon"], 7, _has("Fire Form")) # remove if fire isn't randomized
+        add_tf(chest_logic["Cave of Flames"], red, _c(can_bounce, _o(_has("Flat Form"), has_flippers_2), _has("Fat Form")))
+        add_tf(chest_logic["Cave of Flames"], green, _c(_o(_has("Invisible Form"), _has("Zombie Form")), _has("Fire Form"))) # remove if fire isn't randomized
+        add_tf(chest_logic["Cave of Flames"], blue, can_bounce)
+        add_tf(key_logic["Cave of Flames"], grey, _has("Fire Form")) # add easy glitches exception
+        add_tf(key_logic["Cave of Flames"], red, can_bounce)
+        add_tf(key_logic["Cave of Flames"], green, _has("Invisible Form"))
+        add_tf(key_logic["Cave of Flames"], blue, can_bounce)
+        add_tf(coin_logic["Cave of Flames"], 0, can_bounce)
+        add_tf(coin_logic["Cave of Flames"], 1, can_bounce)
+        add_tf(coin_logic["Cave of Flames"], 3, _c(can_bounce, _o(has_flippers_2, _has("Flat Form"))))
+        add_tf(coin_logic["Cave of Flames"], 4, can_bounce)
+        add_tf(coin_logic["Cave of Flames"], 5, can_bounce)
+        add_tf(coin_logic["Cave of Flames"], 6, can_bounce)
+        add_tf(coin_logic["Cave of Flames"], 7, can_bounce)
+        add_tf(chest_logic["Above the Clouds"], green, _has("Zombie Form"))
+        add_tf(coin_logic["Above the Clouds"], 6, _has("Zombie Form"))
+        add_tf(coin_logic["Above the Clouds"], 7, _has("Zombie Form"))
+        add_tf(chest_logic["The Stagnant Swamp"], blue, can_fly)
+        add_tf(key_logic["The Stagnant Swamp"], green, can_bounce)
+        add_tf(key_logic["The Stagnant Swamp"], blue, can_fly)
+        add_tf(coin_logic["The Stagnant Swamp"], 6, can_fly)
+        add_tf(coin_logic["The Stagnant Swamp"], 7, can_bounce)
+        add_tf(chest_logic["The Frigid Sea"], red, _has("Snowman Form")) # remove if snow drops aren't randomized
+        add_tf(key_logic["The Frigid Sea"], blue, _has("Snowman Form")) # remove if snow drops aren't randomized
+        add_tf(coin_logic["The Frigid Sea"], 2, _has("Snowman Form")) # remove if snow drops aren't randomized
+        add_tf(coin_logic["The Frigid Sea"], 7, _has("Snowman Form")) # remove if snow drops aren't randomized
+        add_tf(key_logic["Castle of Illusions"], red, can_bounce, has_grab_2)
+        add_tf(key_logic["Castle of Illusions"], green, can_bounce)
+        add_tf(key_logic["Castle of Illusions"], blue, has_vampire_2)
+        add_tf(coin_logic["Castle of Illusions"], 0, _has("Zombie Form"), can_fly)
+        add_tf(coin_logic["Castle of Illusions"], 1, can_bounce)
+        add_tf(coin_logic["Castle of Illusions"], 2, can_bounce, has_grab_2)
+        add_tf(coin_logic["Castle of Illusions"], 3, can_bounce)
+        add_tf(coin_logic["Castle of Illusions"], 4, can_bounce)
+        add_tf(coin_logic["Castle of Illusions"], 5, has_vampire_2)
+        add_tf(coin_logic["Castle of Illusions"], 6, has_vampire_2)
+        add_tf(coin_logic["Castle of Illusions"], 7, can_bounce)
+        add_tf(chest_logic["The Colossal Hole"], grey, can_fly) # change to high jump if owls aren't randomized
+        add_tf(chest_logic["The Colossal Hole"], red, _has("Flat Form")) # remove if robots aren't randomized
+        add_tf(chest_logic["The Colossal Hole"], green, _c(has_vampire_2, _o(_has("Fire Form"), _has("Zombie Form")))) # change to high jump if owls aren't randomized
+        add_tf(chest_logic["The Colossal Hole"], blue, can_fly) # change to high jump if owls aren't randomized
+        add_tf(key_logic["The Colossal Hole"], grey, can_fly) # change to high jump if owls aren't randomized
+        add_tf(key_logic["The Colossal Hole"], green, _c(has_vampire_2, _has("Fire Form"))) # change to high jump if owls aren't randomized
+        add_tf(key_logic["The Colossal Hole"], blue, can_fly) # change to high jump if owls aren't randomized
+        add_tf(coin_logic["The Colossal Hole"], 0, can_fly) # change to high jump if owls aren't randomized
+        add_tf(coin_logic["The Colossal Hole"], 1, has_vampire_2) # change to high jump if owls aren't randomized
+        add_tf(coin_logic["The Colossal Hole"], 2, can_fly) # change to high jump if owls aren't randomized
+        add_tf(coin_logic["The Colossal Hole"], 3, _has("Flat Form")) # remove if robots aren't randomized
+        add_tf(coin_logic["The Colossal Hole"], 4, can_fly) # change to high jump if owls aren't randomized, also check if bounce can get to platform
+        add_tf(coin_logic["The Colossal Hole"], 5, has_vampire_2) # change to high jump if owls aren't randomized
+        add_tf(coin_logic["The Colossal Hole"], 6, can_fly) # change to high jump if owls aren't randomized
+        add_tf(coin_logic["The Colossal Hole"], 7, _has("Flat Form")) # remove if robots aren't randomized
+        add_tf(key_logic["The Warped Void"], blue, _c(_has("Fat Form"), _has("Flat Form"))) # remove flat if robots aren't randomized
+        add_tf(coin_logic["The Warped Void"], 1, can_bounce)
+        add_tf(coin_logic["The Warped Void"], 4, _has("Flat Form")) # remove if robots aren't randomized
+        add_tf(chest_logic["The East Crater"], green, can_fly) # remove if bats aren't randomized
+        add_tf(chest_logic["The East Crater"], blue, can_jump_high) # could have been removed by knowledge check
+        add_tf(key_logic["The East Crater"], green, can_fly) # remove if bats aren't randomized
+        add_tf(key_logic["The East Crater"], blue, can_jump_high) # could have been removed by knowledge check
+        add_tf(coin_logic["The East Crater"], 0, can_fly)
+        add_tf(coin_logic["The East Crater"], 4, _has("Flat Form")) # remove if robots aren't randomized
+        add_tf(coin_logic["The East Crater"], 7, can_jump_high) # could have been removed by knowledge check
+        add_tf(chest_logic["Forest of Fear"], red, can_bounce)
+        add_tf(chest_logic["Forest of Fear"], blue, _has("Zombie Form"))
+        add_tf(key_logic["Forest of Fear"], red, can_bounce)
+        add_tf(key_logic["Forest of Fear"], green, can_fly)
+        add_tf(key_logic["Forest of Fear"], blue, can_pass_spikes)
+        add_tf(coin_logic["Forest of Fear"], 2, can_bounce)
+        add_tf(coin_logic["Forest of Fear"], 3, can_bounce)
+        add_tf(coin_logic["Forest of Fear"], 7, can_pass_spikes)
+
+        if difficulty >= knowledge_checks:
+            key_logic["The Peaceful Village"][grey] = _o(can_pound_solid_blocks, _has("Zombie Form"), _has("Garlic"))
+            coin_logic["The Peaceful Village"][0] = _o(_has("Zombie Form"), _has("Garlic"))
+    
+        # Certain spots only need to be changed if glitch logic is not All Glitches
+        if glitches < all_glitches:
+            key_logic["Out of the Woods"][green] = can_bounce
         
     # Override multi-item unlock predicates when combined mode is on
     level_rules = dict(LEVEL_RULES)
