@@ -147,7 +147,9 @@ def _has(item):
     return lambda s, p: has(item, s, p)
 
 def add_tf(location_dict, rule_id, *fns) -> None:
-    location_dict[rule_id] = _c(location_dict[rule_id], _o(*fns))
+    new = _o(*fns)
+    existing = location_dict[rule_id]
+    location_dict[rule_id] = new if existing is None else _c(existing, new)
 
 # In-level change rule helpers
 has_storm_pouch  = _o(_has("Storm Pouch"), _c(_has("Pouch"), _has("Eye of the Storm")))
@@ -1023,6 +1025,7 @@ def set_rules(world: "WL3World") -> None:
         add_tf(coin_logic["Bank of the Wild River"], 7, _c(can_kill_frogs, can_fly)) # remove fly if bats aren't randomized
         add_tf(chest_logic["The Tidal Coast"], grey, _has("Fire Form"))
         add_tf(key_logic["The Tidal Coast"], grey, can_bounce) # garlic if knowledge checks
+        add_tf(coin_logic["The Tidal Coast"], 0, can_bounce)
         add_tf(coin_logic["The Tidal Coast"], 1, can_fly, _has("Flat Form"))
         add_tf(coin_logic["The Tidal Coast"], 3, can_bounce)
         add_tf(chest_logic["Sea Turtle Rocks"], red, _has("Fat Form"))
