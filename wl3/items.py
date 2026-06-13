@@ -327,6 +327,16 @@ TRAP_ITEMS: Dict[str, WL3ItemData] = {
         classification=ItemClassification.trap,
         tier_ids=[0x05],  # TRAP_ICE_SKATE
     ),
+    "Darkness Trap": WL3ItemData(
+        ap_id=TRAP_BASE_ITEM_ID + 0x0F,
+        classification=ItemClassification.trap,
+        tier_ids=[0x0F],  # TRAP_DARKNESS — 5-second screen blackout
+    ),
+    "PERFECT Trap": WL3ItemData(
+        ap_id=TRAP_BASE_ITEM_ID + 0x10,
+        classification=ItemClassification.trap,
+        tier_ids=[0x10],  # TRAP_PERFECT — forced PERFECT screen + boot to overworld
+    ),
 }
 
 # Set of all trap AP IDs — used by _build_chest_assignments to force a

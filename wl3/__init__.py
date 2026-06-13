@@ -47,6 +47,7 @@ from Options import OptionGroup
 from .options import (WL3Options, MusicBoxShuffle, KeyShuffle, CombinedItems,
                       GolfPrice, GolfBuilding, IHateGolf,
                       StartWithMagnifyingGlass, ReduceFlashing, NonStopChests, TrapFill,
+                      TrapWeights, LocalFillPercent,
                       MusicShuffle, EnemyPaletteShuffle, LevelBGPaletteShuffle,
                       OverworldBGPaletteShuffle,
                       WarioPaletteShuffle, WarioColors,
@@ -181,7 +182,8 @@ class WL3WebWorld(WebWorld):
     option_groups = [
         OptionGroup("Quality of Life", [GolfPrice, GolfBuilding, IHateGolf,
                                        StartWithMagnifyingGlass, ReduceFlashing,
-                                       NonStopChests, TrapFill]),
+                                       NonStopChests, TrapFill, TrapWeights,
+                                       LocalFillPercent]),
         OptionGroup("Cosmetics", [MusicShuffle, OverworldBGPaletteShuffle,
                                   LevelBGPaletteShuffle, EnemyPaletteShuffle,
                                   WarioPaletteShuffle, WarioColors]),
@@ -246,6 +248,11 @@ class WL3World(World):
         return WL3Item(name, data.classification, data.ap_id, self.player)
 
     def generate_early(self) -> None:
+        # Filler items that rolled "stay local" in create_items — placed at
+        # random own-world locations by pre_fill below. List, not set,
+        # because we may keep duplicates.
+        self._local_filler_items: List[WL3Item] = []
+
         # Pick which levels get Keyring treatment. If keyring_count > 0, force
         # key_shuffle to Full so the non-keyringed levels' keys are still in
         # the pool and shuffled.
@@ -381,8 +388,18 @@ class WL3World(World):
 
         # Trap replacement: swap a % of filler items for random trap items.
         # Runs after key shuffle so keyring-padding fillers are also candidates.
+        # Trap Weights builds the pick pool — each trap name is repeated
+        # `weight` times so random.choice naturally picks proportionally.
+        # Weight 0 → excluded; if every trap weight is 0 the loop is a
+        # no-op (same end state as Trap Fill % = 0).
         trap_pct = int(self.options.trap_fill)
-        if trap_pct > 0 and TRAP_ITEMS:
+        weights = self.options.trap_weights.value
+        trap_names: list[str] = []
+        for n in TRAP_ITEMS.keys():
+            w = int(weights.get(n, 1))    # missing key → default weight 1
+            if w > 0:
+                trap_names.extend([n] * w)
+        if trap_pct > 0 and trap_names:
             filler_indices = [
                 i for i, it in enumerate(items)
                 if it.classification == ItemClassification.filler
@@ -390,10 +407,24 @@ class WL3World(World):
             num_traps = (len(filler_indices) * trap_pct + 50) // 100
             if num_traps > 0:
                 victim_indices = self.random.sample(filler_indices, num_traps)
-                trap_names = list(TRAP_ITEMS.keys())
                 for idx in victim_indices:
                     trap_name = self.random.choice(trap_names)
                     items[idx] = self.create_item(trap_name)
+
+        # Local Filler %: per-instance roll on each filler item — if it
+        # rolls local, set aside for pre_fill to place at a random
+        # own-world location instead of letting AP shuffle it across
+        # the multiworld. Same approach as papermario's LocalConsumables.
+        local_pct = int(self.options.local_fill_percent)
+        if local_pct > 0:
+            keep = []
+            for item in items:
+                if item.classification == ItemClassification.filler \
+                        and self.random.randint(1, 100) <= local_pct:
+                    self._local_filler_items.append(item)
+                else:
+                    keep.append(item)
+            items = keep
 
         self.multiworld.itempool += items
 
@@ -427,6 +458,32 @@ class WL3World(World):
                                KEY_ITEM_TABLE[key_item_name].ap_id, self.player)
                 loc.place_locked_item(item)
         # Full: keys are in the pool and placed freely by AP.
+
+        # Local Filler %: place the items we set aside in create_items at
+        # random EMPTY own-world locations. Empty = no locked item yet
+        # (so we don't clobber vanilla keys placed above) and no AP item
+        # event already assigned. Locations that don't fit are left for
+        # AP's normal fill — and any leftover local items spill back into
+        # the multiworld pool so generation can never fail from this.
+        if self._local_filler_items:
+            empty_locs = [
+                loc for loc in self.multiworld.get_locations(self.player)
+                if loc.item is None
+            ]
+            self.random.shuffle(empty_locs)
+            placed = 0
+            for loc in empty_locs:
+                if not self._local_filler_items:
+                    break
+                if not loc.can_fill(self.multiworld.state,
+                                    self._local_filler_items[-1], False):
+                    continue
+                loc.place_locked_item(self._local_filler_items.pop())
+                placed += 1
+            # Any local items we couldn't place return to the multiworld
+            # pool so the seed still generates.
+            self.multiworld.itempool += self._local_filler_items
+            self._local_filler_items = []
 
         mode = self.options.music_box_shuffle
         if mode == MusicBoxShuffle.option_any_boss:

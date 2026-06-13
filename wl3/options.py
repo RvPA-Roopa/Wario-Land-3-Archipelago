@@ -306,6 +306,33 @@ class TrapFill(Range):
     default     = 0
 
 
+class TrapWeights(OptionDict):
+    """Weighted option for traps. When a filler item is replaced with a trap, 
+    the chosen trap is picked from a weighted pool (i.e. 3 = 3x more).
+    """
+    display_name = "Trap Weights"
+    default = {
+        "Fire Trap":       1,
+        "Yarn Trap":       1,
+        "Bouncy Trap":     1,
+        "Electric Trap":   1,
+        "Ice Skate Trap":  1,
+        "Darkness Trap":   1,
+        "PERFECT Trap":    1,
+    }
+
+
+class LocalFillPercent(Range):
+    """Percentage of your filler items kept in your OWN world instead of
+    being shuffled into the multiworld. This helps by preventing other worlds
+    from being flooded with your filler items, particularly with "Big Coinsanity" on.
+    """
+    display_name = "Local Filler %"
+    range_start = 0
+    range_end   = 100
+    default     = 0
+
+
 class DeathLink(Toggle):
     """Send and receive deaths to/from other players. This will trigger the "Game Over" screen when you die, forcing you to restart the level. If Death Mode is set to "Grabs" or "Grabs and Golf", then certain enemy grabs or golf failures will also trigger deaths. You can still receive deaths from other players even if your own Death Mode is set to None.
     screen from being captured by Rudy. You can include "Death Mode" below to add more
@@ -366,6 +393,8 @@ class WL3Options(PerGameCommonOptions):
     enemizer:                     Enemizer
     hidden_passages_revealed:     HiddenPassagesRevealed
     trap_fill:                    TrapFill
+    trap_weights:                 TrapWeights
+    local_fill_percent:           LocalFillPercent
     death_link:                   DeathLink
     death_mode:                   DeathMode
     # Cosmetics
