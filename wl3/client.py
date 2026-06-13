@@ -679,7 +679,19 @@ class WL3Client(BizHawkClient):
                 self._prog_counts[ap_id] = self._prog_counts.get(ap_id, 0) + 1
             # silent=True on catch-up batch only suppresses trap dispatch;
             # idempotent bit-sets (treasures, keys, transforms) still apply.
-            await self._grant_item(ctx, ap_id, silent=is_catch_up)
+            # Own-world trap pickups are ALSO silenced — the ROM's offline
+            # TrapChestTable / TrapKeyTable / TrapCoinTable already fired
+            # the trap when the location was opened, so delivering it via
+            # the client too would fire it twice (very visible with
+            # PERFECT Trap; subtler but still wrong with Fire/Yarn/etc.).
+            # Server-issued traps (!getitem, hint resolutions, etc.) carry
+            # location <= 0 — those still need to be delivered live since
+            # there's no offline pickup to have already fired them.
+            is_own_trap = (ap_id in TRAP_AP_IDS
+                           and net_item.player == ctx.slot
+                           and net_item.location > 0)
+            await self._grant_item(ctx, ap_id,
+                                   silent=is_catch_up or is_own_trap)
             try:
                 item_name = ctx.item_names.lookup_in_game(ap_id) if ctx.item_names else f"ITEM {ap_id}"
                 sender = net_item.player
