@@ -12,6 +12,8 @@ Requirements to open each chest and reach each key, by level. The **With Enemize
 
 ### Out of the Woods
 
+**Entrance:** Always accessible
+
 | Slot | Chest | Key | With Enemizer (Chest) | With Enemizer (Key) |
 |---|---|---|---|---|
 | Grey | *(none)* | *(none)* |  |  |
@@ -31,6 +33,8 @@ Requirements to open each chest and reach each key, by level. The **With Enemize
 - Green key → *(none)*
 
 ### The Peaceful Village
+
+**Entrance:** Axe
 
 | Slot | Chest | Key | With Enemizer (Chest) | With Enemizer (Key) |
 |---|---|---|---|---|
@@ -54,6 +58,8 @@ Requirements to open each chest and reach each key, by level. The **With Enemize
 
 ### The Vast Plain
 
+**Entrance:** Axe
+
 | Slot | Chest | Key | With Enemizer (Chest) | With Enemizer (Key) |
 |---|---|---|---|---|
 | Grey | *(none)* | *(none)* | Invisible Form | Invisible Form |
@@ -67,6 +73,8 @@ Requirements to open each chest and reach each key, by level. The **With Enemize
 
 ### Bank of the Wild River
 
+**Entrance:** Blue Music Box
+
 | Slot | Chest | Key | With Enemizer (Chest) | With Enemizer (Key) |
 |---|---|---|---|---|
 | Grey | *(none)* | *(none)* |  |  |
@@ -79,6 +87,8 @@ Requirements to open each chest and reach each key, by level. The **With Enemize
 - Green key → Flippers 2 OR Flat Form
 
 ### The Tidal Coast
+
+**Entrance:** Blue Music Box
 
 | Slot | Chest | Key | With Enemizer (Chest) | With Enemizer (Key) |
 |---|---|---|---|---|
@@ -97,6 +107,8 @@ Requirements to open each chest and reach each key, by level. The **With Enemize
 
 ### Sea Turtle Rocks
 
+**Entrance:** Garlic
+
 | Slot | Chest | Key | With Enemizer (Chest) | With Enemizer (Key) |
 |---|---|---|---|---|
 | Grey | Spiked Helmet AND Flippers 1 AND Pound cracked blocks | Spiked Helmet AND Pound cracked blocks AND Flippers 1 |  |  |
@@ -111,6 +123,8 @@ Requirements to open each chest and reach each key, by level. The **With Enemize
 
 ### Desert Ruins
 
+**Entrance:** Blue Tablet AND Green Tablet *(Combined Items: Tablets)*
+
 | Slot | Chest | Key | With Enemizer (Chest) | With Enemizer (Key) |
 |---|---|---|---|---|
 | Grey | *(none)* | *(none)* |  |  |
@@ -123,6 +137,8 @@ Requirements to open each chest and reach each key, by level. The **With Enemize
 - Green key → (Spiked Helmet AND (Pound cracked blocks OR Flat Form)) OR Garlic
 
 ### The Volcano's Base
+
+**Entrance:** Top Half of Scroll AND Bottom Half of Scroll *(Combined Items: Scroll)*
 
 | Slot | Chest | Key | With Enemizer (Chest) | With Enemizer (Key) |
 |---|---|---|---|---|
@@ -140,6 +156,8 @@ Requirements to open each chest and reach each key, by level. The **With Enemize
 
 ### The Pool of Rain
 
+**Entrance:** Jar
+
 | Slot | Chest | Key | With Enemizer (Chest) | With Enemizer (Key) |
 |---|---|---|---|---|
 | Grey | Overalls 1 OR Bounce | Overalls 1 OR Bounce |  |  |
@@ -152,6 +170,8 @@ Requirements to open each chest and reach each key, by level. The **With Enemize
 - Blue key → (Flippers 1 OR Flat Form) AND Air Pump
 
 ### A Town in Chaos
+
+**Entrance:** Jar
 
 | Slot | Chest | Key | With Enemizer (Chest) | With Enemizer (Key) |
 |---|---|---|---|---|
@@ -168,6 +188,8 @@ Requirements to open each chest and reach each key, by level. The **With Enemize
 - Green key → (Grab 2 OR Kill frogs) AND (Shake screen OR Spiked Helmet OR Fly) AND High Jump Boots
 
 ### Beneath the Waves
+
+**Entrance:** Red Music Box
 
 | Slot | Chest | Key | With Enemizer (Chest) | With Enemizer (Key) |
 |---|---|---|---|---|
@@ -198,6 +220,8 @@ Requirements to open each chest and reach each key, by level. The **With Enemize
 
 ### The West Crater
 
+**Entrance:** Tusk Blue AND Tusk Red AND Green Flower *(Combined Items: Tusk Set)*
+
 | Slot | Chest | Key | With Enemizer (Chest) | With Enemizer (Key) |
 |---|---|---|---|---|
 | Grey | Pound cracked blocks OR Yarn Form | *(none)* | (Yarn Form OR (Rust Spray AND Pound cracked blocks)) | Fire Form |
@@ -206,6 +230,8 @@ Requirements to open each chest and reach each key, by level. The **With Enemize
 | Blue | Rust Spray | Rust Spray AND Grab 1 |  |  |
 
 ### The Grasslands
+
+**Entrance:** Gear 1 AND Gear 2 *(Combined Items: Gears)*
 
 | Slot | Chest | Key | With Enemizer (Chest) | With Enemizer (Key) |
 |---|---|---|---|---|
@@ -227,6 +253,8 @@ Requirements to open each chest and reach each key, by level. The **With Enemize
 - Blue key → *(none)*
 
 ### The Big Bridge
+
+**Entrance:** Yellow Music Box
 
 | Slot | Chest | Key | With Enemizer (Chest) | With Enemizer (Key) |
 |---|---|---|---|---|
@@ -252,6 +280,8 @@ Requirements to open each chest and reach each key, by level. The **With Enemize
 
 ### Tower of Revival
 
+**Entrance:** Skull Ring Red AND Skull Ring Blue *(Combined Items: Skull Ring)*
+
 | Slot | Chest | Key | With Enemizer (Chest) | With Enemizer (Key) |
 |---|---|---|---|---|
 | Grey | *(none)* | *(none)* |  | Fly |
@@ -263,6 +293,8 @@ Requirements to open each chest and reach each key, by level. The **With Enemize
 - Blue chest → Golden Eyes AND Statue AND Jump high AND ((Garlic AND Grab 2 AND Spiked Helmet) OR Yarn Form)
 
 ### The Steep Canyon
+
+**Entrance:** Trident AND Yellow Book *(Combined Items: Trident & Yellow Book)*
 
 | Slot | Chest | Key | With Enemizer (Chest) | With Enemizer (Key) |
 |---|---|---|---|---|
@@ -278,6 +310,8 @@ Requirements to open each chest and reach each key, by level. The **With Enemize
 - Blue key → Rust Spray AND (Pound cracked blocks OR Zombie Form OR (Flat Form AND Spiked Helmet))
 
 ### Cave of Flames
+
+**Entrance:** Green Music Box
 
 | Slot | Chest | Key | With Enemizer (Chest) | With Enemizer (Key) |
 |---|---|---|---|---|
@@ -295,6 +329,8 @@ Requirements to open each chest and reach each key, by level. The **With Enemize
 - Red key → *(none)*
 
 ### Above the Clouds
+
+**Entrance:** Sky Key
 
 | Slot | Chest | Key | With Enemizer (Chest) | With Enemizer (Key) |
 |---|---|---|---|---|
@@ -314,6 +350,8 @@ Requirements to open each chest and reach each key, by level. The **With Enemize
 
 ### The Stagnant Swamp
 
+**Entrance:** Ornamental Fan
+
 | Slot | Chest | Key | With Enemizer (Chest) | With Enemizer (Key) |
 |---|---|---|---|---|
 | Grey | *(none)* | *(none)* |  |  |
@@ -325,6 +363,8 @@ Requirements to open each chest and reach each key, by level. The **With Enemize
 - Red chest → Foot of Stone AND (Overalls 1 OR Bat OR (Flippers 2 AND High Jump Boots) OR (Flat Form AND Puffy Form))
 
 ### The Frigid Sea
+
+**Entrance:** Blue Book AND Magic Wand *(Combined Items: Blue Book & Magic Wand)*
 
 | Slot | Chest | Key | With Enemizer (Chest) | With Enemizer (Key) |
 |---|---|---|---|---|
@@ -344,6 +384,8 @@ Requirements to open each chest and reach each key, by level. The **With Enemize
 
 ### Castle of Illusions
 
+**Entrance:** Lantern AND Magical Flame *(Combined Items: Lantern & Magical Flame)*
+
 | Slot | Chest | Key | With Enemizer (Chest) | With Enemizer (Key) |
 |---|---|---|---|---|
 | Grey | Pound cracked blocks | Grab 1 OR Fly |  |  |
@@ -361,6 +403,8 @@ Requirements to open each chest and reach each key, by level. The **With Enemize
 
 ### The Colossal Hole
 
+**Entrance:** Tusk Blue AND Tusk Red AND Green Flower *(Combined Items: Tusk Set)*
+
 | Slot | Chest | Key | With Enemizer (Chest) | With Enemizer (Key) |
 |---|---|---|---|---|
 | Grey | *(none)* | *(none)* | Fly | Fly |
@@ -370,6 +414,8 @@ Requirements to open each chest and reach each key, by level. The **With Enemize
 
 ### The Warped Void
 
+**Entrance:** Warp Compact
+
 | Slot | Chest | Key | With Enemizer (Chest) | With Enemizer (Key) |
 |---|---|---|---|---|
 | Grey | *(none)* | Grab 1 |  |  |
@@ -378,6 +424,8 @@ Requirements to open each chest and reach each key, by level. The **With Enemize
 | Blue | (Key Cards AND Grab 1) OR (Warp Removal Apparatus AND Fly) | (Key Cards AND Grab 1) OR (Warp Removal Apparatus AND Fly) |  | Fat Form AND Flat Form |
 
 ### The East Crater
+
+**Entrance:** Treasure Map
 
 | Slot | Chest | Key | With Enemizer (Chest) | With Enemizer (Key) |
 |---|---|---|---|---|
@@ -401,6 +449,8 @@ Requirements to open each chest and reach each key, by level. The **With Enemize
 
 ### Forest of Fear
 
+**Entrance:** Torch
+
 | Slot | Chest | Key | With Enemizer (Chest) | With Enemizer (Key) |
 |---|---|---|---|---|
 | Grey | *(none)* | *(none)* |  |  |
@@ -413,6 +463,8 @@ Requirements to open each chest and reach each key, by level. The **With Enemize
 Requirements to reach each of the 8 musical big coins per level. **With Enemizer** column shows the extra requirement AND-ed on when Enemizer is on. Difficulty / glitches settings *replace* the base rule for the coins listed under each level — anything not listed keeps its base requirement.
 
 ### Out of the Woods
+
+**Entrance:** Always accessible
 
 | Coin | Requirement | With Enemizer |
 |---|---|---|
@@ -440,6 +492,8 @@ Requirements to reach each of the 8 musical big coins per level. **With Enemizer
 
 ### The Peaceful Village
 
+**Entrance:** Axe
+
 | Coin | Requirement | With Enemizer |
 |---|---|---|
 | #1 | *(none)* | Zombie Form |
@@ -462,6 +516,8 @@ Requirements to reach each of the 8 musical big coins per level. **With Enemizer
 
 ### The Vast Plain
 
+**Entrance:** Axe
+
 | Coin | Requirement | With Enemizer |
 |---|---|---|
 | #1 | Magic Seeds OR Puffy Form |  |
@@ -480,6 +536,8 @@ Requirements to reach each of the 8 musical big coins per level. **With Enemizer
 - Coin #5 → Flippers 1 OR Zombie Form OR Flat Form
 
 ### Bank of the Wild River
+
+**Entrance:** Blue Music Box
 
 | Coin | Requirement | With Enemizer |
 |---|---|---|
@@ -503,6 +561,8 @@ Requirements to reach each of the 8 musical big coins per level. **With Enemizer
 
 ### The Tidal Coast
 
+**Entrance:** Blue Music Box
+
 | Coin | Requirement | With Enemizer |
 |---|---|---|
 | #1 | *(none)* | Bounce |
@@ -524,6 +584,8 @@ Requirements to reach each of the 8 musical big coins per level. **With Enemizer
 
 ### Sea Turtle Rocks
 
+**Entrance:** Garlic
+
 | Coin | Requirement | With Enemizer |
 |---|---|---|
 | #1 | Pound cracked blocks AND Spiked Helmet |  |
@@ -539,6 +601,8 @@ Requirements to reach each of the 8 musical big coins per level. **With Enemizer
 - Coin #5 → Pound cracked blocks AND Spiked Helmet AND (Flippers 1 OR (Fly AND Flat Form))
 
 ### Desert Ruins
+
+**Entrance:** Blue Tablet AND Green Tablet *(Combined Items: Tablets)*
 
 | Coin | Requirement | With Enemizer |
 |---|---|---|
@@ -559,6 +623,8 @@ Requirements to reach each of the 8 musical big coins per level. **With Enemizer
 
 ### The Volcano's Base
 
+**Entrance:** Top Half of Scroll AND Bottom Half of Scroll *(Combined Items: Scroll)*
+
 | Coin | Requirement | With Enemizer |
 |---|---|---|
 | #1 | *(none)* |  |
@@ -577,6 +643,8 @@ Requirements to reach each of the 8 musical big coins per level. **With Enemizer
 - Coin #8 → (Foot of Stone OR (Flat Form AND Spiked Helmet)) AND (Flat Form OR Flippers 1)
 
 ### The Pool of Rain
+
+**Entrance:** Jar
 
 | Coin | Requirement | With Enemizer |
 |---|---|---|
@@ -600,6 +668,8 @@ Requirements to reach each of the 8 musical big coins per level. **With Enemizer
 
 ### A Town in Chaos
 
+**Entrance:** Jar
+
 | Coin | Requirement | With Enemizer |
 |---|---|---|
 | #1 | *(none)* |  |
@@ -617,6 +687,8 @@ Requirements to reach each of the 8 musical big coins per level. **With Enemizer
 - Coin #8 → (Grab 2 OR Kill frogs) AND ((Shake screen AND High Jump Boots) OR Puffy Form OR Bouncy Form)
 
 ### Beneath the Waves
+
+**Entrance:** Red Music Box
 
 | Coin | Requirement | With Enemizer |
 |---|---|---|
@@ -641,6 +713,8 @@ Requirements to reach each of the 8 musical big coins per level. **With Enemizer
 
 ### The West Crater
 
+**Entrance:** Tusk Blue AND Tusk Red AND Green Flower *(Combined Items: Tusk Set)*
+
 | Coin | Requirement | With Enemizer |
 |---|---|---|
 | #1 | *(none)* | Bounce |
@@ -656,6 +730,8 @@ Requirements to reach each of the 8 musical big coins per level. **With Enemizer
 - Coin #2 → (Rust Spray AND Pound cracked blocks) OR (Bouncy Form AND Spiked Helmet AND Fly)
 
 ### The Grasslands
+
+**Entrance:** Gear 1 AND Gear 2 *(Combined Items: Gears)*
 
 | Coin | Requirement | With Enemizer |
 |---|---|---|
@@ -673,6 +749,8 @@ Requirements to reach each of the 8 musical big coins per level. **With Enemizer
 - Coin #6 → Flute OR Fly OR High Jump Boots
 
 ### The Big Bridge
+
+**Entrance:** Yellow Music Box
 
 | Coin | Requirement | With Enemizer |
 |---|---|---|
@@ -699,6 +777,8 @@ Requirements to reach each of the 8 musical big coins per level. **With Enemizer
 
 ### Tower of Revival
 
+**Entrance:** Skull Ring Red AND Skull Ring Blue *(Combined Items: Skull Ring)*
+
 | Coin | Requirement | With Enemizer |
 |---|---|---|
 | #1 | Golden Eyes AND Garlic AND Grab 2 AND Spiked Helmet AND Statue AND High Jump Boots |  |
@@ -714,6 +794,8 @@ Requirements to reach each of the 8 musical big coins per level. **With Enemizer
 - Coin #1 → Golden Eyes AND Statue AND Jump high AND ((Garlic AND Grab 2 AND Spiked Helmet) OR Yarn Form)
 
 ### The Steep Canyon
+
+**Entrance:** Trident AND Yellow Book *(Combined Items: Trident & Yellow Book)*
 
 | Coin | Requirement | With Enemizer |
 |---|---|---|
@@ -734,6 +816,8 @@ Requirements to reach each of the 8 musical big coins per level. **With Enemizer
 
 ### Cave of Flames
 
+**Entrance:** Green Music Box
+
 | Coin | Requirement | With Enemizer |
 |---|---|---|
 | #1 | Jump high | Bounce |
@@ -752,6 +836,8 @@ Requirements to reach each of the 8 musical big coins per level. **With Enemizer
 
 ### Above the Clouds
 
+**Entrance:** Sky Key
+
 | Coin | Requirement | With Enemizer |
 |---|---|---|
 | #1 | Jump high |  |
@@ -765,6 +851,8 @@ Requirements to reach each of the 8 musical big coins per level. **With Enemizer
 
 ### The Stagnant Swamp
 
+**Entrance:** Ornamental Fan
+
 | Coin | Requirement | With Enemizer |
 |---|---|---|
 | #1 | *(none)* |  |
@@ -777,6 +865,8 @@ Requirements to reach each of the 8 musical big coins per level. **With Enemizer
 | #8 | Foot of Stone AND (Bounce OR (High Jump Boots AND Grab 1)) | Bounce |
 
 ### The Frigid Sea
+
+**Entrance:** Blue Book AND Magic Wand *(Combined Items: Blue Book & Magic Wand)*
 
 | Coin | Requirement | With Enemizer |
 |---|---|---|
@@ -802,6 +892,8 @@ Requirements to reach each of the 8 musical big coins per level. **With Enemizer
 
 ### Castle of Illusions
 
+**Entrance:** Lantern AND Magical Flame *(Combined Items: Lantern & Magical Flame)*
+
 | Coin | Requirement | With Enemizer |
 |---|---|---|
 | #1 | *(none)* | (Zombie Form OR Fly) |
@@ -821,6 +913,8 @@ Requirements to reach each of the 8 musical big coins per level. **With Enemizer
 
 ### The Colossal Hole
 
+**Entrance:** Tusk Blue AND Tusk Red AND Green Flower *(Combined Items: Tusk Set)*
+
 | Coin | Requirement | With Enemizer |
 |---|---|---|
 | #1 | *(none)* | Fly |
@@ -833,6 +927,8 @@ Requirements to reach each of the 8 musical big coins per level. **With Enemizer
 | #8 | Garlic AND ((Spiked Helmet AND Jump high) OR Fly) | Flat Form |
 
 ### The Warped Void
+
+**Entrance:** Warp Compact
 
 | Coin | Requirement | With Enemizer |
 |---|---|---|
@@ -847,6 +943,8 @@ Requirements to reach each of the 8 musical big coins per level. **With Enemizer
 
 ### The East Crater
 
+**Entrance:** Treasure Map
+
 | Coin | Requirement | With Enemizer |
 |---|---|---|
 | #1 | *(none)* | Fly |
@@ -859,6 +957,8 @@ Requirements to reach each of the 8 musical big coins per level. **With Enemizer
 | #8 | Pick Axe AND Grab 1 AND Jump high | Jump high |
 
 ### Forest of Fear
+
+**Entrance:** Torch
 
 | Coin | Requirement | With Enemizer |
 |---|---|---|
