@@ -1,13 +1,5 @@
 # FAQ
 
-## What is this?
-
-A randomizer for **Wario Land 3** built on the [Archipelago](https://archipelago.gg) multiworld framework. All 100 chests are randomized, with the option to also randomize the keys and big (musical) coins with treasures and each other, as well as many other Quality of Life and Cosmetic options as well. All locked levels start with a Red blinking node, and will turn white once they are available to play (when you find their level unlock).
-
-**This project is completely unrelated to the current Wario Land 3 Randomizer. Please direct any questions/concerns to me with this project!**
-
----
-
 ## What's changed from the vanilla game?
 
 - Progressive Overalls/Grab/Flippers. You SHOULD always receive the first tier of these items! Abilities are also immediately granted, so they should work even if you receive them while in-level.

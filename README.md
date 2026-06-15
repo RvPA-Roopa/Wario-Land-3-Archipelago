@@ -24,5 +24,5 @@ See the list below for various info.
 - [Logic](docs/Logic.md) — full logic for keys, chests, big coins, transformation and enemizer, for all logic options.
 - [FAQ](docs/FAQ.md) — what's changed from vanilla, how to report bugs
 - [Known Quirks](docs/Known_Quirks.md) — known visual / logic oddities
-- [Big Coin Maps](docs/bigcoins/) — coin location maps for every level (Big Coinsanity)
+- [Big Coin Maps](https://github.com/RvPA-Roopa/Wario-Land-3-Archipelago/blob/main/docs/bigcoins/README.md) — coin location maps for every level (Big Coinsanity)
 - [PopTracker Pack](https://github.com/LizzieTwoShoes/WL3-AP-PopTracker-Pack/releases) — tracker pack by @lizzietwoshoes
