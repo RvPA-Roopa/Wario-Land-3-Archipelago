@@ -21,7 +21,7 @@ Press **Select** while transformed to return to normal.
 | Select + ⬇ | Snowman Wario |
 | Select + ⬅ | Yarn Wario |
 | Select + ➡ | Invisible Wario |
-| Select + Ⓐ | 
+| Select + Ⓐ | *(empty slot)* |
 | Select + Ⓑ | Ice Skatin' Wario |
 
 ## Notes
