@@ -558,23 +558,58 @@ def generate_patch_writes(rng, palette_lookup
                     if real == gid and wgid_to_color.get(wgid) == color:
                         wgid_to_regular_id[wgid] = custom_id
 
+        # (slot_index, gfx_addr) pairs that require WHOLE-group vanilla
+        # preservation. Bank-relative addrs alone aren't unique enough
+        # (FutamoguGfx and several placeholders all live at 0x4000 in
+        # different slot banks), so we match the slot index too.
+        #
+        # ZipLine — rail spawn / cable BG references break across slot
+        #   swaps. BigLeaf / Zombie — conditional spawners reading
+        #   wTreasuresCollected; their no-spawn branch crashes when
+        #   neighbouring slot data is randomised. Futamogu — stepping
+        #   stones BG block tiles reference all 4 gfx slots together;
+        #   crashes the room load when adjacent slots get swapped, even
+        #   with slot 2 itself protected.
+        FORCE_VANILLA_GFX_PAIRS = {
+            (3, 0x5d9b),   # ZipLineGfx
+            (2, 0x4909),   # BigLeafGfx (OOTW green chest room, etc.)
+            (2, 0x4a8a),   # ZombieGfx (Forest of Fear demon-blood room)
+        }
+
+        # Specific room offsets that crash on enemizer regardless of gfx.
+        # Confirmed by in-game testing — these stay 100% vanilla even
+        # though their gfx don't match any of FORCE_VANILLA_GFX_PAIRS.
+        # OOTW .room_18 (wgid 0x03, OBJECT_GROUP_003, Kushimushi BG) is
+        # one such room — root cause unclear, but force-vanilla fixes it.
+        FORCE_VANILLA_ROOM_OFFSETS = {
+            0x0c0f66,   # OOTW Day1/Day2 .room_18 (BigLeaf spawner room)
+            # Forest of Fear "blue chest" room (the wLevelRoomID==1 cell
+            # whose vanilla wgid is OBJECT_GROUP_097 = 0x61). In Day 2 /
+            # Night 2 the engine runtime-patches this to 0x2b once Demon's
+            # Blood is collected; without it, vanilla 0x61 stays put and
+            # the room crashes on load when enemizer touches the wgid
+            # byte (conditional-spawn cell, same class as the OOTW
+            # BigLeaf room). Forcing vanilla for ALL FoF variants of
+            # this cell since the runtime patch ignores our byte anyway.
+            0x0c6818,
+            0x0c68ac,
+            0x0c69d4,
+            0x0c6a68,
+        }
+
         # ---- Patch room enemy_group bytes for this color ----
         for eg_off, wgid, tb_slot in color_rooms:
+            if eg_off in FORCE_VANILLA_ROOM_OFFSETS:
+                continue   # known-crashy room, leave wgid byte untouched
             real_id = wgid_to_real.get(wgid)
             real_g = groups.get(real_id) if real_id is not None else None
             if real_g is not None and real_g["bank_offset"] != 0:
                 continue   # boss → vanilla
-            # Specific gfx that require WHOLE-group vanilla preservation
-            # (per-slot sig protection isn't enough). Futamogu stepping
-            # stones, BigLeaf, etc. work fine with sig protection, but
-            # ZipLine specifically needs all 4 slots untouched — its rail
-            # spawn / cable BG references break when neighbouring slots
-            # get swapped. Add more gfx here if testing reveals others
-            # in the same class.
-            FORCE_VANILLA_GFX = {0x5d9b}   # ZipLineGfx
             if real_g is not None:
-                gfx_addrs = set(real_g.get("gfx_addrs", []))
-                if gfx_addrs & FORCE_VANILLA_GFX:
+                gfx_addrs = real_g.get("gfx_addrs", [])
+                hit = any((i, a) in FORCE_VANILLA_GFX_PAIRS
+                          for i, a in enumerate(gfx_addrs))
+                if hit:
                     continue
             sig = _group_signature(real_g) if real_g is not None else None
 
