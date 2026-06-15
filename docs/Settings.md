@@ -13,7 +13,7 @@ YAML options available for the Wario Land 3 apworld.
 | **Combined Level Unlocks** | Combines multi-item level unlocks (e.g. Blue Tablet + Green Tablet → Tablets) into single items for more seed variety |
 | **Key Shuffle** | Whether keys are in their vanilla positions, or shuffled among the item pool |
 | **Keyring Count** | Number of levels (0–25) whose 4 keys are replaced by a single Keyring item; forces Key Shuffle = Full when above 0 |
-| **Transformation Shuffle** | Shuffle transformation abilities (Zombie, Vampire, Fire, etc.) as items — must find each Form item to use that transformation |
+| **Transformation Shuffle** | Shuffle transformation abilities (Zombie, Vampire, Fire, etc.) as items — when found, can transform on command with [button combinations](Transformation_Commands.md) |
 | **Big Coinsanity** | Adds 200 big-coin (musical coin) location checks — 8 per level — to the pool. See [bigcoins/](bigcoins/) for maps of every coin position in every level. |
 | **Golf Price** | Vanilla / Cheap / Free mini-game pricing |
 | **Golf Building** | Whether the Golf Building requires all 7 crayons or is always open (always free to play) |
