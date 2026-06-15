@@ -26,3 +26,4 @@ See the list below for various info.
 - [Known Quirks](docs/Known_Quirks.md) — known visual / logic oddities
 - [Big Coin Maps](https://github.com/RvPA-Roopa/Wario-Land-3-Archipelago/blob/main/docs/bigcoins/README.md) — coin location maps for every level (Big Coinsanity)
 - [PopTracker Pack](https://github.com/LizzieTwoShoes/WL3-AP-PopTracker-Pack/releases) — tracker pack by @lizzietwoshoes
+- [Future Plans](https://trello.com/b/hF0nKXow/wario-land-3-ap) — Trello board
