@@ -272,10 +272,14 @@ class BigCoinsanity(Toggle):
 
 
 class Enemizer(Toggle):
-    """Randomize enemy placement across levels. Walkable enemies (Snake,
-    Webber, Futamogu), stepping platforms, gates, and bosses stay at
-    their vanilla positions; ~1781 rooms get fresh enemy bundles.
-    Rooms with throw-only blocks are guaranteed a throwable enemy."""
+    """This setting is unstable and needs more testing. It may cause crashes 
+    and/or unbeatable seeds. Use with caution. Please report any bugs 
+    by using "/roomdebug" and posting it in the discord. There are some visual
+    glitches with some enemies, but they should be purely cosmetic.
+    
+    Randomize most enemy placement across levels. Some enemies stay
+    vanilla due to their gating placements. Rooms with throw blocks are 
+    guaranteed a throwable enemy. Bosses also stay vanilla."""
     display_name = "Enemizer"
     default = 0
 

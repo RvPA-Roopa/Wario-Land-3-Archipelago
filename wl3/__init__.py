@@ -46,6 +46,7 @@ from .locations import BASE_LOC_ID, COIN_LOCATION_TABLE, KEY_LOCATION_TABLE, LOC
 from Options import OptionGroup
 from .options import (WL3Options, MusicBoxShuffle, KeyShuffle, CombinedItems,
                       GolfPrice, GolfBuilding, IHateGolf,
+                      GolfParHints, GolfParHintFrequency,
                       StartWithMagnifyingGlass, ReduceFlashing, NonStopChests, TrapFill,
                       TrapWeights, LocalFillPercent,
                       MusicShuffle, EnemyPaletteShuffle, LevelBGPaletteShuffle,
@@ -180,8 +181,9 @@ class WL3WebWorld(WebWorld):
         )
     ]
     option_groups = [
-        OptionGroup("Quality of Life", [GolfPrice, GolfBuilding, IHateGolf,
-                                       StartWithMagnifyingGlass, ReduceFlashing,
+        OptionGroup("Golf", [GolfPrice, GolfBuilding, IHateGolf,
+                             GolfParHints, GolfParHintFrequency]),
+        OptionGroup("Quality of Life", [StartWithMagnifyingGlass, ReduceFlashing,
                                        NonStopChests, TrapFill, TrapWeights,
                                        LocalFillPercent]),
         OptionGroup("Cosmetics", [MusicShuffle, OverworldBGPaletteShuffle,
@@ -890,6 +892,13 @@ class WL3World(World):
 
         loc_items = {}
         all_locs = {**LOCATION_TABLE, **KEY_LOCATION_TABLE}
+        # When coinsanity is on, the 200 big-coin locations also need to
+        # appear in loc_items so the client can fire "SENT X TO Player"
+        # messages when those coins are collected. Without this, picking
+        # up a big coin whose location holds another player's item
+        # silently skips _show_sent_msg.
+        if self.options.bigcoinsanity:
+            all_locs = {**all_locs, **COIN_LOCATION_TABLE}
         for loc_name, loc_data in all_locs.items():
             loc = self.multiworld.get_location(loc_name, self.player)
             if loc.item is not None:
