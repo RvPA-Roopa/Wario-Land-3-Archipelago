@@ -595,6 +595,25 @@ def generate_patch_writes(rng, palette_lookup
             0x0c68ac,
             0x0c69d4,
             0x0c6a68,
+            # Tower of Revival's OBJECT_GROUP_117 → ObjectGroup96
+            # rooms (.room_19 and .room_21 across all 8 Day/Night
+            # variants). Both slot 2 (Futamogu) AND slot 3 (Spark)
+            # were tried as the protected slot to keep the room
+            # loadable while allowing the other two slots to
+            # randomise — each in turn still crashed the climb-up
+            # section. Reverted to plain force-vanilla because any
+            # enemizer change to these rooms breaks them.
+            # Repro: lvl=0x72, wRoom=0x5f, wgid=0x75 via /roomdebug.
+            # Only group 96 is dispatched by OBJECT_GROUP_117, and
+            # only these 16 rooms use it.
+            0x0c4668, 0x0c4678,   # DAY_1   (LevelRooms_c4534)
+            0x0c471c, 0x0c472c,   # DAY_2   (LevelRooms_c45e8)
+            0x0c47d0, 0x0c47e0,   # DAY_3   (LevelRooms_c469c)  ← repro
+            0x0c4884, 0x0c4894,   # DAY_4   (LevelRooms_c4750)
+            0x0c4938, 0x0c4948,   # NIGHT_1 (LevelRooms_c4804)
+            0x0c49ec, 0x0c49fc,   # NIGHT_2 (LevelRooms_c48b8)
+            0x0c4aa0, 0x0c4ab0,   # NIGHT_3 (LevelRooms_c496c)
+            0x0c4b54, 0x0c4b64,   # NIGHT_4 (LevelRooms_c4a20)
         }
 
         # ---- Patch room enemy_group bytes for this color ----
