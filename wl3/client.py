@@ -264,6 +264,11 @@ class WL3Client(BizHawkClient):
         self._msg_queue:        list = []       # queued messages to display one at a time
         self._saved_pal7:      bytes = None    # saved BG palette 7 to restore after message
         self._loc_items:       dict = {}       # loc_id → {"item": name, "player": slot}
+        # In-game message filter (slot_data["in_game_messages"]):
+        #   0 = Everything (default — show all messages)
+        #   1 = Progression (own/received items only if progression; sent-to-others always)
+        #   2 = Nothing (display no messages at all)
+        self._in_game_msgs:     int  = 0
         # Room debug logging — tracks (wLevel, wRoom, wObjectGroup) and prints
         # whenever any of them changes. Toggled via /roomdebug client command.
         self._room_debug:     bool  = False
@@ -610,6 +615,7 @@ class WL3Client(BizHawkClient):
         self._combined_unlocks = _ci in (1, 3)
         if not self._loc_items and ctx.slot_data:
             self._loc_items = {int(k): v for k, v in (ctx.slot_data.get("loc_items") or {}).items()}
+        self._in_game_msgs = int((ctx.slot_data or {}).get("in_game_messages", 0))
 
         # ---- DeathLink: register tag with the server once per session ----
         # slot_data["death_link"] is the player's opt-in. When true, we tell
@@ -712,13 +718,24 @@ class WL3Client(BizHawkClient):
             await self._grant_item(ctx, ap_id,
                                    silent=is_catch_up or is_own_trap)
             try:
-                item_name = ctx.item_names.lookup_in_game(ap_id) if ctx.item_names else f"ITEM {ap_id}"
-                sender = net_item.player
-                if sender != ctx.slot and ctx.player_names:
-                    sender_name = ctx.player_names.get(sender, f"P{sender}")
-                    await self._show_msg(ctx, f"{item_name} FROM {sender_name}")
-                else:
-                    await self._show_msg(ctx, item_name)
+                # Apply the in-game-messages filter for incoming items.
+                # Mode 0 (Everything): always show.
+                # Mode 1 (Progression): only Progression-flagged items show.
+                #   net_item.flags bit 0 (= 1) is Progression per AP spec.
+                # Mode 2 (Nothing): never show.
+                show_received = True
+                if self._in_game_msgs == 2:
+                    show_received = False
+                elif self._in_game_msgs == 1:
+                    show_received = bool(getattr(net_item, "flags", 0) & 1)
+                if show_received:
+                    item_name = ctx.item_names.lookup_in_game(ap_id) if ctx.item_names else f"ITEM {ap_id}"
+                    sender = net_item.player
+                    if sender != ctx.slot and ctx.player_names:
+                        sender_name = ctx.player_names.get(sender, f"P{sender}")
+                        await self._show_msg(ctx, f"{item_name} FROM {sender_name}")
+                    else:
+                        await self._show_msg(ctx, item_name)
             except Exception:
                 pass
             self._items_handled += 1
@@ -894,6 +911,11 @@ class WL3Client(BizHawkClient):
         info = self._loc_items[loc_id]
         if info["player"] == ctx.slot:
             return  # own item, don't show sent message
+        # In-game-messages filter: only mode 2 (Nothing) suppresses sent-to-others
+        # messages. Mode 1 (Progression) keeps them on so the player can see what
+        # others are getting — the filter only narrows their own incoming items.
+        if self._in_game_msgs == 2:
+            return
         item_name = info["item"]
         player_name = ctx.player_names.get(info["player"], f"P{info['player']}") if ctx.player_names else f"P{info['player']}"
         await self._show_msg(ctx, f"SENT {item_name} TO {player_name}")
