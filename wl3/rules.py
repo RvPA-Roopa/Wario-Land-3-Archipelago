@@ -995,8 +995,8 @@ def set_rules(world: "WL3World") -> None:
         add_tf(coin_logic["Out of the Woods"], 1, _has("Fire Form"), can_pound_solid_blocks)
         add_tf(coin_logic["Out of the Woods"], 4, can_bounce)
         add_tf(coin_logic["Out of the Woods"], 6, _has("Flat Form"))
-        add_tf(coin_logic["Out of the Woods"], 6, _has("Fat Form"), _has("Zombie Form"))
-        add_tf(chest_logic["The Peaceful Village"], red, _has("Fat Form"), _has("Zombie Form"))
+        add_tf(coin_logic["Out of the Woods"], 7, _has("Fat Form"), _has("Zombie Form"))
+        add_tf(chest_logic["The Peaceful Village"], red, can_pound_solid_blocks, _has("Zombie Form"))
         add_tf(chest_logic["The Peaceful Village"], green, _has("Invisible Form"), can_fly)
         add_tf(key_logic["The Peaceful Village"], grey, can_pound_solid_blocks, _has("Zombie Form"))
         add_tf(key_logic["The Peaceful Village"], red, can_pound_solid_blocks, _has("Zombie Form"))
@@ -1043,7 +1043,7 @@ def set_rules(world: "WL3World") -> None:
         add_tf(chest_logic["A Town in Chaos"], red, _has("Zombie Form")) 
         add_tf(chest_logic["A Town in Chaos"], green, can_fly) # remove if bats aren't randomized
         add_tf(key_logic["A Town in Chaos"], green, _has("Fat Form"))
-        add_tf(coin_logic["A Town in Chaos"], 3, _has("Zombie Form")) # exception for can_bounce
+        add_tf(coin_logic["A Town in Chaos"], 3, _has("Zombie Form"), can_bounce)
         add_tf(chest_logic["Beneath the Waves"], green, _has("Yarn Form"))
         add_tf(chest_logic["Beneath the Waves"], blue, _has("Fat Form"))
         add_tf(coin_logic["Beneath the Waves"], 4, can_pass_spikes, can_fly)
