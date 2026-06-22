@@ -39,7 +39,7 @@ Requirements to open each chest and reach each key, by level. The **With Enemize
 | Slot | Chest | Key | With Enemizer (Chest) | With Enemizer (Key) |
 |---|---|---|---|---|
 | Grey | *(none)* | *(none)* |  | (Pound solid blocks OR Zombie Form) |
-| Red | Flute OR Jump high | Flute OR Jump high OR Pound solid blocks | (Fat Form OR Zombie Form) | (Pound solid blocks OR Zombie Form) |
+| Red | Flute OR Jump high | Flute OR Jump high OR Pound solid blocks | (Pound solid blocks OR Zombie Form) | (Pound solid blocks OR Zombie Form) |
 | Green | (Flute OR Jump high) AND (Pound cracked blocks OR Zombie Form) | Flute OR Jump high | (Invisible Form OR Fly) |  |
 | Blue | Pound large solid blocks OR ((Shake screen OR Zombie Form) AND Garlic) | Pound large solid blocks OR ((Shake screen OR Zombie Form) AND Garlic) |  |  |
 
@@ -474,8 +474,8 @@ Requirements to reach each of the 8 musical big coins per level. **With Enemizer
 | #4 | Flippers 2 OR (Storm Pouch AND High Jump Boots) OR Fly |  |
 | #5 | Jump high | Bounce |
 | #6 | *(none)* |  |
-| #7 | Pound cracked blocks | Flat Form AND (Fat Form OR Zombie Form) |
-| #8 | Gold Magic AND (Jump high OR Fat Form OR Zombie Form) |  |
+| #7 | Pound cracked blocks | Flat Form |
+| #8 | Gold Magic AND (Jump high OR Fat Form OR Zombie Form) | (Fat Form OR Zombie Form) |
 
 **Knowledge Checks changes:**
 - Coin #1 → (High Jump Boots AND Grab 1) OR Fly
@@ -675,7 +675,7 @@ Requirements to reach each of the 8 musical big coins per level. **With Enemizer
 | #1 | *(none)* |  |
 | #2 | Grab 1 |  |
 | #3 | Pound solid blocks |  |
-| #4 | Spiked Helmet OR Jump high | Zombie Form |
+| #4 | Spiked Helmet OR Jump high | (Zombie Form OR Bounce) |
 | #5 | (Grab 2 OR Kill frogs) AND ((Shake screen AND High Jump Boots AND Grab 1) OR (Bouncy Form AND Grab 1) OR Fly) |  |
 | #6 | (Electric Fan Propeller AND Grab 1) OR Fly |  |
 | #7 | (Grab 2 OR Kill frogs) AND Grab 1 |  |

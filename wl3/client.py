@@ -88,11 +88,11 @@ COMBINED_LEVEL_UNLOCK_ITEMS: dict[int, list[int]] = {
 }
 
 # WRAM0 addresses — always accessible via System Bus (0xC000–0xCFFF)
-ADDR_LEVEL = 0xCA0B   # wLevel:         (owlevel-1)*8 + state
+ADDR_LEVEL = 0xC430   # wLevel:         (owlevel-1)*8 + state
 ADDR_ROOM         = 0xC0C9   # wRoom (room ID, the last byte of room_data)
 ADDR_OBJECT_GROUP = 0xC0C8   # wObjectGroup (vanilla wgid 0x00-0x91 or enemizer 0x92+)
 ADDR_END_SCREEN     = 0xCED4   # wLevelEndScreen: 0=idle, 0x81–0x84=chest collecting
-ADDR_GAME_MODE = 0xCA44   # wGameModeFlags:  bit 0 = MODE_GAME_CLEARED (final boss defeated)
+ADDR_GAME_MODE = 0xC469   # wGameModeFlags:  bit 0 = MODE_GAME_CLEARED (final boss defeated)
 ADDR_CHEST_AP_KEY   = 0x2E58   # wChestAPKey (WRAM domain, bank 2 $DE58): chest-gave-key signal (1-4)
 
 # wTreasuresCollected and wUnlockedLevels are in WRAMX bank 2.
@@ -114,7 +114,7 @@ ADDR_MSG_ROWS_WRAM = 0x121E # wMsgRows (1 byte, 1..MSG_OAM_MAX_ROWS)
 # - Each char renders as one 8x16 sprite (4-wide glyph + drop shadow).
 #   The PPU's 10-sprites-per-scanline limit caps each row at 10 chars.
 MSG_OAM_MAX_COLS = 10
-MSG_OAM_MAX_ROWS = 3
+MSG_OAM_MAX_ROWS = 4
 ADDR_PENDING_TRAP_WRAM = 0x1227 # wPendingTrap (1 byte — AP trap queue, bank 1 0xD227)
 ADDR_PAR_HINT_REQUEST_WRAM = 0x1228 # wParHintRequest (1 byte — Golf Building par hint trigger, bank 1 0xD228)
 ADDR_ALL_PAR_THIS_COURSE_WRAM = 0x1229 # wAllParThisCourse (1 byte — ROM-internal per-course tracker, bank 1 0xD229)
@@ -1066,9 +1066,20 @@ class WL3Client(BizHawkClient):
                 current = candidate
             if current:
                 lines_out.append(current)
-            return lines_out[:MSG_OAM_MAX_ROWS]
+            return lines_out
 
-        text_lines = word_wrap(text)
+        all_lines = word_wrap(text)
+        text_lines = all_lines[:MSG_OAM_MAX_ROWS]
+        # Overflow lines become the next page: re-encode as plain text
+        # and push to the FRONT of the queue so they show before any
+        # later-queued message. The 4.5s timer naturally paces them.
+        if len(all_lines) > MSG_OAM_MAX_ROWS:
+            remaining = all_lines[MSG_OAM_MAX_ROWS:]
+            # Glue overflow lines back into a single string for re-wrap;
+            # word_wrap re-flows them so a long word that originally
+            # forced a split still survives.
+            next_page = " ".join(remaining)
+            self._msg_queue.insert(0, next_page)
         encoded_lines = [self._encode_msg(line) for line in text_lines]
         num_rows = len(encoded_lines)
 
