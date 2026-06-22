@@ -29,7 +29,7 @@ from typing import TYPE_CHECKING, List
 from BaseClasses import CollectionState, LocationProgressType
 
 from .locations import COIN_LOCATION_TABLE, COLOR_NAMES, KEY_LOCATION_TABLE, LOCATION_TABLE
-from .options import (KeyShuffle, DifficultyOptions, MinorGlitches, Enemizer)
+from .options import (KeyShuffle, DifficultyOptions, MinorGlitches)
 
 if TYPE_CHECKING:
     from . import WL3World
@@ -990,8 +990,7 @@ def set_rules(world: "WL3World") -> None:
         chest_logic["Beneath the Waves"][green] = _c(_o(has_flippers_1,_has("Flat Form")),_o(has_grab_1,_has("Yarn Form"),_c(_has("Flat Form"),_has("Spiked Helmet"))))
         chest_logic["Beneath the Waves"][blue] = _c(_o(has_flippers_1,_has("Flat Form")),_o(has_grab_1,_has("Fat Form")))
         
-    # Add Forms to certain check requirements if enemizer is turned on
-    if Enemizer:
+    if world.options.enemizer:
         add_tf(coin_logic["Out of the Woods"], 1, _has("Fire Form"), can_pound_solid_blocks)
         add_tf(coin_logic["Out of the Woods"], 4, can_bounce)
         add_tf(coin_logic["Out of the Woods"], 6, _has("Flat Form"))
