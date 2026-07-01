@@ -1,7 +1,7 @@
 # Wario Land 3 Archipelago
 
 > **AI Disclaimer**
-> A significant portion of this project was built with the assistance of [Claude Code](https://claude.ai/claude-code). I want to be fully transparent about this — as it was also a personal learning project for me. I have no issue with anyone choosing not to use this because of AI involvement, and I appreciate any and all feedback with this project!
+> A significant portion of this project was built with the assistance of Claude Code. I want to be fully transparent about this — as it was also a personal learning project for me. I have no issue with anyone choosing not to use this because of AI involvement, and I appreciate any and all feedback with this project!
 
 ---
 
