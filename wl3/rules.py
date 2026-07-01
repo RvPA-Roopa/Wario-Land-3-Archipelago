@@ -716,7 +716,7 @@ COIN_RULES: dict = {
         _has("Foot of Stone"),                                                          #4
         _has("Foot of Stone"),                                                          #5
         _has("Spiked Helmet"),                                                          #6
-        _has("Explosive Plunger Box"),                                                  #7
+        _o(_has("Explosive Plunger Box"),_has("Zombie Form")),                          #7
         _c(_has("Foot of Stone"),_o(can_bounce,_c(_has("High Jump Boots"),has_grab_1))),#8
     ],
     "The Frigid Sea": [
