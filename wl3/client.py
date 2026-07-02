@@ -88,11 +88,11 @@ COMBINED_LEVEL_UNLOCK_ITEMS: dict[int, list[int]] = {
 }
 
 # WRAM0 addresses — always accessible via System Bus (0xC000–0xCFFF)
-ADDR_LEVEL = 0xCA0B   # wLevel:         (owlevel-1)*8 + state
+ADDR_LEVEL = 0xC430   # wLevel:         (owlevel-1)*8 + state
 ADDR_ROOM         = 0xC0C9   # wRoom (room ID, the last byte of room_data)
 ADDR_OBJECT_GROUP = 0xC0C8   # wObjectGroup (vanilla wgid 0x00-0x91 or enemizer 0x92+)
 ADDR_END_SCREEN     = 0xCED4   # wLevelEndScreen: 0=idle, 0x81–0x84=chest collecting
-ADDR_GAME_MODE = 0xCA44   # wGameModeFlags:  bit 0 = MODE_GAME_CLEARED (final boss defeated)
+ADDR_GAME_MODE = 0xC469   # wGameModeFlags:  bit 0 = MODE_GAME_CLEARED (final boss defeated)
 ADDR_CHEST_AP_KEY   = 0x2E58   # wChestAPKey (WRAM domain, bank 2 $DE58): chest-gave-key signal (1-4)
 
 # wTreasuresCollected and wUnlockedLevels are in WRAMX bank 2.
@@ -104,10 +104,17 @@ ADDR_LEVEL_KEYS_WRAM      = 0x117C # WRAM domain offset for wLevelKeys         (
 ADDR_KEY_INVENTORY_WRAM   = 0x1195 # WRAM domain offset for wKeyInventory      (bank 1, 0xD195)
 ADDR_OPENED_CHESTS_WRAM = 0x11AE # wOpenedChests — moved to AP Persistent    (bank 1, 0xD1AE)
                                    # to escape pause-menu collection screen wipe of $D800-$DFFF.
-ADDR_MSG_BUFFER_WRAM = 0x11BB # wMsgBuffer (96 bytes)
+ADDR_MSG_BUFFER_WRAM = 0x11BB # wMsgBuffer (96 bytes; first MSG_OAM_MAX_ROWS*MSG_OAM_MAX_COLS used)
 ADDR_MSG_TIMER_WRAM = 0x121B # wMsgTimer (1 byte)
 ADDR_MSG_READY_WRAM = 0x121C # wMsgReady (1 byte, set to 1 to trigger)
-ADDR_MSG_ROWS_WRAM = 0x121E # wMsgRows (1 byte, 1-3)
+ADDR_MSG_ROWS_WRAM = 0x121E # wMsgRows (1 byte, 1..MSG_OAM_MAX_ROWS)
+
+# Layout of the OAM-sprite message renderer.
+# - MSG_OAM_MAX_COLS chars per row × MSG_OAM_MAX_ROWS rows.
+# - Each char renders as one 8x16 sprite (4-wide glyph + drop shadow).
+#   The PPU's 10-sprites-per-scanline limit caps each row at 10 chars.
+MSG_OAM_MAX_COLS = 10
+MSG_OAM_MAX_ROWS = 4
 ADDR_PENDING_TRAP_WRAM = 0x1227 # wPendingTrap (1 byte — AP trap queue, bank 1 0xD227)
 ADDR_PAR_HINT_REQUEST_WRAM = 0x1228 # wParHintRequest (1 byte — Golf Building par hint trigger, bank 1 0xD228)
 ADDR_ALL_PAR_THIS_COURSE_WRAM = 0x1229 # wAllParThisCourse (1 byte — ROM-internal per-course tracker, bank 1 0xD229)
@@ -257,6 +264,11 @@ class WL3Client(BizHawkClient):
         self._msg_queue:        list = []       # queued messages to display one at a time
         self._saved_pal7:      bytes = None    # saved BG palette 7 to restore after message
         self._loc_items:       dict = {}       # loc_id → {"item": name, "player": slot}
+        # In-game message filter (slot_data["in_game_messages"]):
+        #   0 = Everything (default — show all messages)
+        #   1 = Progression (own/received items only if progression; sent-to-others always)
+        #   2 = Nothing (display no messages at all)
+        self._in_game_msgs:     int  = 0
         # Room debug logging — tracks (wLevel, wRoom, wObjectGroup) and prints
         # whenever any of them changes. Toggled via /roomdebug client command.
         self._room_debug:     bool  = False
@@ -266,6 +278,11 @@ class WL3Client(BizHawkClient):
         # runs (the tracker keys keep updating regardless); this flag only
         # gates the user-visible log line. Toggled via /debugtracker.
         self._tracker_debug:  bool  = False
+        # When true, _show_msg logs the encoded glyph-index bytes it
+        # pushes to wMsgBuffer so we can tell whether garbled in-game
+        # text is a client encoding bug, a ROM render bug, or
+        # something else stomping on the buffer. Toggled via /msgdump.
+        self._msg_debug:      bool  = False
         self._trap_queue:      list = []       # pending ROM trap IDs waiting for a safe frame
         self._par_hints_sent:  set  = set()    # AP location IDs we've already par-hinted this session
         self._shown_hints:     set  = set()    # (item_id, loc_id, finder_slot) tuples we've already
@@ -560,6 +577,7 @@ class WL3Client(BizHawkClient):
             ctx.command_processor.commands["keys"] = lambda *_: self._show_keys()
             ctx.command_processor.commands["roomdebug"] = lambda *_: self._toggle_room_debug()
             ctx.command_processor.commands["debugtracker"] = lambda *_: self._toggle_tracker_debug()
+            ctx.command_processor.commands["msgdump"] = lambda *_: self._toggle_msg_debug()
             self._cmd_registered = True
 
         # ---- Seed _checked_locs from wOpenedChests on first server connection ----
@@ -597,6 +615,7 @@ class WL3Client(BizHawkClient):
         self._combined_unlocks = _ci in (1, 3)
         if not self._loc_items and ctx.slot_data:
             self._loc_items = {int(k): v for k, v in (ctx.slot_data.get("loc_items") or {}).items()}
+        self._in_game_msgs = int((ctx.slot_data or {}).get("in_game_messages", 0))
 
         # ---- DeathLink: register tag with the server once per session ----
         # slot_data["death_link"] is the player's opt-in. When true, we tell
@@ -699,13 +718,24 @@ class WL3Client(BizHawkClient):
             await self._grant_item(ctx, ap_id,
                                    silent=is_catch_up or is_own_trap)
             try:
-                item_name = ctx.item_names.lookup_in_game(ap_id) if ctx.item_names else f"ITEM {ap_id}"
-                sender = net_item.player
-                if sender != ctx.slot and ctx.player_names:
-                    sender_name = ctx.player_names.get(sender, f"P{sender}")
-                    await self._show_msg(ctx, f"{item_name} FROM {sender_name}")
-                else:
-                    await self._show_msg(ctx, item_name)
+                # Apply the in-game-messages filter for incoming items.
+                # Mode 0 (Everything): always show.
+                # Mode 1 (Progression): only Progression-flagged items show.
+                #   net_item.flags bit 0 (= 1) is Progression per AP spec.
+                # Mode 2 (Nothing): never show.
+                show_received = True
+                if self._in_game_msgs == 2:
+                    show_received = False
+                elif self._in_game_msgs == 1:
+                    show_received = bool(getattr(net_item, "flags", 0) & 1)
+                if show_received:
+                    item_name = ctx.item_names.lookup_in_game(ap_id) if ctx.item_names else f"ITEM {ap_id}"
+                    sender = net_item.player
+                    if sender != ctx.slot and ctx.player_names:
+                        sender_name = ctx.player_names.get(sender, f"P{sender}")
+                        await self._show_msg(ctx, f"{item_name} FROM {sender_name}")
+                    else:
+                        await self._show_msg(ctx, item_name)
             except Exception:
                 pass
             self._items_handled += 1
@@ -852,20 +882,26 @@ class WL3Client(BizHawkClient):
 
     @staticmethod
     def _encode_msg(text: str) -> bytes:
-        """Convert a string to custom font tile indices (uppercase, max 20 chars).
-        A=$30..Z=$49, 0=$4A..9=$53, space=$54."""
+        """Convert a string to glyph indexes for the OAM-sprite message
+        renderer. The ROM uses a scattered-slot scheme: each unique
+        glyph in the message gets assigned a free VRAM tile slot at
+        message start, so the glyph index is just a 0-38 lookup key
+        the ROM uses to allocate / load / render. Glyph order matches
+        MsgFontTiles (auto-generated by tools/build_msg_font.py):
+            A..Z = 0..25, 0..9 = 26..35, space = 36, '-' = 37, '&' = 38.
+        Unknown characters render as space."""
         out = bytearray()
-        for ch in text.upper()[:40]:
+        for ch in text.upper()[:MSG_OAM_MAX_COLS * MSG_OAM_MAX_ROWS]:
             if 'A' <= ch <= 'Z':
-                out.append(0x30 + ord(ch) - ord('A'))
+                out.append(ord(ch) - ord('A'))           # 0..25
             elif '0' <= ch <= '9':
-                out.append(0x4A + ord(ch) - ord('0'))
+                out.append(26 + ord(ch) - ord('0'))      # 26..35
             elif ch == '-':
-                out.append(0x55)  # dash tile
+                out.append(37)
             elif ch == '&':
-                out.append(0x56)  # ampersand tile
+                out.append(38)
             else:
-                out.append(0x54)  # space for any unknown char
+                out.append(36)                            # space (incl. unknown)
         return bytes(out)
 
     async def _show_sent_msg(self, ctx: "BizHawkClientContext", loc_id: int) -> None:
@@ -875,6 +911,11 @@ class WL3Client(BizHawkClient):
         info = self._loc_items[loc_id]
         if info["player"] == ctx.slot:
             return  # own item, don't show sent message
+        # In-game-messages filter: only mode 2 (Nothing) suppresses sent-to-others
+        # messages. Mode 1 (Progression) keeps them on so the player can see what
+        # others are getting — the filter only narrows their own incoming items.
+        if self._in_game_msgs == 2:
+            return
         item_name = info["item"]
         player_name = ctx.player_names.get(info["player"], f"P{info['player']}") if ctx.player_names else f"P{info['player']}"
         await self._show_msg(ctx, f"SENT {item_name} TO {player_name}")
@@ -898,6 +939,17 @@ class WL3Client(BizHawkClient):
                         "(vanilla|enemizer slot N)")
             # Reset so the next poll always emits an initial line.
             self._prev_room_dbg = (None, None, None)
+
+    def _toggle_msg_debug(self) -> None:
+        """Toggle the [WL3 msg] console log line that prints the encoded
+        wMsgBuffer bytes whenever a message is dispatched. Use it when
+        in-game text renders garbled — the log shows the exact glyph
+        indexes (A=0..Z=25, 0=26..9=35, space=36, dash=37, &=38, $FF=
+        empty cell) so we can tell client encoding vs ROM rendering
+        bugs apart."""
+        self._msg_debug = not self._msg_debug
+        state = "ON" if self._msg_debug else "OFF"
+        logger.info(f"[WL3] Message buffer debug logging: {state}")
 
     def _toggle_tracker_debug(self) -> None:
         """Toggle the [WL3 tracker] console log line that fires whenever
@@ -970,16 +1022,27 @@ class WL3Client(BizHawkClient):
         text = self._msg_queue.pop(0)
         self._last_msg_time = time.time()
 
-        def center_line(data, width=20):
-            row = bytearray([0x54] * width)
-            offset = (width - len(data)) // 2
-            for i in range(len(data)):
-                row[offset + i] = data[i]
-            return row
+        # Word-wrap text into lines of up to MSG_OAM_MAX_COLS chars with dash
+        # for split words.
+        def _split_long_word(word, width):
+            """Break a word longer than width into (width-1)-char chunks
+            with trailing dashes. Without this, words longer than
+            width get silently truncated by the row-packer downstream
+            (e.g. 'ARCHIPELAGO' at width 10 lost the trailing 'O')."""
+            if len(word) <= width:
+                return [word]
+            chunks = []
+            while len(word) > width:
+                chunks.append(word[:width - 1] + "-")
+                word = word[width - 1:]
+            if word:
+                chunks.append(word)
+            return chunks
 
-        # Word-wrap text into lines of up to 20 chars with dash for split words
-        def word_wrap(txt, width=20):
-            words = txt.upper().split()
+        def word_wrap(txt, width=MSG_OAM_MAX_COLS):
+            raw_words = txt.upper().split()
+            words = [chunk for w in raw_words
+                     for chunk in _split_long_word(w, width)]
             lines_out = []
             current = ""
             for word in words:
@@ -1003,26 +1066,52 @@ class WL3Client(BizHawkClient):
                 current = candidate
             if current:
                 lines_out.append(current)
-            return lines_out[:3]  # max 3 lines
+            return lines_out
 
-        text_lines = word_wrap(text)
+        all_lines = word_wrap(text)
+        text_lines = all_lines[:MSG_OAM_MAX_ROWS]
+        # Overflow lines become the next page: re-encode as plain text
+        # and push to the FRONT of the queue so they show before any
+        # later-queued message. The 4.5s timer naturally paces them.
+        if len(all_lines) > MSG_OAM_MAX_ROWS:
+            remaining = all_lines[MSG_OAM_MAX_ROWS:]
+            # Glue overflow lines back into a single string for re-wrap;
+            # word_wrap re-flows them so a long word that originally
+            # forced a split still survives.
+            next_page = " ".join(remaining)
+            self._msg_queue.insert(0, next_page)
         encoded_lines = [self._encode_msg(line) for line in text_lines]
         num_rows = len(encoded_lines)
 
-        # Build tilemap: each row padded to 32 tiles
-        tilemap = bytearray()
-        for i in range(3):
-            line = encoded_lines[i] if i < len(encoded_lines) else b''
-            row = center_line(line)
-            row += bytearray([0x54] * 12)  # pad to 32
-            tilemap += row
+        # Pack into wMsgBuffer: MSG_OAM_MAX_COLS bytes per row, $FF for
+        # cells that should render as no sprite. Centring each line of
+        # text inside its 10-cell row keeps short messages from hugging
+        # the left margin. Lines longer than MSG_OAM_MAX_COLS are HARD-
+        # truncated so an 11+ char line can't overflow into the next
+        # row's 10-byte slot — the word-wrap pass above is supposed to
+        # have split anything that long, this is a backstop.
+        packed = bytearray()
+        for line in encoded_lines:
+            line = line[:MSG_OAM_MAX_COLS]
+            pad_total = MSG_OAM_MAX_COLS - len(line)
+            left_pad  = max(pad_total // 2, 0)
+            right_pad = max(pad_total - left_pad, 0)
+            packed += bytearray([0xFF] * left_pad)
+            packed += line
+            packed += bytearray([0xFF] * right_pad)
 
-        # ROM's TickMsgDisplay loads MsgFont into VRAM bank 1 $9300 and writes
-        # the window attribute bytes from MsgPalPerLevel itself, so we only
-        # need to push the tilemap + row count + ready flag.
+        if self._msg_debug:
+            packed_hex = " ".join(f"{b:02X}" for b in packed)
+            logger.info(
+                f"[WL3 msg] {text!r} → rows={num_rows} "
+                f"lines={text_lines} bytes={packed_hex}"
+            )
+
+        # ROM's TickMsgDisplay handles font tile load + per-frame OAM
+        # append; we just push the packed buffer + row count + ready flag.
         try:
             await write(ctx.bizhawk_ctx, [
-                (ADDR_MSG_BUFFER_WRAM, bytes(tilemap), "WRAM"),
+                (ADDR_MSG_BUFFER_WRAM, bytes(packed), "WRAM"),
                 (ADDR_MSG_ROWS_WRAM,   bytes([num_rows]), "WRAM"),
                 (ADDR_MSG_READY_WRAM,  bytes([1]), "WRAM"),
             ])

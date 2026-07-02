@@ -272,10 +272,14 @@ class BigCoinsanity(Toggle):
 
 
 class Enemizer(Toggle):
-    """Randomize enemy placement across levels. Walkable enemies (Snake,
-    Webber, Futamogu), stepping platforms, gates, and bosses stay at
-    their vanilla positions; ~1781 rooms get fresh enemy bundles.
-    Rooms with throw-only blocks are guaranteed a throwable enemy."""
+    """This setting is unstable and needs more testing. It may cause crashes 
+    and/or unbeatable seeds. Use with caution. Please report any bugs 
+    by using "/roomdebug" and posting it in the discord. There are some visual
+    glitches with some enemies, but they should be purely cosmetic.
+    
+    Randomize most enemy placement across levels. Some enemies stay
+    vanilla due to their gating placements. Rooms with throw blocks are 
+    guaranteed a throwable enemy. Bosses also stay vanilla."""
     display_name = "Enemizer"
     default = 0
 
@@ -366,6 +370,21 @@ class ReduceFlashing(Toggle):
     default = 0
 
 
+class InGameMessages(Choice):
+    """Which in-game pop-up messages the client should display.
+    Everything: show every message — your own item pickups, items received from
+    other players, and items you sent to other players (default).
+    Progression: only show received items that are Progression-classified.
+    Items you SEND to other players still show (so you can see what they're
+    getting); items YOU receive show only when they're flagged Progression.
+    Nothing: don't display any in-game messages at all (received, own, or sent)."""
+    display_name = "In-Game Messages"
+    option_everything   = 0
+    option_progression  = 1
+    option_nothing      = 2
+    default = 0
+
+
 @dataclass
 class WL3Options(PerGameCommonOptions):
     # Logic Options
@@ -389,6 +408,7 @@ class WL3Options(PerGameCommonOptions):
     start_with_magnifying_glass:  StartWithMagnifyingGlass
     reduce_flashing:              ReduceFlashing
     non_stop_chests:              NonStopChests
+    in_game_messages:             InGameMessages
     bigcoinsanity:                BigCoinsanity
     enemizer:                     Enemizer
     hidden_passages_revealed:     HiddenPassagesRevealed
