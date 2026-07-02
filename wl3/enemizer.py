@@ -138,18 +138,34 @@ def _pick_random_per_slot(rng, fixed_slots: dict[int, dict],
     for i in range(4):
         chosen[i] = fixed_slots.get(i)
 
+    # Cross-slot encoding limit: the engine's encoded data_ptr / gfx_ptr
+    # format (see load_objects.asm:222-246 and DecodeGfxSlot) packs the
+    # address into 13 bits — bits 13-14 hold the tile_offset_index /
+    # native_slot, so the decoder rebuilds the address as
+    # ((encoded & $1FFF) | $4000), which silently truncates any source
+    # address in $6000-$7FFF down to $4000-$5FFF. Enemies whose gfx
+    # lives above $5FFF (FireGfx, OctohonGfx, SparkGfx, WaterSparkGfx,
+    # etc. — 12 in total) therefore CANNOT be cross-slotted; they have
+    # to be picked in their native slot only. Picking them native is
+    # fine because the encoder returns the vanilla address unchanged
+    # when native_slot == target_slot.
+    CROSS_SLOT_GFX_MAX = 0x5FFF
+
+    def _can_cross_slot(native: int, name: str) -> bool:
+        return SLOT_PACKAGES[native][name]["gfx_addr"] <= CROSS_SLOT_GFX_MAX
+
     def random_pool(slot_idx: int) -> list[tuple[int, str]]:
-        """Cross-slot pool for non-throwable, non-protected slots —
-        UNION of enemies from all 4 native slots. Engine routes the gfx
-        bank via DecodeGfxSlot and applies tile_offset per the
-        data_ptr/gfx_ptr encoding. Per-tile gfx-size measurement showed
-        ALL 101 enemy gfx fit in the $40-tile VRAM budget, so cross-
-        slot shouldn't garble sprites by overflow — the earlier
-        "BrrrBear garbled" symptom was probably the hidden_blocks
-        memory corruption we've since fixed."""
+        """Cross-slot pool: UNION of enemies from all 4 native slots.
+        Engine support for the tile-id offset is in place — see
+        load_objects.asm + object_mechanics.asm. Enemies whose gfx are
+        above CROSS_SLOT_GFX_MAX are limited to their own native slot
+        (encoding truncates the address otherwise).
+        """
         candidates: list[tuple[int, str]] = []
         for native in range(4):
             for name in sorted(SLOT_PACKAGES[native].keys()):
+                if native != slot_idx and not _can_cross_slot(native, name):
+                    continue
                 candidates.append((native, name))
         if avoid_vanilla_gfx_addrs is not None:
             vanilla = avoid_vanilla_gfx_addrs[slot_idx]
@@ -166,23 +182,22 @@ def _pick_random_per_slot(rng, fixed_slots: dict[int, dict],
         slot-N-native throwable in VRAM slot N (e.g. Spearhead/Silky in
         VRAM 0); excluding the target's native throwables guarantees the
         post-randomization throwable is visibly different from vanilla.
+        Throwables with high-address gfx (RockGfx) are also restricted
+        to their native slot due to the encoding limit.
         Falls back to including target-native if pool would otherwise be
-        empty (shouldn't happen with 6+ non-native throwables but safe)."""
+        empty.
+        """
         candidates: list[tuple[int, str]] = []
         for native, throw_names in THROWABLE_GFX_BY_SLOT.items():
             if native == slot_idx:
-                continue   # skip same-slot natives → force cross-slot
+                continue
             for name in sorted(throw_names):
-                if name in SLOT_PACKAGES[native]:
+                if name in SLOT_PACKAGES[native] and _can_cross_slot(native, name):
                     candidates.append((native, name))
         if not candidates:
-            # Fallback: include target-native if the cross-slot pool is
-            # empty (would only happen with extreme registry exclusions).
             for name in sorted(THROWABLE_GFX_BY_SLOT.get(slot_idx, set())):
                 if name in SLOT_PACKAGES[slot_idx]:
                     candidates.append((slot_idx, name))
-        # Optional soft avoid_vanilla (sig context). Throwable any-random
-        # slots don't pass this, but custom-slot tb routes do.
         if avoid_vanilla_gfx_addrs is not None:
             vanilla = avoid_vanilla_gfx_addrs[slot_idx]
             if vanilla is not None:
@@ -571,9 +586,21 @@ def generate_patch_writes(rng, palette_lookup
         #   crashes the room load when adjacent slots get swapped, even
         #   with slot 2 itself protected.
         FORCE_VANILLA_GFX_PAIRS = {
-            (3, 0x5d9b),   # ZipLineGfx
+            (2, 0x5d9b),   # ZipLineGfx — both ObjectGroup39 and 55 place
+                           # it in slot 2 (was previously misindexed as
+                           # slot 3, which silently disabled the Stagnant
+                           # Swamp / etc. zipline-room protection)
             (2, 0x4909),   # BigLeafGfx (OOTW green chest room, etc.)
-            (2, 0x4a8a),   # ZombieGfx (Forest of Fear demon-blood room)
+            # ZombieGfx (2, 0x4a8a) was here as a blanket safety net,
+            # but it forced EVERY zombie-themed room across the game
+            # to stay vanilla — including all of Peaceful Village's
+            # nighttime variant. The FoF demon-blood room (the only
+            # confirmed Zombie crash) is already protected via explicit
+            # room offsets in FORCE_VANILLA_ROOM_OFFSETS below, so
+            # zombie rooms in other levels are tentatively allowed to
+            # randomise. If a new crash report comes in for a non-FoF
+            # zombie room, add its eg_off to the room list rather than
+            # restoring the blanket pair.
         }
 
         # Specific room offsets that crash on enemizer regardless of gfx.
@@ -595,6 +622,41 @@ def generate_patch_writes(rng, palette_lookup
             0x0c68ac,
             0x0c69d4,
             0x0c6a68,
+            # Tower of Revival's OBJECT_GROUP_117 → ObjectGroup96
+            # rooms (.room_19 and .room_21 across all 8 Day/Night
+            # variants). Both slot 2 (Futamogu) AND slot 3 (Spark)
+            # were tried as the protected slot to keep the room
+            # loadable while allowing the other two slots to
+            # randomise — each in turn still crashed the climb-up
+            # section. Reverted to plain force-vanilla because any
+            # enemizer change to these rooms breaks them.
+            # Repro: lvl=0x72, wRoom=0x5f, wgid=0x75 via /roomdebug.
+            # Only group 96 is dispatched by OBJECT_GROUP_117, and
+            # only these 16 rooms use it.
+            0x0c4668, 0x0c4678,   # DAY_1   (LevelRooms_c4534)
+            0x0c471c, 0x0c472c,   # DAY_2   (LevelRooms_c45e8)
+            0x0c47d0, 0x0c47e0,   # DAY_3   (LevelRooms_c469c)  ← repro
+            0x0c4884, 0x0c4894,   # DAY_4   (LevelRooms_c4750)
+            0x0c4938, 0x0c4948,   # NIGHT_1 (LevelRooms_c4804)
+            0x0c49ec, 0x0c49fc,   # NIGHT_2 (LevelRooms_c48b8)
+            0x0c4aa0, 0x0c4ab0,   # NIGHT_3 (LevelRooms_c496c)
+            0x0c4b54, 0x0c4b64,   # NIGHT_4 (LevelRooms_c4a20)
+            # ---- The Warped Void (owlevel 23, E5) ----
+            # OBJECT_GROUP_109 → ObjectGroup88 (Spearhead/Count
+            # Richtertoffen/Futamogu/Barrel). Same shape as ToR's
+            # ObjectGroup96 — Spearhead + Futamogu are dummy gfx,
+            # real enemies live in slots 1 and 3 — and the ladder
+            # room (ROOM_078) crashes the same way when the
+            # enemizer touches it. Twelve room structs total: the
+            # four unique ROOM_078 rooms (.room_06, .room_07,
+            # .room_12, .room_18) replicated across the three
+            # LevelRooms variants (c5f90 = DAY/NIGHT_1+3,
+            # c605c = DAY/NIGHT_2, c6128 = DAY/NIGHT_4). Repro:
+            # lvl=0xb7, wRoom=0x4e, wgid=0xc5 (enemizer slot 51)
+            # in DAY/NIGHT_4 variant via /roomdebug.
+            0x0c60bc, 0x0c60c4, 0x0c60e4, 0x0c60f4,   # c5f90 (D/N 1+3)
+            0x0c6188, 0x0c6190, 0x0c61b0, 0x0c61c0,   # c605c (D/N 2)
+            0x0c6254, 0x0c625c, 0x0c627c, 0x0c628c,   # c6128 (D/N 4)  ← repro
         }
 
         # ---- Patch room enemy_group bytes for this color ----

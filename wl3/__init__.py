@@ -46,8 +46,9 @@ from .locations import BASE_LOC_ID, COIN_LOCATION_TABLE, KEY_LOCATION_TABLE, LOC
 from Options import OptionGroup
 from .options import (WL3Options, MusicBoxShuffle, KeyShuffle, CombinedItems,
                       GolfPrice, GolfBuilding, IHateGolf,
-                      StartWithMagnifyingGlass, ReduceFlashing, NonStopChests, TrapFill,
-                      TrapWeights, LocalFillPercent,
+                      GolfParHints, GolfParHintFrequency,
+                      StartWithMagnifyingGlass, ReduceFlashing, NonStopChests, InGameMessages,
+                      TrapFill, TrapWeights, LocalFillPercent,
                       MusicShuffle, EnemyPaletteShuffle, LevelBGPaletteShuffle,
                       OverworldBGPaletteShuffle,
                       WarioPaletteShuffle, WarioColors,
@@ -180,10 +181,11 @@ class WL3WebWorld(WebWorld):
         )
     ]
     option_groups = [
-        OptionGroup("Quality of Life", [GolfPrice, GolfBuilding, IHateGolf,
-                                       StartWithMagnifyingGlass, ReduceFlashing,
-                                       NonStopChests, TrapFill, TrapWeights,
-                                       LocalFillPercent]),
+        OptionGroup("Golf", [GolfPrice, GolfBuilding, IHateGolf,
+                             GolfParHints, GolfParHintFrequency]),
+        OptionGroup("Quality of Life", [StartWithMagnifyingGlass, ReduceFlashing,
+                                       NonStopChests, InGameMessages,
+                                       TrapFill, TrapWeights, LocalFillPercent]),
         OptionGroup("Cosmetics", [MusicShuffle, OverworldBGPaletteShuffle,
                                   LevelBGPaletteShuffle, EnemyPaletteShuffle,
                                   WarioPaletteShuffle, WarioColors]),
@@ -890,6 +892,13 @@ class WL3World(World):
 
         loc_items = {}
         all_locs = {**LOCATION_TABLE, **KEY_LOCATION_TABLE}
+        # When coinsanity is on, the 200 big-coin locations also need to
+        # appear in loc_items so the client can fire "SENT X TO Player"
+        # messages when those coins are collected. Without this, picking
+        # up a big coin whose location holds another player's item
+        # silently skips _show_sent_msg.
+        if self.options.bigcoinsanity:
+            all_locs = {**all_locs, **COIN_LOCATION_TABLE}
         for loc_name, loc_data in all_locs.items():
             loc = self.multiworld.get_location(loc_name, self.player)
             if loc.item is not None:
@@ -920,6 +929,7 @@ class WL3World(World):
             "combined_items":          int(self.options.combined_items),
             "golf_par_hints":          int(self.options.golf_par_hints),
             "golf_par_hint_frequency": int(self.options.golf_par_hint_frequency),
+            "in_game_messages":        int(self.options.in_game_messages),
             "progression_item_names":  progression_names,
             "loc_items":               loc_items,
         }

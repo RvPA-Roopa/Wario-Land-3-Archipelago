@@ -24,19 +24,19 @@ from worlds.Files import APProcedurePatch, APPatchExtension, APTokenMixin, APTok
 if TYPE_CHECKING:
     from . import WL3World
 
-CHEST_TABLE_OFFSET               = 0x001AA7   # LevelTreasureIDs_WithoutTemple (100 bytes)
-KEYSANITY_MODE_OFFSET            = 0x001B0B   # KeysanityMode (1 byte: 0=vanilla, 1=simple, 2=full)
-KEY_TABLE_OFFSET                 = 0x001B0C   # LevelKeyPool (100 bytes; ITEM_KEY_BASE + index = vanilla)
-CHEST_KEY_PAL_OFFSET             = 0x001B70   # ChestKeyPalettes (100 bytes; $FF=not key, 4-7=palette)
-KEY_PAL_OVERRIDE_OFFSET          = 0x001BD4   # KeyPaletteOverrides (100 bytes; $FF=default, else OBPAL)
-CHEST_KEYRING_OFFSET             = 0x001C38   # ChestKeyringTargets (100 bytes; $FF=not keyring, 1-25=target owlevel)
-KEY_KEYRING_OFFSET               = 0x001C9C   # KeyKeyringTargets   (100 bytes; same format, but for key slots)
-INITIAL_TREASURES_OFFSET         = 0x001D00   # InitialTreasuresBits (13 bytes; OR'd into wTreasuresCollected at new-game init)
-INITIAL_KEYS_OFFSET              = 0x001D0D   # InitialKeysBits      (25 bytes; OR'd into wKeyInventory      at new-game init)
-INITIAL_TRANSFORM_UNLOCKS_OFFSET = 0x001D26   # InitialTransformUnlocks  (1 byte; OR'd into wTransformUnlocks  at new-game init)
-INITIAL_TRANSFORM_UNLOCKS2_OFFSET = 0x001D27  # InitialTransformUnlocks2 (1 byte; OR'd into wTransformUnlocks2 at new-game init)
-TRAP_CHEST_TABLE_OFFSET          = 0x001D28   # TrapChestTable (100 bytes; 0=no trap, 1-5=TRAP_* — offline trap dispatch from chests)
-TRAP_KEY_TABLE_OFFSET            = 0x001D8C   # TrapKeyTable   (100 bytes; same encoding — offline trap dispatch from key slots)
+CHEST_TABLE_OFFSET = 0x001B08  # LevelTreasureIDs_WithoutTemple (100 bytes)
+KEYSANITY_MODE_OFFSET = 0x001B6C  # KeysanityMode (1 byte: 0=vanilla, 1=simple, 2=full)
+KEY_TABLE_OFFSET = 0x001B6D  # LevelKeyPool (100 bytes; ITEM_KEY_BASE + index = vanilla)
+CHEST_KEY_PAL_OFFSET = 0x001BD1  # ChestKeyPalettes (100 bytes; $FF=not key, 4-7=palette)
+KEY_PAL_OVERRIDE_OFFSET = 0x001C35  # KeyPaletteOverrides (100 bytes; $FF=default, else OBPAL)
+CHEST_KEYRING_OFFSET = 0x001C99  # ChestKeyringTargets (100 bytes; $FF=not keyring, 1-25=target owlevel)
+KEY_KEYRING_OFFSET = 0x001CFD  # KeyKeyringTargets   (100 bytes; same format, but for key slots)
+INITIAL_TREASURES_OFFSET = 0x001D61  # InitialTreasuresBits (13 bytes; OR'd into wTreasuresCollected at new-game init)
+INITIAL_KEYS_OFFSET = 0x001D6E  # InitialKeysBits      (25 bytes; OR'd into wKeyInventory      at new-game init)
+INITIAL_TRANSFORM_UNLOCKS_OFFSET = 0x001D87  # InitialTransformUnlocks  (1 byte; OR'd into wTransformUnlocks  at new-game init)
+INITIAL_TRANSFORM_UNLOCKS2_OFFSET = 0x001D88  # InitialTransformUnlocks2 (1 byte; OR'd into wTransformUnlocks2 at new-game init)
+TRAP_CHEST_TABLE_OFFSET = 0x001D89  # TrapChestTable (100 bytes; 0=no trap, 1-5=TRAP_* — offline trap dispatch from chests)
+TRAP_KEY_TABLE_OFFSET = 0x001DED  # TrapKeyTable   (100 bytes; same encoding — offline trap dispatch from key slots)
 LEVEL_COIN_ITEMS_OFFSET          = 0x05836C   # LevelCoinItems       (200 bytes; bank $16 — display treasure ID per coin slot, $FF=plain)
 COIN_PAL_OVERRIDE_OFFSET         = 0x058434   # CoinPaletteOverrides (200 bytes; bank $16 — OBPAL per coin, $FF=default)
 TRAP_COIN_TABLE_OFFSET           = 0x0584FC   # TrapCoinTable        (200 bytes; bank $16 — 0=no trap, 1-5=TRAP_* — offline trap dispatch from coins)
@@ -242,7 +242,7 @@ LEVEL_MUSIC_OFFSET               = 0x03FE40   # LevelMusic table (25 levels × 1
 MUSIC_BOXES_REQUIRED_OFFSET      = 0x080F23   # MusicBoxesRequired byte in Bank 20
 START_WITH_AXE_OFFSET            = 0x080F24   # StartWithAxeOpt byte in Bank 20
 START_WITH_MAG_GLASS_OFFSET      = 0x080F25   # StartWithMagnifyingGlassOpt byte in Bank 20
-HIDDEN_PASSAGES_REVEALED_OFFSET  = 0x007D22   # HiddenPassagesRevealedOpt byte in Bank 1
+HIDDEN_PASSAGES_REVEALED_OFFSET = 0x00F37B  # HiddenPassagesRevealedOpt byte in Bank 1
 GOLF_PRICE_OPT_OFFSET            = 0x003A00   # GolfPriceOpt byte in Home bank
 GOLF_BUILDING_OPT_OFFSET         = 0x003A01   # GolfBuildingOpt byte in Home bank
 DISABLE_PAL_CYCLE_OFFSET         = 0x003A02   # DisablePalCycleOpt byte in Home bank
