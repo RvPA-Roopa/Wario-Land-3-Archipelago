@@ -420,7 +420,7 @@ KEY_RULES: dict = {
     ],
     "The West Crater": [
         None,                                                                        # grey
-        _c(_o(can_pound_cracked_blocks, _has("Yarn Form")), _o(has_grab_1, can_bounce)),# red
+        _c(_o(can_pound_cracked_blocks, _has("Yarn Form")), _o(has_grab_1, can_fly)),# red
         _o(_c(can_pass_through_fire, can_jump_high), can_fly),                       # green
         _c(_has("Rust Spray"), has_grab_1),                                          # blue
     ],
@@ -506,7 +506,7 @@ KEY_RULES: dict = {
         _c(_has("Mystery Handle"), _o(_c(has_grab_2, _has("High Jump Boots")),
                                       can_bounce)),                                  # red
         _c(_has("Mystery Handle"), has_grab_1),                                      # green
-        _o(_has("Demon's Blood"), _has("Zombie Form")),                              # blue
+        _o(_has("Demon's Blood"), can_pass_spikes),                                  # blue
     ],
 }
 
@@ -642,7 +642,7 @@ COIN_RULES: dict = {
         can_pound_large_solid_blocks,                                                   #5
         _o(_c(can_pass_through_fire, can_jump_high), can_fly),                          #6
         _o(_c(can_pass_through_fire, _has("High Jump Boots")), can_fly),                #7
-        _c(_o(can_pound_cracked_blocks, _has("Yarn Form")), _o(has_grab_1, can_bounce)),#8
+        _c(_o(can_pound_cracked_blocks, _has("Yarn Form")), _o(has_grab_1, can_fly)),   #8
     ],
     "The Grasslands": [
         _o(_has("Flute"), _has("Puffy Form")),                                          #1
