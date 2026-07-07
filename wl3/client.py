@@ -114,7 +114,7 @@ ADDR_MSG_ROWS_WRAM = 0x121E # wMsgRows (1 byte, 1..MSG_OAM_MAX_ROWS)
 # - Each char renders as one 8x16 sprite (4-wide glyph + drop shadow).
 #   The PPU's 10-sprites-per-scanline limit caps each row at 10 chars.
 MSG_OAM_MAX_COLS = 10
-MSG_OAM_MAX_ROWS = 4
+MSG_OAM_MAX_ROWS = 3
 ADDR_PENDING_TRAP_WRAM = 0x1227 # wPendingTrap (1 byte — AP trap queue, bank 1 0xD227)
 ADDR_PAR_HINT_REQUEST_WRAM = 0x1228 # wParHintRequest (1 byte — Golf Building par hint trigger, bank 1 0xD228)
 ADDR_ALL_PAR_THIS_COURSE_WRAM = 0x1229 # wAllParThisCourse (1 byte — ROM-internal per-course tracker, bank 1 0xD229)
@@ -1022,48 +1022,45 @@ class WL3Client(BizHawkClient):
         text = self._msg_queue.pop(0)
         self._last_msg_time = time.time()
 
-        # Word-wrap text into lines of up to MSG_OAM_MAX_COLS chars with dash
-        # for split words.
-        def _split_long_word(word, width):
-            """Break a word longer than width into (width-1)-char chunks
-            with trailing dashes. Without this, words longer than
-            width get silently truncated by the row-packer downstream
-            (e.g. 'ARCHIPELAGO' at width 10 lost the trailing 'O')."""
-            if len(word) <= width:
-                return [word]
-            chunks = []
-            while len(word) > width:
-                chunks.append(word[:width - 1] + "-")
-                word = word[width - 1:]
-            if word:
-                chunks.append(word)
-            return chunks
-
+        # Word-wrap text into lines of up to `width` chars. Long words
+        # get split with a trailing dash — but the leftover chunk is fed
+        # back into the wrap loop as fresh text, NOT carried as a
+        # standalone dash-suffixed "word." That way a split like
+        # ARCHIPELAGO → "ARCHI-" / "PELAGO" never produces a same-line
+        # rejoin like "ARCHI- PELAGO"; the second half is a clean word.
         def word_wrap(txt, width=MSG_OAM_MAX_COLS):
-            raw_words = txt.upper().split()
-            words = [chunk for w in raw_words
-                     for chunk in _split_long_word(w, width)]
+            words = txt.upper().split()
             lines_out = []
             current = ""
-            for word in words:
+            i = 0
+            while i < len(words):
+                word = words[i]
                 if not current:
-                    candidate = word
-                elif len(current) + 1 + len(word) <= width:
-                    candidate = current + " " + word
-                else:
-                    # Word doesn't fit — check if we can dash it
-                    space_left = width - len(current) - 1  # -1 for space before
-                    if space_left > 2 and len(word) > space_left:
-                        # Split with dash: put (space_left-1) chars + dash on this line
-                        split_at = space_left - 1
-                        lines_out.append(current + " " + word[:split_at] + "-")
-                        current = word[split_at:]
-                        continue
-                    else:
-                        lines_out.append(current)
+                    if len(word) <= width:
                         current = word
-                        continue
-                current = candidate
+                        i += 1
+                    else:
+                        # Word alone exceeds a full line — dash-split.
+                        lines_out.append(word[:width - 1] + "-")
+                        words[i] = word[width - 1:]
+                        # loop back with the remainder as the current word
+                    continue
+                if len(current) + 1 + len(word) <= width:
+                    current = current + " " + word
+                    i += 1
+                    continue
+                space_left = width - len(current) - 1  # -1 for space before
+                if space_left > 2 and len(word) > space_left:
+                    split_at = space_left - 1
+                    lines_out.append(current + " " + word[:split_at] + "-")
+                    current = ""
+                    words[i] = word[split_at:]
+                    # loop back with remainder as fresh word
+                    continue
+                # Doesn't fit and can't dash-split — flush current,
+                # let next iteration handle word alone.
+                lines_out.append(current)
+                current = ""
             if current:
                 lines_out.append(current)
             return lines_out
