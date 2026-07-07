@@ -47,7 +47,6 @@ SLOT_3_PACKAGES = {
     "FireBotGfx": {"gfx_addr": 0x4234, "data_addrs": [0x459c], "palette_offset": 0x065640},
     "NobiiruGfx": {"gfx_addr": 0x5dec, "data_addrs": [0x46cc, 0x46d4], "palette_offset": 0x065a0b},
     "TeruteruGfx": {"gfx_addr": 0x4ee3, "data_addrs": [0x456c], "palette_offset": 0x065741},
-    "TogebaGfx": {"gfx_addr": 0x5861, "data_addrs": [0x460c], "palette_offset": 0x065ad5},
     "TorchGfx": {"gfx_addr": 0x4000, "data_addrs": [0x4484], "palette_offset": 0x06547b},
     "WaterDropGfx": {"gfx_addr": 0x5d44, "data_addrs": [0x46b4], "palette_offset": 0x065904},
 }
