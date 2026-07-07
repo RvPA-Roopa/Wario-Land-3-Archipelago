@@ -19,6 +19,9 @@ If you have the blue or red chemical item, the stalks in this level will produce
 
 - The room with the door to the Blue Chest room will sometimes appear lit without Night Vision Goggles. This is only visual, Night Vision Goggles are still required to enter the door.
 
+**W3 (The Pool of Rain) — Boss Softlock**
+With Transformation Shuffle, it is possible to transform in the Green Chest Boss room without getting to the exit. If this happens, the boss will disappear, and you will need to reset the game unless you have a form that allows you to escape (Puffy, Bat, or Zombie).
+
 **W5 (Beneath the waves) — Octopi and the chemical pathway**
 With the blue or red chemical, octopi will grow and appear to open the underwater pathway. However, the path remains physically blocked unless you also have the Sapling of Growth — it just looks open. You cannot swim through it.
 
