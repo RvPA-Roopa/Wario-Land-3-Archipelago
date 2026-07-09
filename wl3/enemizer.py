@@ -548,7 +548,11 @@ def generate_patch_writes(rng, palette_lookup
     # 4 crashing rooms individually; excluding wgid 0x61 entirely means
     # the 4 non-crashing rooms also stay vanilla. Acceptable trade to
     # avoid the crash.
-    FORCE_VANILLA_WGIDS = {0x61}
+    # BotWR barrel platform: wgid 0x6a → ObjectGroup85 slot 3 = Barrel,
+    # used as the floating platform to reach Big Coin 6. Categorized as
+    # "pickup" so the enemizer would otherwise randomize it out and the
+    # coin becomes unreachable.
+    FORCE_VANILLA_WGIDS = {0x61, 0x6a}
 
     # === Build sig → wgids mapping (deduplicated across colors) ===
     sig_to_wgids: "OrderedDict[tuple, list[int]]" = OrderedDict()
