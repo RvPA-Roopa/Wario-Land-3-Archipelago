@@ -31,7 +31,7 @@ SLOT_1_PACKAGES = {
 
 SLOT_2_PACKAGES = {
     "DoughnuteerGfx": {"gfx_addr": 0x45b3, "data_addrs": [0x44cc], "palette_offset": 0x065440},
-    "FireGfx": {"gfx_addr": 0x65ac, "data_addrs": [0x475c, 0x459c], "palette_offset": 0x066166},
+    "FireGfx": {"gfx_addr": 0x65ac, "data_addrs": [0x475c], "palette_offset": 0x066166},
     "HandGfx": {"gfx_addr": 0x567b, "data_addrs": [0x45cc], "palette_offset": 0x065869},
     "HebariiGfx": {"gfx_addr": 0x4327, "data_addrs": [0x44bc], "palette_offset": 0x065fcc},
     "KobattoGfx": {"gfx_addr": 0x545b, "data_addrs": [0x45c4], "palette_offset": 0x0658fc},
