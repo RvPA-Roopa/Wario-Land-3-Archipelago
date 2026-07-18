@@ -319,7 +319,29 @@ def _emit_slot_bytes(chosen: list[dict],
 # footprint (compressed size, tile ID layout). A live emulator session
 # with breakpoints at the crash PC + VRAM/wRoomBlockTiles diffs would
 # pin down the exact reference, but that requires driving BizHawk.
-CRASH_CONFIRMED_GIDS = frozenset({6, 88, 96})
+CRASH_CONFIRMED_GIDS = frozenset({6, 88, 96, 101})
+# gid 101 (Above the Clouds day room_00 = wgid 0x7d): same
+# [Spearhead@0, Bird@1, Futamogu@2 protected, Spark@3] layout as the
+# other confirmed crashers. Reproduced 2026-07-15: entering ATC on a
+# new seed crashes on the first room load. Vanilla-identical
+# composition via _emit_vanilla_identical_slot keeps the room stable.
+
+# Per-slot protection overrides — for gids where whole-group vanilla is
+# more restrictive than needed. Marks specific VRAM slots as "protected"
+# for the given gid so the sig treats them as vanilla (locked) while
+# other slots still randomize normally.
+#
+# gid 59 (The Grasslands room 0x58 = wgid 0x48): only Nobiiru at slot 3
+# causes the crash on approach. Bird@1 and Hebarii@2 can still be
+# randomized — locking just slot 3 preserves the crash-critical enemy
+# while keeping variety in the other two slots.
+SLOT_LOCKED_GIDS: dict = {
+    59: {3},        # gid 59 Grasslands: lock Nobiiru@3 (crash)
+    42: {2},        # gid 42 Tower of Revival torch room (wgid 0x25/0x26):
+                    # FlameBlock@2 must stay vanilla (the actual puzzle
+                    # mechanic). Stove@0 already protected (walkable).
+                    # ParaGoom@1 and Torch@3 randomize freely.
+}
 
 
 # Current-ROM DummyObjectData address. The module-level
@@ -536,6 +558,16 @@ def generate_patch_writes(rng, palette_lookup
     FORCE_VANILLA_GFX_PAIRS = {
         (2, 0x5d9b),   # ZipLineGfx
         (2, 0x4909),   # BigLeafGfx
+        (2, 0x599f),   # BubbleGfx — bubbles spawn from BubbleHole and Wario
+                       # stands on them to reach coins/keys. Categorized as
+                       # "enemy" so per-slot randomization replaces them and
+                       # the bubble mechanism breaks. Vast Plain room 0x19
+                       # (wgid 0x18) needs Big Coin reached via bubble.
+        # Tower of Revival torch room (wgid 0x25/0x26, gid 42): no lock.
+        # Stove@0 is already protected (walkable). FlameBlock@2 and
+        # Torch@3 randomize freely — the room's torch-lighting puzzle
+        # doesn't need to be completed anymore under these rules, so
+        # neither the flame block nor the torch enemy is required.
     }
 
     # Wgids whose all-room set stays vanilla (conditional-spawner cells
@@ -552,7 +584,44 @@ def generate_patch_writes(rng, palette_lookup
     # used as the floating platform to reach Big Coin 6. Categorized as
     # "pickup" so the enemizer would otherwise randomize it out and the
     # coin becomes unreachable.
-    FORCE_VANILLA_WGIDS = {0x61, 0x6a}
+    # A Town in Chaos throw-block room: wgid 0x91 → gid 117 has Spearhead
+    # at slot 0 as gfx-only (data_count=0). The room's block function
+    # dispenses a throwable using slot 0's tiles — inserting a throwable
+    # data ptr at slot 0 (via _compose_custom_slot's data-count fix)
+    # shifts the flat data-ptr indices the room's object_map depends on,
+    # so the throwable goes missing. Force-vanilla preserves the
+    # dispenser mechanic.
+    FORCE_VANILLA_WGIDS = {0x61, 0x6a, 0x91}
+
+    # Merge in the player's hand-verified throw-block room data. Multi-slot
+    # wgids get force-vanilla'd (single-forced-throwable pass can't cover
+    # them). Import lazily so a missing manual_throwable_config file (e.g.
+    # a fresh clone before the tool has run) doesn't break enemizer.
+    try:
+        from . import manual_throwable_config as _mtc
+        FORCE_VANILLA_WGIDS = FORCE_VANILLA_WGIDS | _mtc.MANUAL_FORCE_VANILLA_WGIDS
+        MANUAL_TB_WGID_SLOT     = dict(_mtc.MANUAL_TB_WGID_SLOT)
+        MANUAL_MARKED_WGIDS     = set(_mtc.MANUAL_MARKED_WGIDS)
+        MANUAL_NO_THROWABLE     = set(_mtc.MANUAL_NO_THROWABLE_WGIDS)
+    except ImportError:
+        MANUAL_TB_WGID_SLOT     = {}
+        MANUAL_MARKED_WGIDS     = set()
+        MANUAL_NO_THROWABLE     = set()
+
+    def _rec_with_slot_locks(rec: dict, gid: int) -> dict:
+        """Return `rec` with any SLOT_LOCKED_GIDS[gid] slots marked
+        protected. Doesn't mutate the original. The signature computed
+        from the returned rec treats the locked slot(s) as vanilla."""
+        locks = SLOT_LOCKED_GIDS.get(gid)
+        if not locks:
+            return rec
+        new = dict(rec)
+        prot = list(rec["prot_per_slot"])
+        for s in locks:
+            if 0 <= s < 4:
+                prot[s] = True
+        new["prot_per_slot"] = prot
+        return new
 
     # === Build sig → wgids mapping (deduplicated across colors) ===
     sig_to_wgids: "OrderedDict[tuple, list[int]]" = OrderedDict()
@@ -565,6 +634,7 @@ def generate_patch_writes(rng, palette_lookup
             continue
         if wgid in FORCE_VANILLA_WGIDS:
             continue
+        rec = _rec_with_slot_locks(rec, gid)
         sig = _group_signature(rec)
         if sig is None:
             continue
@@ -574,14 +644,33 @@ def generate_patch_writes(rng, palette_lookup
         sig_to_real_gids.setdefault(sig, set()).add(gid)
 
     # === Build (sig, tb_slot) throw-block combos ===
-    # Every wgid has at most one tb_slot value (verified game-wide), so
-    # per-wgid patching preserves throw-block routing correctly.
+    # tb_slot per wgid — the player's manual marks take precedence over
+    # the auto-detected value in ROOM_OFFSETS. For any wgid the player
+    # marked, we trust their call:
+    #   - MANUAL_TB_WGID_SLOT[wgid] present -> force throwable at that slot
+    #   - wgid in MANUAL_NO_THROWABLE      -> no throwable needed (skip)
+    # For unmarked wgids the auto-detected tb_slot from ROOM_OFFSETS is
+    # used as fallback.
     throwblock_keys: "OrderedDict[tuple, None]" = OrderedDict()
     tb_slot_by_wgid: dict[int, int] = {}
+    seen_wgids: set = set()
     for _eg_off, wgid, tb_slot in rooms:
-        if tb_slot is None:
-            continue
         if wgid in FORCE_VANILLA_WGIDS:
+            continue
+        # Only decide once per wgid — multiple rooms sharing a wgid
+        # would otherwise re-run the same decision loop.
+        if wgid in seen_wgids:
+            continue
+        seen_wgids.add(wgid)
+        # Manual data wins if present.
+        if wgid in MANUAL_MARKED_WGIDS:
+            if wgid in MANUAL_NO_THROWABLE:
+                continue   # player said no throwable needed
+            manual_slot = MANUAL_TB_WGID_SLOT.get(wgid)
+            if manual_slot is None:
+                continue
+            tb_slot = manual_slot
+        elif tb_slot is None:
             continue
         tb_slot_by_wgid[wgid] = tb_slot
         real_id = wgid_to_real.get(wgid)
@@ -590,6 +679,7 @@ def generate_patch_writes(rng, palette_lookup
         rec = groups.get(real_id)
         if rec is None:
             continue
+        rec = _rec_with_slot_locks(rec, real_id)
         sig = _group_signature(rec)
         if sig is None:
             continue
@@ -702,6 +792,7 @@ def generate_patch_writes(rng, palette_lookup
         if any((i, a) in FORCE_VANILLA_GFX_PAIRS for i, a in enumerate(gfx_addrs)):
             continue
 
+        rec = _rec_with_slot_locks(rec, gid)
         sig = _group_signature(rec)
         tb_slot = tb_slot_by_wgid.get(wgid)
 

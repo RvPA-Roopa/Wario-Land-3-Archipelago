@@ -273,6 +273,14 @@ class WL3Client(BizHawkClient):
         # whenever any of them changes. Toggled via /roomdebug client command.
         self._room_debug:     bool  = False
         self._prev_room_dbg: tuple = (None, None, None)
+        # Manual throw-block room marks, keyed by (owlevel, wRoom_byte).
+        # Value: slot 0-3 for "needs throwable in this VRAM slot", the
+        # string "none" for "no throwable needed" (explicit false positive).
+        # Written by /mt <slot>, loaded from / saved to a JSON file next
+        # to the client executable so marks persist across sessions.
+        self._manual_throw_marks: dict = {}
+        self._manual_throw_marks_path: str = ""
+        self._manual_throw_marks_loaded: bool = False
         # Tracker debug logging — prints each "Set" published to DataStorage
         # by _publish_current_level. The DataStorage publish itself always
         # runs (the tracker keys keep updating regardless); this flag only
@@ -453,18 +461,52 @@ class WL3Client(BizHawkClient):
         # Room debug logging (toggled via /roomdebug command). Logs each time
         # the (level, room, group) tuple changes so we can identify which
         # LevelRooms_*.room_NN the player just entered.
-        if self._room_debug:
-            cur = (w_level, w_room, w_obj_grp)
-            if cur != self._prev_room_dbg:
-                owlevel = (w_level >> 3) + 1   # decode wLevel into 1..25 overworld level index
-                if w_obj_grp >= 0x92:
-                    slot_n = w_obj_grp - 0x92
-                    grp_desc = f"enemizer slot {slot_n}"
-                else:
-                    grp_desc = "vanilla"
-                logger.info(f"[WL3 room] lvl=0x{w_level:02x}(owlevel={owlevel}) "
-                            f"room=0x{w_room:02x} wgid=0x{w_obj_grp:02x} ({grp_desc})")
-                self._prev_room_dbg = cur
+        # Update the cached room state EVERY tick, regardless of whether
+        # /roomdebug is on. That way /mt can look up the current room
+        # without requiring the user to also toggle debug on.
+        cur = (w_level, w_room, w_obj_grp)
+        room_changed = cur != self._prev_room_dbg
+        self._prev_room_dbg = cur
+        if self._room_debug and room_changed:
+            owlevel = (w_level >> 3) + 1   # decode wLevel into 1..25 overworld level index
+            # NOTE: the enemizer patches ObjectGroups[wgid][2..3] to
+            # redirect enemy data to a custom slot; wObjectGroup itself
+            # is NOT rewritten, so we can't tell from the byte alone
+            # whether the group contents came from vanilla ROM or an
+            # enemizer custom slot. wgid >= 0x92 means the ROOM's
+            # enemy_group byte was rewritten (rare path); otherwise
+            # the contents are decided at patch time by the enemizer.
+            if w_obj_grp >= 0x92:
+                routing = f"room byte rewritten -> slot {w_obj_grp - 0x92}"
+            else:
+                routing = "dispatch via ObjectGroups[wgid]"
+            # Auto-detected throw-block flag from the shipped table
+            # (from find_throw_block_rooms.py output). Absence from the
+            # table = "auto-scanner didn't flag this room."
+            try:
+                from .throw_block_flags import THROW_BLOCK_AUTO_FLAGS
+                auto = THROW_BLOCK_AUTO_FLAGS.get((owlevel, w_room), "not-flagged")
+            except Exception:
+                auto = "unknown"
+            if auto == "not-flagged":
+                auto_str = "N (not flagged)"
+            elif auto is None:
+                auto_str = "Y (no vanilla throwable identified)"
+            else:
+                auto_str = f"Y (vanilla slot {auto})"
+            # Manual mark from the local JSON list.
+            self._load_manual_marks()
+            mark = self._manual_throw_marks.get((owlevel, w_room))
+            if mark is None:
+                mark_str = "unmarked"
+            elif mark.get("slot") == "none":
+                mark_str = "none (no throwable needed)"
+            else:
+                mark_str = f"slot {mark.get('slot')}"
+            logger.info(f"[WL3 room] lvl=0x{w_level:02x}(owlevel={owlevel}) "
+                        f"room=0x{w_room:02x} wgid=0x{w_obj_grp:02x} "
+                        f"[{routing}]  auto_throw:{auto_str}  "
+                        f"manual_mark:{mark_str}")
 
         # Bit 7 is set immediately after the color byte is written (set 7, [wLevelEndScreen]),
         # so the live value is 0x81–0x84, not 0x01–0x04.  Mask it off for comparison.
@@ -578,7 +620,20 @@ class WL3Client(BizHawkClient):
             ctx.command_processor.commands["roomdebug"] = lambda *_: self._toggle_room_debug()
             ctx.command_processor.commands["debugtracker"] = lambda *_: self._toggle_tracker_debug()
             ctx.command_processor.commands["msgdump"] = lambda *_: self._toggle_msg_debug()
+            # Manual throw-block marking commands. Uses a closure so we can
+            # capture the current room's (owlevel, wRoom) at command time
+            # from the last cached values in self._prev_room_dbg.
+            # AP's CommandProcessor dispatches by treating the lambda as an
+            # unbound method — it prepends the CommandProcessor instance
+            # as the first positional arg. Filter to keep only strings so
+            # `/mt yes` sees args = ("yes",) instead of (cp_self, "yes").
+            ctx.command_processor.commands["mt"] = lambda *args: self._mt_command(
+                tuple(a for a in args if isinstance(a, str)))
             self._cmd_registered = True
+            # Load persisted marks lazily on first tick after connect so the
+            # working directory is settled (BizHawkClient sets cwd during
+            # its startup dance).
+            self._load_manual_marks()
 
         # ---- Seed _checked_locs from wOpenedChests on first server connection ----
         # The ROM now writes wOpenedChests on every chest open and it's saved to SRAM,
@@ -935,10 +990,230 @@ class WL3Client(BizHawkClient):
         state = "ON" if self._room_debug else "OFF"
         logger.info(f"[WL3] Room debug logging: {state}")
         if self._room_debug:
-            logger.info("[WL3] Format: lvl=<dec>(owlevel=<n>) room=0x<hex> wgid=0x<hex> "
-                        "(vanilla|enemizer slot N)")
+            logger.info("[WL3] Format: lvl=0x<hex>(owlevel=<n>) room=0x<hex> "
+                        "wgid=0x<hex> [routing]  auto_throw:<Y/N/slot>  "
+                        "manual_mark:<slot|none|unmarked>")
             # Reset so the next poll always emits an initial line.
             self._prev_room_dbg = (None, None, None)
+
+    # ------------------------------------------------------------------
+    # Manual throw-block marking (/mt)
+    # ------------------------------------------------------------------
+
+    def _manual_marks_file(self) -> str:
+        """Path to the JSON file that stores the player's manual throw-block
+        room list. Same directory as the running client binary/script."""
+        if self._manual_throw_marks_path:
+            return self._manual_throw_marks_path
+        import os as _os
+        # Default: sit next to the client's cwd (BizHawkClient usually runs
+        # from C:/ProgramData/Archipelago/), so marks persist per install.
+        self._manual_throw_marks_path = _os.path.abspath(
+            "manual_throw_block_rooms.json")
+        return self._manual_throw_marks_path
+
+    def _load_manual_marks(self) -> None:
+        """Load persisted marks from disk into self._manual_throw_marks.
+        Idempotent — safe to call multiple times."""
+        if self._manual_throw_marks_loaded:
+            return
+        self._manual_throw_marks_loaded = True
+        import json, os
+        path = self._manual_marks_file()
+        if not os.path.exists(path):
+            return
+        try:
+            data = json.load(open(path, "r", encoding="utf-8"))
+            for entry in data.get("rooms", []):
+                key = (int(entry["owlevel"]), int(entry["wRoom"]))
+                self._manual_throw_marks[key] = {
+                    "slot":  entry.get("slot"),
+                    "wgid":  entry.get("wgid"),
+                    "note":  entry.get("note", ""),
+                }
+            logger.info(f"[WL3] Loaded {len(self._manual_throw_marks)} manual "
+                        f"throw-block marks from {path}")
+        except Exception as e:
+            logger.warning(f"[WL3] Failed to load manual throw-block marks "
+                           f"from {path}: {e}")
+
+    def _save_manual_marks(self) -> None:
+        """Serialize self._manual_throw_marks to the JSON file. Called after
+        every /mt update so marks survive client restart."""
+        import json
+        path = self._manual_marks_file()
+        rooms = []
+        for (ow, wr), info in sorted(self._manual_throw_marks.items()):
+            rooms.append({
+                "owlevel": ow,
+                "wRoom":   wr,
+                "slot":    info.get("slot"),
+                "wgid":    info.get("wgid"),
+                "note":    info.get("note", ""),
+            })
+        try:
+            with open(path, "w", encoding="utf-8") as f:
+                json.dump({"rooms": rooms}, f, indent=2)
+        except Exception as e:
+            logger.error(f"[WL3] Failed to save manual throw-block marks: {e}")
+
+    # Set of throwable enemy names PER VRAM slot. Kept in sync with
+    # enemizer.py's THROWABLE_GFX_BY_SLOT so a `(throwable)` badge shows
+    # in the /mt slot listing.
+    _MT_THROWABLE_NAMES = {
+        0: {"Silky", "Spearhead"},
+        1: {"ParaGoom"},
+        2: {"Doughnuteer", "Rock", "SpearBot"},
+        3: {"BeamBot", "FireBot"},
+    }
+
+    def _room_slot_names(self, w_obj_grp: int) -> "list[tuple[str, bool]] | None":
+        """Return [(enemy_name, is_throwable), ...] for the 4 VRAM slots
+        of the given wgid's vanilla ObjectGroup, or None if the wgid
+        can't be resolved. Names come from slot_gfx_names.SLOT_GFX_NAMES
+        (built from warioland3.sym at apworld-build time)."""
+        try:
+            from . import enemizer_data
+            from .slot_gfx_names import SLOT_GFX_NAMES
+        except Exception:
+            return None
+        gid = enemizer_data.WGID_TO_REAL_GID.get(w_obj_grp)
+        if gid is None:
+            return None
+        rec = enemizer_data.OBJECT_GROUPS.get(gid)
+        if rec is None:
+            return None
+        gfx_addrs = rec.get("gfx_addrs", [])
+        out = []
+        for slot in range(4):
+            addr = gfx_addrs[slot] if slot < len(gfx_addrs) else None
+            if addr is None:
+                out.append(("?", False))
+                continue
+            name = SLOT_GFX_NAMES.get(slot, {}).get(addr, f"?@0x{addr:04X}")
+            is_throwable = name in self._MT_THROWABLE_NAMES.get(slot, set())
+            out.append((name, is_throwable))
+        return out
+
+    def _print_room_slots(self, w_level: int, w_room: int, w_obj_grp: int) -> None:
+        """Log the 4-slot layout of the current room. Marks throwables with
+        a `(throwable)` badge so the player can pick the right slot to
+        replace with /mt <slot>."""
+        owlevel = (w_level >> 3) + 1
+        slots = self._room_slot_names(w_obj_grp)
+        logger.info(f"[WL3] /mt: current room owlevel={owlevel} "
+                    f"wRoom=0x{w_room:02x} wgid=0x{w_obj_grp:02x} — "
+                    f"vanilla slots:")
+        if slots is None:
+            logger.info("  (could not resolve wgid — group data may be a "
+                        "boss group or otherwise not in the enemizer table)")
+            return
+        for i, (name, is_throwable) in enumerate(slots):
+            badge = "  (throwable)" if is_throwable else ""
+            logger.info(f"  slot {i}: {name}{badge}")
+        logger.info("  Use `/mt <slot>` (0-3) to mark this room as needing "
+                    "a throwable in that slot,")
+        logger.info("  or `/mt none` if no throwable is needed here.")
+
+    def _mt_command(self, args) -> None:
+        """/mt [<slot>|none|clear|list] — mark whether the current room
+        needs a throwable enemy.
+
+          /mt           → show the current room's 4 vanilla slots and
+                          their enemy names, so you can decide which slot
+                          to replace with the throwable.
+          /mt <0..3>    → mark this room as needing a throwable in that
+                          specific VRAM slot (that slot's vanilla enemy
+                          gets replaced by a throwable at seed-gen time).
+          /mt none      → this room does NOT need a throwable (false pos).
+          /mt clear     → remove the current room from the list.
+          /mt list      → dump all recorded marks by owlevel.
+
+        Uses the last-seen (owlevel, wRoom, wgid) from every-tick room
+        state — /roomdebug does NOT need to be on."""
+        self._load_manual_marks()
+
+        arg = ""
+        if args and args[0]:
+            arg = str(args[0]).strip().lower()
+
+        if arg == "list":
+            self._mt_list()
+            return
+
+        cur = self._prev_room_dbg
+        if cur == (None, None, None):
+            logger.warning("[WL3] /mt: no room seen yet. Enter a level, then "
+                           "try again. (You do not need /roomdebug on.)")
+            return
+        w_level, w_room, w_obj_grp = cur
+        owlevel = (w_level >> 3) + 1
+        key = (owlevel, w_room)
+
+        if arg == "clear":
+            if key in self._manual_throw_marks:
+                del self._manual_throw_marks[key]
+                self._save_manual_marks()
+                logger.info(f"[WL3] /mt cleared: owlevel={owlevel} "
+                            f"wRoom=0x{w_room:02x}")
+            else:
+                logger.info(f"[WL3] /mt clear: owlevel={owlevel} "
+                            f"wRoom=0x{w_room:02x} was not marked")
+            return
+
+        if arg == "none":
+            self._manual_throw_marks[key] = {
+                "slot": "none", "wgid": w_obj_grp, "note": ""}
+            self._save_manual_marks()
+            logger.info(f"[WL3] /mt: owlevel={owlevel} wRoom=0x{w_room:02x} "
+                        f"wgid=0x{w_obj_grp:02x} -> no throwable needed")
+            return
+
+        # /mt with no arg → show the slot layout and stop.
+        if arg == "":
+            self._print_room_slots(w_level, w_room, w_obj_grp)
+            return
+
+        # Numeric slot 0-3 → mark this room needing a throwable in that slot.
+        try:
+            slot = int(arg)
+        except ValueError:
+            slot = None
+        if slot is not None and 0 <= slot <= 3:
+            slots = self._room_slot_names(w_obj_grp)
+            slot_name = "?"
+            if slots is not None and slot < len(slots):
+                slot_name = slots[slot][0]
+            self._manual_throw_marks[key] = {
+                "slot": slot, "wgid": w_obj_grp, "note": ""}
+            self._save_manual_marks()
+            logger.info(f"[WL3] /mt: owlevel={owlevel} wRoom=0x{w_room:02x} "
+                        f"wgid=0x{w_obj_grp:02x} -> needs throwable in slot "
+                        f"{slot} (replacing {slot_name})")
+            return
+
+        logger.info(f"[WL3] /mt usage: /mt (show slots) | /mt <0-3> | "
+                    f"/mt none | /mt clear | /mt list   "
+                    f"(got arg={arg!r})")
+
+    def _mt_list(self) -> None:
+        """Print every recorded mark grouped by owlevel."""
+        self._load_manual_marks()
+        if not self._manual_throw_marks:
+            logger.info("[WL3] /mt list: no marks recorded yet")
+            return
+        from collections import defaultdict
+        by_lvl = defaultdict(list)
+        for (ow, wr), info in sorted(self._manual_throw_marks.items()):
+            by_lvl[ow].append((wr, info))
+        logger.info(f"[WL3] Manual throw-block marks ({len(self._manual_throw_marks)} "
+                    f"total across {len(by_lvl)} owlevels):")
+        for ow in sorted(by_lvl):
+            rooms = by_lvl[ow]
+            summary = ", ".join(
+                f"0x{wr:02x}={info['slot']}" for wr, info in rooms)
+            logger.info(f"  owlevel {ow}: {summary}")
+        logger.info(f"[WL3] JSON file: {self._manual_marks_file()}")
 
     def _toggle_msg_debug(self) -> None:
         """Toggle the [WL3 msg] console log line that prints the encoded
