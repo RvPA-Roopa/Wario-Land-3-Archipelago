@@ -41,7 +41,7 @@ ENEMIZER_BUCKET_BASES = [0,
                          ENEMIZER_BUCKET_COUNTS[0],
                          ENEMIZER_BUCKET_COUNTS[0] + ENEMIZER_BUCKET_COUNTS[1],
                          ENEMIZER_BUCKET_COUNTS[0] + ENEMIZER_BUCKET_COUNTS[1] + ENEMIZER_BUCKET_COUNTS[2]]
-THROWABLE_VRAM_SLOTS_PER_BUCKET = (0, 1, 2)   # one throwable slot per bucket per VRAM slot
+THROWABLE_VRAM_SLOTS_PER_BUCKET = (0, 1, 2, 3)   # one throwable slot per bucket per VRAM slot (slot 3 added 2026-07-18 when Barrel joined slot-3 throwables — needed for auto-tb rooms with no sig, e.g. wgid 0x49 Big Bridge)
 
 DUMMY_OBJECT_DATA_ADDR = 0x43c3
 
@@ -66,7 +66,39 @@ THROWABLE_GFX_BY_SLOT: dict[int, set[str]] = {
     0: {"SilkyGfx", "SpearheadGfx"},
     1: {"ParaGoomGfx"},
     2: {"DoughnuteerGfx", "RockGfx", "SpearBotGfx"},
-    3: {"BeamBotGfx", "FireBotGfx"},
+    3: {"BeamBotGfx", "FireBotGfx", "BarrelGfx"},
+}
+
+# Electric/STING-damage enemies (Wario becomes Zombie form on touch).
+# These may be interchangeable in spike rooms since wl3 seems to use
+# the same tile-referencing pattern for all of them. Keyed by NATIVE
+# VRAM slot for the enemy's gfx label placement.
+ELECTRIC_GFX_BY_SLOT: dict[int, set[str]] = {
+    0: set(),                              # (no slot-0-native electric enemies)
+    1: {"KushimushiGfx"},                   # confirmed working in ToR
+    2: set(),                              # (no slot-2-native electric enemies)
+    3: {"SparkGfx"},                        # native vanilla — confirmed working
+    # Untested and REMOVED per user 2026-07-18 (keeping the pool minimal):
+    #   - BirdGfx (crashed ToR)
+    #   - TogebaGfx (untested; user chose safety)
+}
+
+# Extra spike-family enemy pkgs NOT in the general SLOT_N_PACKAGES
+# registry (excluded there because they're "hazard" category, on
+# POOL_EXCLUDE_GFX, or have data-label ownership quirks). Only
+# consumed by electric_pool() — never by random_pool() — so they
+# stay out of regular random rooms. Confirmed working:
+#   - KushimushiGfx (already in main registry; cross-slot to slot 3)
+# Untested but eligible for electric_pool:
+#   - SparkGfx (native slot 3)
+#   - TogebaGfx (native slot 3, POOL_EXCLUDE_GFX in general pool)
+#   - BirdGfx (native slot 1)
+SPIKE_EXTRA_PKGS: dict[int, dict[str, dict]] = {
+    3: {
+        "SparkGfx": {"gfx_addr": 0x6398,
+                     "data_addrs": [0x473c, 0x4744],
+                     "palette_offset": 0x066729},
+    },
 }
 
 
@@ -119,6 +151,7 @@ def _encode_gfx_ptr(addr: int, target_slot: int, native_slot: int) -> int:
 
 def _pick_random_per_slot(rng, fixed_slots: dict[int, dict],
                           force_throwable_slot: int | None = None,
+                          force_electric_slot: int | None = None,
                           avoid_vanilla_gfx_addrs: tuple | None = None
                           ) -> tuple[list[dict], list[int]]:
     """Pick an enemy package per VRAM slot — native-only (no cross-slot).
@@ -207,27 +240,67 @@ def _pick_random_per_slot(rng, fixed_slots: dict[int, dict],
                     candidates = non_match
         return candidates
 
+    def _resolve_pkg(native: int, name: str):
+        """Return the pkg dict for name at native slot, consulting the
+        main registry first then falling back to SPIKE_EXTRA_PKGS."""
+        pkg = SLOT_PACKAGES[native].get(name)
+        if pkg is not None:
+            return pkg
+        return SPIKE_EXTRA_PKGS.get(native, {}).get(name)
+
+    def _has_pkg(native: int, name: str) -> bool:
+        return (name in SLOT_PACKAGES[native]
+                or name in SPIKE_EXTRA_PKGS.get(native, {}))
+
+    def _pkg_gfx_addr(native: int, name: str) -> int:
+        pkg = _resolve_pkg(native, name)
+        return pkg["gfx_addr"] if pkg else 0
+
+    def _can_cross_slot_any(native: int, name: str) -> bool:
+        return _pkg_gfx_addr(native, name) <= CROSS_SLOT_GFX_MAX
+
+    def electric_pool(slot_idx: int) -> list[tuple[int, str]]:
+        """Cross-slot electric-STING pool for spike rooms. Analog of
+        throwable_pool but pulls from ELECTRIC_GFX_BY_SLOT. Includes
+        target-native picks (Spark at target 3 stays native)."""
+        candidates: list[tuple[int, str]] = []
+        for native, elec_names in ELECTRIC_GFX_BY_SLOT.items():
+            for name in sorted(elec_names):
+                if not _has_pkg(native, name):
+                    continue
+                if native != slot_idx and not _can_cross_slot_any(native, name):
+                    continue
+                candidates.append((native, name))
+        return candidates
+
+    def pick_for(slot_idx: int) -> list[tuple[int, str]]:
+        """Select the correct pool for slot_idx based on force_* flags."""
+        if force_electric_slot == slot_idx:
+            return electric_pool(slot_idx)
+        if force_throwable_slot == slot_idx:
+            return throwable_pool(slot_idx)
+        return random_pool(slot_idx)
+
     # All slot picks now go through cross-slot pools (random_pool for
-    # generic picks, throwable_pool for tb_slot constraints). PAIRED_GFX
-    # filtering is preserved in case Sun/Moon ever return to the registry.
+    # generic picks, throwable_pool for tb_slot constraints,
+    # electric_pool for spike-room slots). PAIRED_GFX filtering is
+    # preserved in case Sun/Moon ever return to the registry.
     # Slot 0
     if chosen[0] is None:
-        if force_throwable_slot == 0:
-            pool = throwable_pool(0)
-        else:
-            pool = random_pool(0)
-            if chosen[1] is not None:
-                pool = [(ns, n) for ns, n in pool if n not in PAIRED_GFX]
+        pool = pick_for(0)
+        if force_throwable_slot != 0 and force_electric_slot != 0 \
+                and chosen[1] is not None:
+            pool = [(ns, n) for ns, n in pool if n not in PAIRED_GFX]
         native_slots[0], name0 = rng.choice(pool)
-        chosen[0] = SLOT_PACKAGES[native_slots[0]][name0]
+        chosen[0] = _resolve_pkg(native_slots[0], name0)
         name0_key = name0
     else:
         name0_key = None
 
     # Slot 1
     if chosen[1] is None:
-        if force_throwable_slot == 1:
-            pool = throwable_pool(1)
+        if force_throwable_slot == 1 or force_electric_slot == 1:
+            pool = pick_for(1)
         elif name0_key in PAIRED_GFX:
             chosen[1] = SLOT_PACKAGES[1][PAIRED_GFX[name0_key]]
             pool = None
@@ -235,17 +308,14 @@ def _pick_random_per_slot(rng, fixed_slots: dict[int, dict],
             pool = [(ns, n) for ns, n in random_pool(1) if n not in PAIRED_GFX_REVERSE]
         if pool is not None:
             native_slots[1], name1 = rng.choice(pool)
-            chosen[1] = SLOT_PACKAGES[native_slots[1]][name1]
+            chosen[1] = _resolve_pkg(native_slots[1], name1)
 
     # Slots 2 and 3
     for i in (2, 3):
         if chosen[i] is None:
-            if force_throwable_slot == i:
-                pool = throwable_pool(i)
-            else:
-                pool = random_pool(i)
+            pool = pick_for(i)
             native_slots[i], name = rng.choice(pool)
-            chosen[i] = SLOT_PACKAGES[native_slots[i]][name]
+            chosen[i] = _resolve_pkg(native_slots[i], name)
     return chosen, native_slots
 
 
@@ -319,7 +389,21 @@ def _emit_slot_bytes(chosen: list[dict],
 # footprint (compressed size, tile ID layout). A live emulator session
 # with breakpoints at the crash PC + VRAM/wRoomBlockTiles diffs would
 # pin down the exact reference, but that requires driving BizHawk.
-CRASH_CONFIRMED_GIDS = frozenset({6, 34, 88, 96, 101, 30, 104, 105, 116})
+# 2026-07-18: cleared to test if the leading-Dummy fix
+# (tools/enemize.py:257-273) resolved these crashes.
+#   Confirmed fixed: gid 34 (Castle of Illusions), gid 88 (Warped
+#     Void ladder). Removed from the set — they now randomize safely.
+#   Still crashing: 6, 96, 101, 104, 105. These rooms depend on
+#     specific enemy VRAM tile contents (BG block tiles / object
+#     logic hardcoded to vanilla gfx footprint), not just data-ptr
+#     positions — Dummy fix doesn't help them.
+#   Untested: gid 30 (Volcano's Base), gid 116 (Beneath the Waves)
+#     — kept protected until walked.
+# 2026-07-18: decoration-slot theory recovered all 6 formerly-confirmed
+# crashers. gid 96 (Tower of Revival) may need slot 3 locked too (spike
+# walls likely reading Spark's tile range) — testing {0, 3} lock via
+# SLOT_LOCKED_GIDS below.
+CRASH_CONFIRMED_GIDS = frozenset()
 # gid 101 (Above the Clouds day room_00 = wgid 0x7d): same
 # [Spearhead@0, Bird@1, Futamogu@2 protected, Spark@3] layout as the
 # other confirmed crashers. Reproduced 2026-07-15: entering ATC on a
@@ -349,11 +433,49 @@ CRASH_CONFIRMED_GIDS = frozenset({6, 34, 88, 96, 101, 30, 104, 105, 116})
 # randomized — locking just slot 3 preserves the crash-critical enemy
 # while keeping variety in the other two slots.
 SLOT_LOCKED_GIDS: dict = {
-    59: {3},        # gid 59 Grasslands: lock Nobiiru@3 (crash)
+    59: {3},        # gid 59 Grasslands: lock Nobiiru@3 (crash confirmed
+                    # still present after leading-Dummy fix — retested
+                    # 2026-07-18, tile-content dependency like the
+                    # CRASH_CONFIRMED_GIDS pattern)
+    30: {0},        # gid 30 Volcano's Base: lock Spearhead@0 (deco).
+                    # Same decoration-slot pattern as the ex-CRASH_
+                    # CONFIRMED_GIDS: slot 0 Spearhead is gfx-only (no
+                    # spawn), used by BG block_map for scenery. Slot 2
+                    # Futamogu already sig-protected. Slots 1 (ParaGoom)
+                    # and 3 (Nobiiru) can now randomize.
     42: {2},        # gid 42 Tower of Revival torch room (wgid 0x25/0x26):
                     # FlameBlock@2 must stay vanilla (the actual puzzle
                     # mechanic). Stove@0 already protected (walkable).
                     # ParaGoom@1 and Torch@3 randomize freely.
+    # Formerly-CRASH_CONFIRMED_GIDS moved to per-slot locking based on
+    # decoration-vs-spawn analysis 2026-07-18. Every one of these gids
+    # has Spearhead@0 + Futamogu@2 as DECORATION-ONLY (gfx tiles loaded
+    # but nothing spawns from those slots) — the room's BG block_map
+    # references those tile bytes for scenery. Locking the decoration
+    # slots keeps the block_map's tile references valid; other slots
+    # (which actually spawn enemies) can randomize freely.
+     6: {0, 1, 3},  # BotWR / OoTW / Tidal: lock all non-Futamogu slots.
+                    # CONFIRMED 2026-07-18: BotWR spikes borrow
+                    # Kushimushi's tile range (same "shared electric
+                    # damage" mechanic as ToR / Spark → spikes). With
+                    # slot 1 unlocked, BotWR crashes; with it locked
+                    # the room is effectively whole-vanilla.
+    96: {0},        # Tower of Revival: lock Spearhead@0 (deco). Slot 3
+                    # (Spark spawn) is forced to pick from
+                    # ELECTRIC_GFX_BY_SLOT via SPIKE_ELECTRIC_SLOT_BY_GID
+                    # so wall spikes' tile references still land on
+                    # electric-family tiles. Spark, Kushimushi, Togeba,
+                    # BlueBird all eligible.
+   101: {0},        # Above The Clouds: Bird@1 + Spark@3 spawn; 0/2 deco
+   104: {0},        # Above The Clouds: Bird@1 + Barrel@3 spawn; 0/2 deco
+   105: {0, 1},     # Above The Clouds: BeamBot@3 spawn; 0/1/2 deco
+   116: {0, 1},     # Beneath The Waves: Teruteru@3 spawn; 0/1/2 deco
+    # (Slot 2 is already sig-protected in each — Futamogu categorized
+    # as walkable — so we only need to add whichever additional
+    # decoration slots aren't already covered.)
+    # Omodon slot-2 locks (gids 4, 5, 37, 83, 89) removed 2026-07-18 —
+    # user opted to let Omodon/Omodonmeka randomize like any enemy;
+    # rules.py adds Flat Form requirements to affected checks.
 }
 
 
@@ -465,6 +587,7 @@ def _compose_random_slot(rng, palette_lookup,
 
 def _compose_custom_slot(rng, sig: tuple, palette_lookup,
                          force_throwable_slot: int | None = None,
+                         force_electric_slot: int | None = None,
                          rep_pal_offsets: list[int] | None = None,
                          rep_vanilla_gfx_addrs: tuple | None = None
                          ) -> tuple[bytes, tuple[int, int, int, int]]:
@@ -498,6 +621,7 @@ def _compose_custom_slot(rng, sig: tuple, palette_lookup,
     chosen, native_slots = _pick_random_per_slot(
         rng, fixed,
         force_throwable_slot=force_throwable_slot,
+        force_electric_slot=force_electric_slot,
         avoid_vanilla_gfx_addrs=rep_vanilla_gfx_addrs)
     if rep_pal_offsets is not None:
         for i in range(4):
@@ -571,17 +695,33 @@ def generate_patch_writes(rng, palette_lookup
     FORCE_VANILLA_GFX_PAIRS = {
         (2, 0x5d9b),   # ZipLineGfx
         (2, 0x4909),   # BigLeafGfx
-        (2, 0x599f),   # BubbleGfx — bubbles spawn from BubbleHole and Wario
-                       # stands on them to reach coins/keys. Categorized as
-                       # "enemy" so per-slot randomization replaces them and
-                       # the bubble mechanism breaks. Vast Plain room 0x19
-                       # (wgid 0x18) needs Big Coin reached via bubble.
+        # (2, 0x599f) BubbleGfx moved from force-whole-vanilla to
+        # per-slot lock via FORCE_LOCK_GFX_PAIRS below — only slot 2
+        # (the BubbleHole spawner) needs vanilla; slots 0/1/3 can
+        # randomize freely. Fixes Big Bridge Nobiiru staying vanilla.
         # Tower of Revival torch room (wgid 0x25/0x26, gid 42): no lock.
         # Stove@0 is already protected (walkable). FlameBlock@2 and
         # Torch@3 randomize freely — the room's torch-lighting puzzle
         # doesn't need to be completed anymore under these rules, so
         # neither the flame block nor the torch enemy is required.
     }
+
+    # Per-slot lock GFX pairs — like FORCE_VANILLA_GFX_PAIRS but only
+    # locks the matched slot, leaving the rest of the group to
+    # randomize. Applied by merging into SLOT_LOCKED_GIDS at runtime.
+    FORCE_LOCK_GFX_PAIRS = {
+        (2, 0x599f),   # BubbleGfx — bubbles spawn from BubbleHole at
+                       # slot 2 and Wario stands on them to reach checks
+                       # (Vast Plain Big Coin, etc.). Locking slot 2
+                       # preserves the mechanism; slot 3 (e.g. Big Bridge
+                       # Nobiiru) still randomizes.
+    }
+    # Build per-gid slot-lock set from FORCE_LOCK_GFX_PAIRS
+    _gfx_pair_slot_locks: dict[int, set] = {}
+    for _gid, _g in groups.items():
+        for _i, _a in enumerate(_g.get("gfx_addrs", [])):
+            if (_i, _a) in FORCE_LOCK_GFX_PAIRS:
+                _gfx_pair_slot_locks.setdefault(_gid, set()).add(_i)
 
     # Wgids whose all-room set stays vanilla (conditional-spawner cells
     # that crash on any enemizer touch and can't be handled per-sig).
@@ -622,10 +762,12 @@ def generate_patch_writes(rng, palette_lookup
         MANUAL_NO_THROWABLE     = set()
 
     def _rec_with_slot_locks(rec: dict, gid: int) -> dict:
-        """Return `rec` with any SLOT_LOCKED_GIDS[gid] slots marked
-        protected. Doesn't mutate the original. The signature computed
-        from the returned rec treats the locked slot(s) as vanilla."""
-        locks = SLOT_LOCKED_GIDS.get(gid)
+        """Return `rec` with any SLOT_LOCKED_GIDS[gid] slots (plus any
+        FORCE_LOCK_GFX_PAIRS matches) marked protected. Doesn't mutate
+        the original. The signature computed from the returned rec
+        treats the locked slot(s) as vanilla."""
+        locks = set(SLOT_LOCKED_GIDS.get(gid) or set())
+        locks |= _gfx_pair_slot_locks.get(gid, set())
         if not locks:
             return rec
         new = dict(rec)
@@ -663,7 +805,18 @@ def generate_patch_writes(rng, palette_lookup
     #   - MANUAL_TB_WGID_SLOT[wgid] present -> force throwable at that slot
     #   - wgid in MANUAL_NO_THROWABLE      -> no throwable needed (skip)
     # For unmarked wgids the auto-detected tb_slot from ROOM_OFFSETS is
-    # used as fallback.
+    # used as fallback; if that's also None, we auto-force a tb_slot
+    # when the vanilla layout has an inherently-throwable enemy
+    # (Barrel@3, Rock@2) whose whole purpose IS to be thrown.
+    AUTO_TB_BY_VANILLA_GFX = {
+        (2, 0x6502): 2,    # RockGfx at slot 2 → slot 2 must stay throwable
+        (3, 0x49ec): 3,    # BarrelGfx at slot 3 → slot 3 must stay throwable
+    }
+    def _auto_tb_from_gfx(rec):
+        for (i, a), sl in AUTO_TB_BY_VANILLA_GFX.items():
+            if rec.get("gfx_addrs", [None]*4)[i] == a:
+                return sl
+        return None
     throwblock_keys: "OrderedDict[tuple, None]" = OrderedDict()
     tb_slot_by_wgid: dict[int, int] = {}
     seen_wgids: set = set()
@@ -684,7 +837,20 @@ def generate_patch_writes(rng, palette_lookup
                 continue
             tb_slot = manual_slot
         elif tb_slot is None:
-            continue
+            # No auto-detected tb_slot from ROOM_OFFSETS — check whether
+            # the vanilla layout has an inherently-throwable enemy at
+            # its native slot (Barrel/Rock). If so, force a throwable
+            # there so the room's throwable-based mechanics still work.
+            real_id = wgid_to_real.get(wgid)
+            if real_id is None:
+                continue
+            rec = groups.get(real_id)
+            if rec is None:
+                continue
+            auto_slot = _auto_tb_from_gfx(rec)
+            if auto_slot is None:
+                continue
+            tb_slot = auto_slot
         tb_slot_by_wgid[wgid] = tb_slot
         real_id = wgid_to_real.get(wgid)
         if real_id is None:
@@ -709,11 +875,39 @@ def generate_patch_writes(rng, palette_lookup
     NUM_THROWABLE = len(THROWABLE_VRAM_SLOTS_PER_BUCKET)  # 3
     NUM_ANY_MIN   = 4    # baseline any-random pool (matches old sum across buckets)
     custom_budget = NUM_TOTAL_SLOTS - NUM_THROWABLE - NUM_ANY_MIN
-    tb_keys_to_emit = list(throwblock_keys.keys())[:custom_budget]
-    remaining = custom_budget - len(tb_keys_to_emit)
-    regular_sigs_to_emit = sigs_sorted[:remaining]
+
+    # Option 2 — opportunistic sharing between regular sigs and throwblock
+    # combos. Compose regular sigs first (biased at their throwblock tb_slot
+    # when they have one) and reuse the same slot for the throwblock combo
+    # if the biased pick landed on a throwable at that slot. Only unshared
+    # throwblock combos get their own dedicated slot.
+    sig_to_tb_slots_needed: dict[tuple, set[int]] = {}
+    for (_sig, _tb) in throwblock_keys:
+        sig_to_tb_slots_needed.setdefault(_sig, set()).add(_tb)
+
+    # Set of gfx_addrs that qualify as throwables at a given VRAM slot
+    # (native pick + cross-slot picks under the encoding limit).
+    def _build_throwable_addr_set() -> dict[int, set[int]]:
+        out: dict[int, set[int]] = {i: set() for i in range(4)}
+        for slot in range(4):
+            for native, names in THROWABLE_GFX_BY_SLOT.items():
+                for name in names:
+                    if name not in SLOT_PACKAGES[native]:
+                        continue
+                    pkg = SLOT_PACKAGES[native][name]
+                    addr = pkg["gfx_addr"]
+                    if native == slot or addr <= 0x5FFF:
+                        out[slot].add(addr)
+        return out
+    _throwable_addrs_by_slot = _build_throwable_addr_set()
+
+    # Pessimistic count: assume every throwblock combo needs a dedicated
+    # slot. Compose that many regular sigs first, then sharing may free
+    # slots that we fill with additional regular sigs afterwards.
+    initial_regular_count = max(0, custom_budget - len(throwblock_keys))
+    tb_keys_list = list(throwblock_keys.keys())
     num_any = NUM_TOTAL_SLOTS - NUM_THROWABLE \
-              - len(tb_keys_to_emit) - len(regular_sigs_to_emit)
+              - len(tb_keys_list) - initial_regular_count
     assert num_any >= 1, "no any-random slots left"
 
     composed = bytearray()
@@ -729,10 +923,25 @@ def generate_patch_writes(rng, palette_lookup
         any_pool.append(slot_idx)
         slot_idx += 1
 
-    # Regular custom slots. Vanilla-identical composition for
-    # CRASH_CONFIRMED_GIDS (see _emit_vanilla_identical_slot rationale).
+    # Spike rooms: force the unprotected "electric" slot to pick from
+    # ELECTRIC_GFX_BY_SLOT so wl3's shared spike-tile references stay
+    # compatible. Keyed by gid → slot to force.
+    SPIKE_ELECTRIC_SLOT_BY_GID = {
+        96: 3,  # Tower of Revival: slot 3 (Spark) drives spike tiles
+    }
+    # Precompute per-sig electric slot (via the sig's real_gids).
+    sig_to_electric_slot: dict[tuple, int] = {}
+    for _sig, _gids in sig_to_real_gids.items():
+        for _gid in _gids:
+            if _gid in SPIKE_ELECTRIC_SLOT_BY_GID:
+                sig_to_electric_slot[_sig] = SPIKE_ELECTRIC_SLOT_BY_GID[_gid]
+                break
+
+    # Regular custom slots (phase 1 — biased). Vanilla-identical composition
+    # for CRASH_CONFIRMED_GIDS (see _emit_vanilla_identical_slot rationale).
     sig_to_regular_id: dict[tuple, int] = {}
-    for sig in regular_sigs_to_emit:
+    def _compose_regular(sig):
+        nonlocal slot_idx
         vanilla_rec = None
         for _gid in sig_to_real_gids[sig]:
             if _gid in CRASH_CONFIRMED_GIDS:
@@ -743,8 +952,23 @@ def generate_patch_writes(rng, palette_lookup
             slot_bytes = _emit_vanilla_identical_slot(vanilla_rec, palette_lookup)
             gfx_sig = tuple(vanilla_rec["gfx_addrs"])
         else:
+            # Bias regular composition to force a throwable at one of the
+            # tb_slots this sig has. Only unprotected tb_slots qualify —
+            # protected ones are already vanilla-throwable via the sig.
+            tb_slots = sig_to_tb_slots_needed.get(sig, set())
+            biased = None
+            for _tb in sorted(tb_slots):
+                if sig[_tb][0] == "U":
+                    biased = _tb
+                    break
+            # Force electric pick for this sig's spike slot if applicable.
+            elec_slot = sig_to_electric_slot.get(sig)
+            if elec_slot is not None and sig[elec_slot][0] != "U":
+                elec_slot = None   # already protected → nothing to force
             slot_bytes, gfx_sig = _compose_custom_slot(
                 rng, sig, palette_lookup,
+                force_throwable_slot=biased,
+                force_electric_slot=elec_slot,
                 rep_pal_offsets=sig_to_rep_pal_offs[sig],
                 rep_vanilla_gfx_addrs=sig_to_rep_gfx_addrs[sig])
         composed.extend(slot_bytes)
@@ -752,9 +976,30 @@ def generate_patch_writes(rng, palette_lookup
         sig_to_regular_id[sig] = slot_idx
         slot_idx += 1
 
-    # Throw-block custom slots
+    for sig in sigs_sorted[:initial_regular_count]:
+        _compose_regular(sig)
+
+    # Check throwblock sharing — if the regular slot for this sig rolled
+    # a throwable at tb_slot, reuse that slot instead of dedicating one.
     tb_key_to_id: dict[tuple[tuple, int], int] = {}
-    for (sig, tb_slot) in tb_keys_to_emit:
+    unshared_tb_keys: list[tuple[tuple, int]] = []
+    for (sig, tb_slot) in tb_keys_list:
+        reg_id = sig_to_regular_id.get(sig)
+        if reg_id is not None:
+            gfx_at_tb = slot_gfx_addrs[reg_id][tb_slot]
+            if gfx_at_tb in _throwable_addrs_by_slot[tb_slot]:
+                tb_key_to_id[(sig, tb_slot)] = reg_id
+                continue
+        unshared_tb_keys.append((sig, tb_slot))
+
+    # Fill slots freed by sharing with additional regular sigs (from
+    # further down sigs_sorted).
+    freed = len(tb_keys_list) - len(unshared_tb_keys)
+    for sig in sigs_sorted[initial_regular_count:initial_regular_count + freed]:
+        _compose_regular(sig)
+
+    # Throw-block custom slots (only for combos that couldn't share).
+    for (sig, tb_slot) in unshared_tb_keys:
         slot_bytes, gfx_sig = _compose_custom_slot(
             rng, sig, palette_lookup,
             force_throwable_slot=tb_slot,
