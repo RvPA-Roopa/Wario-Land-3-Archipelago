@@ -319,12 +319,25 @@ def _emit_slot_bytes(chosen: list[dict],
 # footprint (compressed size, tile ID layout). A live emulator session
 # with breakpoints at the crash PC + VRAM/wRoomBlockTiles diffs would
 # pin down the exact reference, but that requires driving BizHawk.
-CRASH_CONFIRMED_GIDS = frozenset({6, 88, 96, 101})
+CRASH_CONFIRMED_GIDS = frozenset({6, 34, 88, 96, 101, 30, 104, 105, 116})
 # gid 101 (Above the Clouds day room_00 = wgid 0x7d): same
 # [Spearhead@0, Bird@1, Futamogu@2 protected, Spark@3] layout as the
 # other confirmed crashers. Reproduced 2026-07-15: entering ATC on a
 # new seed crashes on the first room load. Vanilla-identical
 # composition via _emit_vanilla_identical_slot keeps the room stable.
+# gid 34 (Castle of Illusions rooms 0x39/0x86 = wgid 0x32): same
+# [Spearhead@0, ParaGoom@1, Futamogu@2 protected, Togeba@3] pattern.
+# Crashed with slot 0/1/3 cross-slotted to Kobatto/Mizuuo/Kobatto —
+# fits the [Spearhead + Futamogu@2 protected] signature.
+# gid 30, 104, 105, 116: same [Spearhead + Futamogu@2 protected]
+# signature, added preemptively 2026-07-17 after the gid 34 crash
+# confirmed the pattern is a reliable predictor. Levels covered:
+#   gid  30 (wgid 0x3B): The Volcano's Base — Spearhead/ParaGoom/Futamogu/Nobiiru
+#   gid 104 (wgid 0x80): Above the Clouds — Spearhead/Bird/Futamogu/Barrel
+#                         (barrel is throwable in vanilla so throw-block puzzle
+#                          in wRoom 0x76/0x8A still works with whole-vanilla)
+#   gid 105 (wgid 0x83): Above the Clouds — Spearhead/Webber/Futamogu/BeamBot
+#   gid 116 (wgid 0x8E): Beneath the Waves — Spearhead/Webber/Futamogu/Teruteru
 
 # Per-slot protection overrides — for gids where whole-group vanilla is
 # more restrictive than needed. Marks specific VRAM slots as "protected"
