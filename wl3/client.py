@@ -507,6 +507,42 @@ class WL3Client(BizHawkClient):
                         f"room=0x{w_room:02x} wgid=0x{w_obj_grp:02x} "
                         f"[{routing}]  auto_throw:{auto_str}  "
                         f"manual_mark:{mark_str}")
+            # Live-decode ObjectGroups[wgid] + composed slot from ROM so we
+            # can see what enemy data the running ROM actually resolves this
+            # room to. Bank 19 base = ROM 0x64000; ObjectGroups at 19:5062.
+            try:
+                og_entry = (await read(ctx.bizhawk_ctx,
+                    [(0x65062 + w_obj_grp * 4, 4, "ROM")]))[0]
+                common_ptr = og_entry[0] | (og_entry[1] << 8)
+                data_ptr   = og_entry[2] | (og_entry[3] << 8)
+                # data_ptr points into bank 19 relative address.
+                slot_rom = 0x64000 + (data_ptr - 0x4000)
+                # Read bank_offset + 4 gfx ptrs (9 bytes) + up to 12 data ptr bytes
+                slot_head = (await read(ctx.bizhawk_ctx,
+                    [(slot_rom, 21, "ROM")]))[0]
+                bank_off = slot_head[0]
+                gfxs = [slot_head[1 + i*2] | (slot_head[2 + i*2] << 8)
+                        for i in range(4)]
+                def _dec(g: int) -> str:
+                    if g & 0x8000:
+                        return f"XSlot(native={((g>>13)&3)},rel=${g&0x1FFF:04x})"
+                    return f"${g:04x}"
+                data_ptrs = []
+                i = 9
+                while i < 21 - 1:
+                    d = slot_head[i] | (slot_head[i+1] << 8)
+                    if d == 0xFFFF:
+                        break
+                    data_ptrs.append(d)
+                    i += 2
+                logger.info(f"[WL3 room]   OG[{w_obj_grp:#04x}]="
+                            f"common=${common_ptr:04x} data=${data_ptr:04x} "
+                            f"(rom=${slot_rom:06x}) bank_off={bank_off:#04x}")
+                logger.info(f"[WL3 room]   gfx: {[_dec(g) for g in gfxs]}")
+                logger.info(f"[WL3 room]   data_ptrs (first {len(data_ptrs)}): "
+                            f"{[hex(x) for x in data_ptrs]}")
+            except Exception as e:
+                logger.info(f"[WL3 room]   (ROM inspect failed: {e})")
 
         # Bit 7 is set immediately after the color byte is written (set 7, [wLevelEndScreen]),
         # so the live value is 0x81–0x84, not 0x01–0x04.  Mask it off for comparison.
