@@ -470,7 +470,110 @@ class WL3PatchExtension(APPatchExtension):
         rng = _random.Random(params["seed"])
         for off, data in _enemizer.generate_patch_writes(rng, palette_lookup):
             rom[off:off + len(data)] = data
+
+        # After all enemizer writes are applied, dump a per-level report
+        # of what enemies ended up in which rooms — helps players preview
+        # their seed and helps diagnose "why did that room look weird"
+        # feedback. Writes to enemizer_room_map.txt in cwd (usually the
+        # seed's output folder); errors go to a sibling .error.txt.
+        try:
+            WL3PatchExtension._write_enemizer_room_map(bytes(rom))
+        except Exception:
+            import os as _os, traceback as _tb
+            try:
+                with open(_os.path.abspath("enemizer_room_map.error.txt"),
+                          "w", encoding="utf-8") as f:
+                    f.write(_tb.format_exc())
+            except Exception:
+                pass
         return bytes(rom)
+
+    @staticmethod
+    def _write_enemizer_room_map(rom: bytes) -> None:
+        """Decode each wgid's final dispatch entry and write a per-level
+        report to enemizer_room_map.txt in the current working directory."""
+        import os as _os
+        from . import enemizer_data as _ed
+        from .level_room_wgids import LEVEL_ROOM_WGIDS
+        try:
+            from .slot_gfx_names import SLOT_GFX_NAMES
+        except Exception:
+            SLOT_GFX_NAMES = {i: {} for i in range(4)}
+
+        OG_TABLE = 0x65062  # ObjectGroups[] ROM offset
+        # Enemizer composed-slot region (bank-19 relative and ROM absolute)
+        ENEMIZER_SLOT_BASE_BANK19 = 0x6B58
+        ENEMIZER_ROM_BASE = 0x66B58
+        SLOT_SIZE = 64
+
+        def _decode_dispatch(wgid: int) -> "list[str]":
+            entry_off = OG_TABLE + wgid * 4
+            og_ptr = rom[entry_off + 2] | (rom[entry_off + 3] << 8)
+            # Enemizer custom slot?
+            if ENEMIZER_SLOT_BASE_BANK19 <= og_ptr < (
+                    ENEMIZER_SLOT_BASE_BANK19 + 82 * SLOT_SIZE):
+                slot_offset = og_ptr - ENEMIZER_SLOT_BASE_BANK19
+                rom_off = ENEMIZER_ROM_BASE + slot_offset
+                names = []
+                for i in range(4):
+                    lo = rom[rom_off + 1 + i * 2]
+                    hi = rom[rom_off + 2 + i * 2]
+                    enc = lo | (hi << 8)
+                    if enc & 0x8000:
+                        # cross-slot encoded gfx ptr — source slot in bits 13-14
+                        source_slot = (enc >> 13) & 3
+                        real_addr = ((enc & 0x1FFF) | 0x4000)
+                        name = SLOT_GFX_NAMES.get(source_slot, {}).get(
+                            real_addr, f"?@0x{real_addr:04X}")
+                        names.append(f"{name}*")
+                    else:
+                        name = SLOT_GFX_NAMES.get(i, {}).get(
+                            enc, f"?@0x{enc:04X}")
+                        names.append(name)
+                return names
+            # Fallback: vanilla ObjectGroup in bank 19
+            rom_off = 0x64000 + (og_ptr - 0x4000)
+            names = []
+            for i in range(4):
+                enc = rom[rom_off + 1 + i * 2] | (rom[rom_off + 2 + i * 2] << 8)
+                name = SLOT_GFX_NAMES.get(i, {}).get(enc, f"?@0x{enc:04X}")
+                names.append(name)
+            return names
+
+        lines = []
+        lines.append("Enemizer room map — generated at patch time")
+        lines.append("=" * 60)
+        lines.append("")
+        lines.append("Legend: each row shows a room's 4 VRAM slot enemies.")
+        lines.append("        * = cross-slotted (enemy's native slot != VRAM slot)")
+        lines.append("")
+        for ow in sorted(LEVEL_ROOM_WGIDS):
+            display, rows = LEVEL_ROOM_WGIDS[ow]
+            lines.append(f"=== {ow:2d}. {display} ===")
+            # Collect wRooms per wgid so we can inline them (multiple rooms
+            # sharing a wgid all get the identical enemy composition).
+            per_wgid: "dict[int, list[int]]" = {}
+            wgid_order = []
+            for _lbl, wr, wgid in rows:
+                if wgid not in per_wgid:
+                    per_wgid[wgid] = []
+                    wgid_order.append(wgid)
+                if wr not in per_wgid[wgid]:
+                    per_wgid[wgid].append(wr)
+            for wgid in wgid_order:
+                slots = _decode_dispatch(wgid)
+                slots_str = " / ".join(
+                    f"[{i}]{s}" for i, s in enumerate(slots))
+                wrooms = per_wgid[wgid]
+                wrooms_str = ",".join(f"0x{w:02X}" for w in wrooms)
+                lines.append(
+                    f"  wgid 0x{wgid:02X}  wRoom={wrooms_str:20s}  "
+                    f"{slots_str}")
+            lines.append("")
+
+        path = _os.path.abspath("enemizer_room_map.txt")
+        with open(path, "w", encoding="utf-8") as f:
+            f.write("\n".join(lines) + "\n")
 
     @staticmethod
     def apply_palette_shuffle(caller, rom: bytes, params_filename: str) -> bytes:
