@@ -751,7 +751,22 @@ class WL3World(World):
           - Foreign/empty      → Red Gem placeholder (0x4E); ROM skips, AP client delivers.
         """
         if self.options.key_shuffle == KeyShuffle.option_vanilla:
-            return [0x80 + i for i in range(100)]
+            # Even in vanilla mode traps can be plando'd at key locations —
+            # detect those and swap the vanilla key ID for a disguise
+            # treasure so the pickup popup doesn't render as a normal key.
+            key_table = [0x80 + i for i in range(100)]
+            for loc_name, loc_data in KEY_LOCATION_TABLE.items():
+                location = self.multiworld.get_location(loc_name, self.player)
+                item = location.item
+                if item is None or item.player != self.player:
+                    continue
+                item_data = ITEM_TABLE.get(item.name)
+                if item_data is None:
+                    continue
+                if item_data.ap_id in TRAP_AP_IDS_SET:
+                    idx = (loc_data.owlevel - 1) * 4 + loc_data.color_index
+                    key_table[idx] = self.random.choice(TRAP_DISGUISE_POOL)
+            return key_table
 
         key_table = [0] * 100
         for loc_name, loc_data in KEY_LOCATION_TABLE.items():
