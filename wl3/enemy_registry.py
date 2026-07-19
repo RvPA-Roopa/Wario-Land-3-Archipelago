@@ -31,7 +31,7 @@ SLOT_1_PACKAGES = {
 
 SLOT_2_PACKAGES = {
     "DoughnuteerGfx": {"gfx_addr": 0x45b3, "data_addrs": [0x44cc], "palette_offset": 0x065440},
-    "FireGfx": {"gfx_addr": 0x65ac, "data_addrs": [0x475c, 0x459c], "palette_offset": 0x066166},
+    "FireGfx": {"gfx_addr": 0x65ac, "data_addrs": [0x475c], "palette_offset": 0x066166},
     "HandGfx": {"gfx_addr": 0x567b, "data_addrs": [0x45cc], "palette_offset": 0x065869},
     "HebariiGfx": {"gfx_addr": 0x4327, "data_addrs": [0x44bc], "palette_offset": 0x065fcc},
     "KobattoGfx": {"gfx_addr": 0x545b, "data_addrs": [0x45c4], "palette_offset": 0x0658fc},
@@ -47,7 +47,6 @@ SLOT_3_PACKAGES = {
     "FireBotGfx": {"gfx_addr": 0x4234, "data_addrs": [0x459c], "palette_offset": 0x065640},
     "NobiiruGfx": {"gfx_addr": 0x5dec, "data_addrs": [0x46cc, 0x46d4], "palette_offset": 0x065a0b},
     "TeruteruGfx": {"gfx_addr": 0x4ee3, "data_addrs": [0x456c], "palette_offset": 0x065741},
-    "TogebaGfx": {"gfx_addr": 0x5861, "data_addrs": [0x460c], "palette_offset": 0x065ad5},
     "TorchGfx": {"gfx_addr": 0x4000, "data_addrs": [0x4484], "palette_offset": 0x06547b},
     "WaterDropGfx": {"gfx_addr": 0x5d44, "data_addrs": [0x46b4], "palette_offset": 0x065904},
 }
