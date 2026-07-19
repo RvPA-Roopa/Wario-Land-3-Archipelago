@@ -151,6 +151,7 @@ def _encode_gfx_ptr(addr: int, target_slot: int, native_slot: int) -> int:
 
 def _pick_random_per_slot(rng, fixed_slots: dict[int, dict],
                           force_throwable_slot: int | None = None,
+                          force_throwable_slots: frozenset[int] | None = None,
                           force_electric_slot: int | None = None,
                           avoid_vanilla_gfx_addrs: tuple | None = None
                           ) -> tuple[list[dict], list[int]]:
@@ -273,11 +274,16 @@ def _pick_random_per_slot(rng, fixed_slots: dict[int, dict],
                 candidates.append((native, name))
         return candidates
 
+    _multi_tb = force_throwable_slots or frozenset()
+
+    def _is_throwable_slot(slot_idx: int) -> bool:
+        return slot_idx == force_throwable_slot or slot_idx in _multi_tb
+
     def pick_for(slot_idx: int) -> list[tuple[int, str]]:
         """Select the correct pool for slot_idx based on force_* flags."""
         if force_electric_slot == slot_idx:
             return electric_pool(slot_idx)
-        if force_throwable_slot == slot_idx:
+        if _is_throwable_slot(slot_idx):
             return throwable_pool(slot_idx)
         return random_pool(slot_idx)
 
@@ -288,7 +294,7 @@ def _pick_random_per_slot(rng, fixed_slots: dict[int, dict],
     # Slot 0
     if chosen[0] is None:
         pool = pick_for(0)
-        if force_throwable_slot != 0 and force_electric_slot != 0 \
+        if not _is_throwable_slot(0) and force_electric_slot != 0 \
                 and chosen[1] is not None:
             pool = [(ns, n) for ns, n in pool if n not in PAIRED_GFX]
         native_slots[0], name0 = rng.choice(pool)
@@ -299,7 +305,7 @@ def _pick_random_per_slot(rng, fixed_slots: dict[int, dict],
 
     # Slot 1
     if chosen[1] is None:
-        if force_throwable_slot == 1 or force_electric_slot == 1:
+        if _is_throwable_slot(1) or force_electric_slot == 1:
             pool = pick_for(1)
         elif name0_key in PAIRED_GFX:
             chosen[1] = SLOT_PACKAGES[1][PAIRED_GFX[name0_key]]
@@ -400,10 +406,11 @@ def _emit_slot_bytes(chosen: list[dict],
 #   Untested: gid 30 (Volcano's Base), gid 116 (Beneath the Waves)
 #     — kept protected until walked.
 # 2026-07-18: decoration-slot theory recovered all 6 formerly-confirmed
-# crashers. gid 96 (Tower of Revival) may need slot 3 locked too (spike
-# walls likely reading Spark's tile range) — testing {0, 3} lock via
-# SLOT_LOCKED_GIDS below.
-CRASH_CONFIRMED_GIDS = frozenset()
+# crashers. gid 96 (Tower of Revival) uses per-slot electric-pool at
+# slot 3 instead. gid 30 (Volcano's Base Nobiiru room) added here after
+# user retest confirmed the {0} decoration-slot lock alone wasn't
+# enough — full vanilla required.
+CRASH_CONFIRMED_GIDS = frozenset({30})
 # gid 101 (Above the Clouds day room_00 = wgid 0x7d): same
 # [Spearhead@0, Bird@1, Futamogu@2 protected, Spark@3] layout as the
 # other confirmed crashers. Reproduced 2026-07-15: entering ATC on a
@@ -437,12 +444,10 @@ SLOT_LOCKED_GIDS: dict = {
                     # still present after leading-Dummy fix — retested
                     # 2026-07-18, tile-content dependency like the
                     # CRASH_CONFIRMED_GIDS pattern)
-    30: {0},        # gid 30 Volcano's Base: lock Spearhead@0 (deco).
-                    # Same decoration-slot pattern as the ex-CRASH_
-                    # CONFIRMED_GIDS: slot 0 Spearhead is gfx-only (no
-                    # spawn), used by BG block_map for scenery. Slot 2
-                    # Futamogu already sig-protected. Slots 1 (ParaGoom)
-                    # and 3 (Nobiiru) can now randomize.
+    # gid 30 moved to CRASH_CONFIRMED_GIDS 2026-07-18 — {0} decoration-
+    # slot lock alone still crashed on user retest. Whole vanilla now.
+    # gid 77 (FallingSnow rooms) reverted to FORCE_VANILLA_WGIDS
+    # 2026-07-18 — every per-slot recovery attempt crashed.
     42: {2},        # gid 42 Tower of Revival torch room (wgid 0x25/0x26):
                     # FlameBlock@2 must stay vanilla (the actual puzzle
                     # mechanic). Stove@0 already protected (walkable).
@@ -571,14 +576,17 @@ def _group_has_walkable_or_platform_gfx(rec: dict) -> bool:
 # Main entry point
 # ---------------------------------------------------------------------------
 def _compose_random_slot(rng, palette_lookup,
-                         force_throwable_slot: int | None = None
+                         force_throwable_slot: int | None = None,
+                         force_throwable_slots: frozenset[int] | None = None
                          ) -> tuple[bytes, tuple[int, int, int, int]]:
     """Return (slot_bytes, gfx_addrs_tuple). The tuple lets the room
     assignment step filter out slots whose VRAM-0 enemy matches the
     room's vanilla VRAM-0 — implements the "don't roll vanilla in your
     own room" rule (like palette shuffle clamping away from 0/1)."""
     chosen, native_slots = _pick_random_per_slot(
-        rng, fixed_slots={}, force_throwable_slot=force_throwable_slot)
+        rng, fixed_slots={},
+        force_throwable_slot=force_throwable_slot,
+        force_throwable_slots=force_throwable_slots)
     slot_bytes = _emit_slot_bytes(
         chosen, [len(pkg["data_addrs"]) for pkg in chosen],
         palette_lookup, native_slots=native_slots)
@@ -587,6 +595,7 @@ def _compose_random_slot(rng, palette_lookup,
 
 def _compose_custom_slot(rng, sig: tuple, palette_lookup,
                          force_throwable_slot: int | None = None,
+                         force_throwable_slots: frozenset[int] | None = None,
                          force_electric_slot: int | None = None,
                          rep_pal_offsets: list[int] | None = None,
                          rep_vanilla_gfx_addrs: tuple | None = None
@@ -621,6 +630,7 @@ def _compose_custom_slot(rng, sig: tuple, palette_lookup,
     chosen, native_slots = _pick_random_per_slot(
         rng, fixed,
         force_throwable_slot=force_throwable_slot,
+        force_throwable_slots=force_throwable_slots,
         force_electric_slot=force_electric_slot,
         avoid_vanilla_gfx_addrs=rep_vanilla_gfx_addrs)
     if rep_pal_offsets is not None:
@@ -744,6 +754,10 @@ def generate_patch_writes(rng, palette_lookup
     # shifts the flat data-ptr indices the room's object_map depends on,
     # so the throwable goes missing. Force-vanilla preserves the
     # dispenser mechanic.
+    # 0x61 = FallingSnow rooms (FoF + Frigid Sea, gid 77) — force
+    # vanilla. Tested 2026-07-18: locks of {1}, {1, 3}, and {1, 3, 0}
+    # all crashed. The block_map borrows tile bytes from every slot in
+    # these rooms; no per-slot recovery possible. Whole vanilla only.
     FORCE_VANILLA_WGIDS = {0x61, 0x6a, 0x91}
 
     # Merge in the player's hand-verified throw-block room data. Multi-slot
@@ -754,10 +768,13 @@ def generate_patch_writes(rng, palette_lookup
         from . import manual_throwable_config as _mtc
         FORCE_VANILLA_WGIDS = FORCE_VANILLA_WGIDS | _mtc.MANUAL_FORCE_VANILLA_WGIDS
         MANUAL_TB_WGID_SLOT     = dict(_mtc.MANUAL_TB_WGID_SLOT)
+        MANUAL_TB_WGID_SLOTS    = {w: frozenset(s) for w, s in
+                                   getattr(_mtc, "MANUAL_TB_WGID_SLOTS", {}).items()}
         MANUAL_MARKED_WGIDS     = set(_mtc.MANUAL_MARKED_WGIDS)
         MANUAL_NO_THROWABLE     = set(_mtc.MANUAL_NO_THROWABLE_WGIDS)
     except ImportError:
         MANUAL_TB_WGID_SLOT     = {}
+        MANUAL_TB_WGID_SLOTS    = {}
         MANUAL_MARKED_WGIDS     = set()
         MANUAL_NO_THROWABLE     = set()
 
@@ -819,6 +836,8 @@ def generate_patch_writes(rng, palette_lookup
         return None
     throwblock_keys: "OrderedDict[tuple, None]" = OrderedDict()
     tb_slot_by_wgid: dict[int, int] = {}
+    multi_tb_keys: "OrderedDict[tuple, None]" = OrderedDict()
+    multi_tb_by_wgid: dict[int, frozenset] = {}
     seen_wgids: set = set()
     for _eg_off, wgid, tb_slot in rooms:
         if wgid in FORCE_VANILLA_WGIDS:
@@ -828,7 +847,32 @@ def generate_patch_writes(rng, palette_lookup
         if wgid in seen_wgids:
             continue
         seen_wgids.add(wgid)
-        # Manual data wins if present.
+        # Multi-slot manual mark handled first — force throwable at
+        # EACH required slot for that wgid. Supports both sig-based
+        # (some slots protected) and no-sig (all slots unprotected)
+        # cases; the latter uses a random-pool compose keyed only by
+        # (None, slots) so wgids sharing this shape share a slot.
+        if wgid in MANUAL_TB_WGID_SLOTS:
+            real_id = wgid_to_real.get(wgid)
+            if real_id is None:
+                continue
+            rec = groups.get(real_id)
+            if rec is None:
+                continue
+            rec = _rec_with_slot_locks(rec, real_id)
+            sig = _group_signature(rec)
+            slots = MANUAL_TB_WGID_SLOTS[wgid]
+            if sig is not None:
+                # Drop slots already vanilla-throwable via sig protection.
+                slots = frozenset(s for s in slots if sig[s][0] == "U")
+                if not slots:
+                    continue
+            else:
+                slots = frozenset(slots)
+            multi_tb_by_wgid[wgid] = slots
+            multi_tb_keys[(sig, slots)] = None
+            continue
+        # Manual single-slot data wins if present.
         if wgid in MANUAL_MARKED_WGIDS:
             if wgid in MANUAL_NO_THROWABLE:
                 continue   # player said no throwable needed
@@ -904,10 +948,12 @@ def generate_patch_writes(rng, palette_lookup
     # Pessimistic count: assume every throwblock combo needs a dedicated
     # slot. Compose that many regular sigs first, then sharing may free
     # slots that we fill with additional regular sigs afterwards.
-    initial_regular_count = max(0, custom_budget - len(throwblock_keys))
+    initial_regular_count = max(0, custom_budget
+                                - len(throwblock_keys)
+                                - len(multi_tb_keys))
     tb_keys_list = list(throwblock_keys.keys())
     num_any = NUM_TOTAL_SLOTS - NUM_THROWABLE \
-              - len(tb_keys_list) - initial_regular_count
+              - len(tb_keys_list) - len(multi_tb_keys) - initial_regular_count
     assert num_any >= 1, "no any-random slots left"
 
     composed = bytearray()
@@ -1010,6 +1056,25 @@ def generate_patch_writes(rng, palette_lookup
         tb_key_to_id[(sig, tb_slot)] = slot_idx
         slot_idx += 1
 
+    # Multi-throwable custom slots — force throwables at EACH required
+    # slot (for rooms marked with MANUAL_TB_WGID_SLOTS).
+    multi_tb_key_to_id: dict[tuple, int] = {}
+    for (sig, tb_slots_set) in multi_tb_keys:
+        if sig is not None:
+            slot_bytes, gfx_sig = _compose_custom_slot(
+                rng, sig, palette_lookup,
+                force_throwable_slots=tb_slots_set,
+                rep_pal_offsets=sig_to_rep_pal_offs[sig],
+                rep_vanilla_gfx_addrs=sig_to_rep_gfx_addrs[sig])
+        else:
+            slot_bytes, gfx_sig = _compose_random_slot(
+                rng, palette_lookup,
+                force_throwable_slots=tb_slots_set)
+        composed.extend(slot_bytes)
+        slot_gfx_addrs[slot_idx] = gfx_sig
+        multi_tb_key_to_id[(sig, tb_slots_set)] = slot_idx
+        slot_idx += 1
+
     # Throwable-by-vram slots (fallback for TB rooms with no custom slot)
     throwable_by_vram: dict[int, int] = {}
     for vs in THROWABLE_VRAM_SLOTS_PER_BUCKET:
@@ -1053,9 +1118,13 @@ def generate_patch_writes(rng, palette_lookup
         rec = _rec_with_slot_locks(rec, gid)
         sig = _group_signature(rec)
         tb_slot = tb_slot_by_wgid.get(wgid)
+        multi_tb = multi_tb_by_wgid.get(wgid)
 
         # Slot selection dispatch (mirrors the old per-room dispatch)
-        if sig is not None and tb_slot is not None \
+        if multi_tb is not None \
+                and (sig, multi_tb) in multi_tb_key_to_id:
+            slot = multi_tb_key_to_id[(sig, multi_tb)]
+        elif sig is not None and tb_slot is not None \
                 and (sig, tb_slot) in tb_key_to_id:
             slot = tb_key_to_id[(sig, tb_slot)]
         elif sig is not None and sig in sig_to_regular_id:

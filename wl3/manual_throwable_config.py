@@ -32,13 +32,17 @@ MANUAL_TB_WGID_SLOT: dict = {
     0x89: 1,
 }
 
-# Multi-slot cases: enemizer keeps the vanilla ObjectGroup so
-# both required throwables survive.
-MANUAL_FORCE_VANILLA_WGIDS: set = {
-    0x23,
-    0x28,
-    0x86,
+# Multi-slot cases: enemizer forces throwable at EACH
+# slot listed. Non-forced slots randomize freely.
+MANUAL_TB_WGID_SLOTS: dict = {
+    0x23: {0, 1},
+    0x28: {0, 2},
+    0x86: {0, 1},
 }
+
+# Kept as empty for backwards compat — multi-slot cases now
+# routed through MANUAL_TB_WGID_SLOTS above.
+MANUAL_FORCE_VANILLA_WGIDS: set = set()
 
 # Every wgid the player marked (including "none" entries).
 # Wgids NOT in this set fall back to auto-detected behaviour.
