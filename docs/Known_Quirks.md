@@ -29,6 +29,7 @@ With the blue or red chemical, octopi will grow and appear to open the underwate
 The Tower of Revival level has some graphical roughness, but all mechanics work correctly. Specifically:
 - The Blue Snake Door will appear open but still requires the correct treasures to actually enter
 - The wire will appear built but cannot be climbed without the Statue
+- With "Hidden Passages Revealed" turned on, some hidden passages will appear to be cracked blocks, but are actually only breakable with garlic.
 
 **S5 (Cave of Flames) — Visual Issues**
 Cave of Flames rust blocks show up as non-breakable blocks if you just have rust spray but not explosive plunger box, due to the graphic set per variant. This is only visual, you can break these blocks.

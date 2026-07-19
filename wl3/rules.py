@@ -832,6 +832,8 @@ def set_rules(world: "WL3World") -> None:
         chest_logic["The Grasslands"][green] = _c(_o(_has("Flute"), _has("High Jump Boots"), can_fly), has_flippers_1)
         chest_logic["Tower of Revival"][blue] = _c(_c(has_golden_eyes, _has("Statue"), can_jump_high), _o(_c(_has("Garlic"), has_grab_2, _has("Spiked Helmet")),_has("Yarn Form")))
         chest_logic["Above the Clouds"][red] = _o(_c(_has("High Jump Boots"), _has("Spiked Helmet")), can_bounce)
+        chest_logic["Castle of Illusions"][green] = _o(has_grab_1, can_bounce)
+        chest_logic["Castle of Illusions"][blue] = _o(has_grab_1, can_bounce)
         chest_logic["The East Crater"][blue] = _c(_has("Pick Axe"), has_grab_1)
         key_logic["Out of the Woods"][red] = _o(can_pound_cracked_blocks, _has("Garlic"))
         key_logic["The Peaceful Village"][red] = None
@@ -843,7 +845,7 @@ def set_rules(world: "WL3World") -> None:
         key_logic["The Big Bridge"][green] = _c(has_flippers_1, _o(can_pound_cracked_blocks, _has("Zombie Form")), _o(has_grab_1, can_shake_screen, can_fly))
         key_logic["The Big Bridge"][blue] = _c(_o(has_flippers_1, has_grab_1), _o(_has("Garlic"), can_fly))
         key_logic["Castle of Illusions"][red] = _o(_c(_o(_c(has_grab_1, has_sun_medallion), has_grab_2), _o(can_shake_screen, _has("High Jump Boots"))), can_bounce)
-        key_logic["Castle of Illusions"][blue] = _c(_o(_has("Castle Brick"), has_vampire_2), can_pound_cracked_blocks, _o(has_grab_1, can_fly, _has("Zombie Form")))
+        key_logic["Castle of Illusions"][blue] = _c(_o(_has("Castle Brick"), has_vampire_2), can_pound_cracked_blocks, _o(has_grab_1, can_fly, _c(_has("Zombie Form"),can_bounce)))
         key_logic["The East Crater"][blue] = _c(_has("Pick Axe"), has_grab_1)
         # Coins are 0 indexed, so one less than their counterparts on the level maps
         coin_logic["Out of the Woods"][0] = _o(_c(_has("High Jump Boots"), has_grab_1), can_fly)
@@ -1023,7 +1025,6 @@ def set_rules(world: "WL3World") -> None:
         add_tf(coin_logic["Bank of the Wild River"], 5, _has("Fire Form"))
         add_tf(coin_logic["Bank of the Wild River"], 7, _c(can_kill_frogs, can_fly)) # remove fly if bats aren't randomized
         add_tf(chest_logic["The Tidal Coast"], grey, _has("Fire Form"))
-        add_tf(key_logic["The Tidal Coast"], grey, can_bounce) # garlic if knowledge checks
         add_tf(coin_logic["The Tidal Coast"], 0, can_bounce)
         add_tf(coin_logic["The Tidal Coast"], 1, can_fly, _has("Flat Form"))
         add_tf(coin_logic["The Tidal Coast"], 3, can_bounce)
@@ -1061,15 +1062,22 @@ def set_rules(world: "WL3World") -> None:
         add_tf(coin_logic["The Big Bridge"], 4, has_flippers_2) # remove if bubbles aren't randomized
         add_tf(coin_logic["The Big Bridge"], 6, can_fly) # remove if spiders aren't randomized
         add_tf(coin_logic["The Big Bridge"], 7, can_fly) # remove if spiders aren't randomized
+        add_tf(chest_logic["Tower of Revival"], grey, _has("Fire Form"))
         add_tf(chest_logic["Tower of Revival"], red, _c(_has("Fat Form"), _has("Fire Form"), _has("Zombie Form")))
-        add_tf(chest_logic["Tower of Revival"], blue, _c(_has("Flat Form"), _has("Yarn Form"))) # remove flat form if robots aren't randomized
-        add_tf(key_logic["Tower of Revival"], grey, can_fly)
+        add_tf(chest_logic["Tower of Revival"], green, _has("Fire Form"))
+        add_tf(chest_logic["Tower of Revival"], blue, _c(_has("Flat Form"), _has("Yarn Form"), _has("Fire Form"))) # remove flat form if robots aren't randomized
+        add_tf(key_logic["Tower of Revival"], grey, _c(can_fly, _has("Fire Form")))
         add_tf(key_logic["Tower of Revival"], red, _c(_has("Fat Form"), _has("Fire Form"), _has("Zombie Form")))
-        add_tf(key_logic["Tower of Revival"], green, _has("Fat Form"))
-        add_tf(coin_logic["Tower of Revival"], 3, _has("Fat Form"))
-        add_tf(coin_logic["Tower of Revival"], 5, _has("Fat Form"))
+        add_tf(key_logic["Tower of Revival"], green, _c(_has("Fire Form"),_has("Fat Form")))
+        add_tf(key_logic["Tower of Revival"], blue, _has("Fire Form"))
+        add_tf(coin_logic["Tower of Revival"], 0, _has("Fire Form"))
+        add_tf(coin_logic["Tower of Revival"], 1, _has("Fire Form"))
+        add_tf(coin_logic["Tower of Revival"], 2, _has("Fire Form"))
+        add_tf(coin_logic["Tower of Revival"], 3, _c(_has("Fire Form"),_has("Fat Form")))
+        add_tf(coin_logic["Tower of Revival"], 4, _has("Fire Form"))
+        add_tf(coin_logic["Tower of Revival"], 5, _c(_has("Fire Form"),_has("Fat Form")))
         add_tf(coin_logic["Tower of Revival"], 6, _c(_has("Fat Form"), _has("Fire Form"), _has("Zombie Form")))
-        add_tf(coin_logic["Tower of Revival"], 7, can_fly)
+        add_tf(coin_logic["Tower of Revival"], 7, _c(can_fly,_has("Fire Form")))
         add_tf(chest_logic["The Steep Canyon"], red, can_fly)
         add_tf(chest_logic["The Steep Canyon"], blue, _has("Fire Form")) # remove if fire isn't randomized, easy glitches exception
         add_tf(key_logic["The Steep Canyon"], red, can_fly)
@@ -1151,9 +1159,15 @@ def set_rules(world: "WL3World") -> None:
         add_tf(coin_logic["Forest of Fear"], 3, can_bounce)
         add_tf(coin_logic["Forest of Fear"], 7, can_pass_spikes)
 
+        if difficulty < knowledge_checks:
+            add_tf(key_logic["The Tidal Coast"], grey, can_bounce) # garlic if knowledge checks
+            add_tf(key_logic["The Tidal Coast"], green, can_bounce) # garlic if knowledge checks
+
         if difficulty >= knowledge_checks:
             key_logic["The Peaceful Village"][grey] = _o(can_pound_solid_blocks, _has("Zombie Form"), _has("Garlic"))
             coin_logic["The Peaceful Village"][0] = _o(_has("Zombie Form"), _has("Garlic"))
+            add_tf(key_logic["The Tidal Coast"], grey, can_bounce, _has("Garlic")) # garlic if knowledge checks
+            add_tf(key_logic["The Tidal Coast"], green, can_bounce, _has("Garlic")) # garlic if knowledge checks
     
         # Certain spots only need to be changed if glitch logic is not All Glitches
         if glitches < all_glitches:
