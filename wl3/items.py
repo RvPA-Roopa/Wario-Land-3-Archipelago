@@ -384,6 +384,7 @@ TRANSFORM_UNLOCK_ITEMS: Dict[str, WL3ItemData] = {
     "Yarn Form":            WL3ItemData(ap_id=TRANSFORM_UNLOCK_BASE_ITEM_ID + 9,  classification=ItemClassification.progression, tier_ids=[1, 2]),
     "Snowman Form":         WL3ItemData(ap_id=TRANSFORM_UNLOCK_BASE_ITEM_ID + 10, classification=ItemClassification.progression, tier_ids=[1, 3]),
     "Fire Form":            WL3ItemData(ap_id=TRANSFORM_UNLOCK_BASE_ITEM_ID + 11, classification=ItemClassification.progression, tier_ids=[1, 4]),
+    "Roll Form":            WL3ItemData(ap_id=TRANSFORM_UNLOCK_BASE_ITEM_ID + 12, classification=ItemClassification.progression, tier_ids=[1, 5]),
 }
 
 # Progressive Vampire: 2 copies in the pool (tier 1 = Vampire, tier 2 = Bat).
@@ -427,6 +428,7 @@ FORM_DISPLAY_TREASURE: Dict[str, int] = {
     "Yarn Form":           0x6e,  # generated from user's rom
     "Ice Skatin' Form":    0x6f,  # generated from user's rom
     "Puffy Form":          0x71,  # generated from user's rom
+    "Roll Form":           0x72,  # dedicated TreasureRollFormGfx (extracted from slide sheet, mirrored)
 }
 
 TREASURE_TABLE: Dict[str, WL3ItemData] = {
