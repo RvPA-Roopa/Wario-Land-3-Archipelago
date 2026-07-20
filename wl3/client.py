@@ -158,6 +158,7 @@ TRANSFORM_UNLOCK_AP_IDS: dict[int, list[tuple[int, int]]] = {
     BASE_ITEM_ID + 500 +  9: [(1, 2)],  # Yarn Form
     BASE_ITEM_ID + 500 + 10: [(1, 3)],  # Snowman Form
     BASE_ITEM_ID + 500 + 11: [(1, 4)],  # Fire Form
+    BASE_ITEM_ID + 500 + 12: [(1, 5)],  # Roll Form
 }
 
 # Progressive Vampire: 1st receipt sets bit 1 (Vampire), 2nd sets bit 6 (Bat).
