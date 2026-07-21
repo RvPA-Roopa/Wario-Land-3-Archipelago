@@ -156,3 +156,59 @@ def _build_coin_location_table() -> Dict[str, WL3CoinLocationData]:
 
 COIN_LOCATION_TABLE: Dict[str, WL3CoinLocationData] = _build_coin_location_table()
 assert len(COIN_LOCATION_TABLE) == 200, f"Expected 200 coin locations, got {len(COIN_LOCATION_TABLE)}"
+
+
+# ---------------------------------------------------------------------------
+# Boss defeat locations — one check per boss, fires when the boss dies.
+# IDs 7_770_700 – 7_770_709. Boss order intentionally matches
+# BOSS_CHEST_LOCATIONS in __init__.py so the boss_index below == index into
+# wBossDefeatedFlags (ROM-side per-bit tracking).
+# ---------------------------------------------------------------------------
+
+BOSS_DEFEAT_BASE_LOC_ID = 7_770_700
+
+
+class WL3BossDefeatLocationData(NamedTuple):
+    ap_id: int
+    boss_index: int      # 0-9, matches wBossDefeatedFlags bit index
+    owlevel: int
+    region: str
+    level_name: str
+    boss_name: str
+
+
+# (boss_index, boss_name, owlevel) — owlevel/region come from LEVEL_LIST.
+# Order MUST match wBossDefeatedFlags bit index in the ROM.
+_BOSSES = [
+    (0, "Wormwould",  13, "The Grasslands"),        # Grasslands boss
+    (1, "Shoot",      10, "A Town in Chaos"),       # ATiC boss
+    (2, "Scowler",     6, "Sea Turtle Rocks"),      # Sea Turtle Rocks boss
+    (3, "Jamano",     19, "The Stagnant Swamp"),    # Stagnant Swamp (green chest boss)
+    (4, "Anonster",    1, "Out of the Woods"),      # Out of the Woods boss
+    (5, "Wolfenboss",  9, "The Pool of Rain"),      # Pool of Rain boss
+    (6, "Pesce",       4, "Bank of the Wild River"),# BotWR boss
+    (7, "Muddee",     19, "The Stagnant Swamp"),    # Stagnant Swamp (red chest boss)
+    (8, "Doll Boy",    8, "The Volcano's Base"),    # Volcano's Base boss
+    (9, "Helio",       7, "Desert Ruins"),          # Desert Ruins boss
+]
+
+
+def _build_boss_defeat_location_table() -> Dict[str, WL3BossDefeatLocationData]:
+    table: Dict[str, WL3BossDefeatLocationData] = {}
+    level_region = {name: region for _, name, region in LEVEL_LIST}
+    for boss_index, boss_name, owlevel, level_name in _BOSSES:
+        loc_name = f"{boss_name} - Defeated"
+        table[loc_name] = WL3BossDefeatLocationData(
+            ap_id=BOSS_DEFEAT_BASE_LOC_ID + boss_index,
+            boss_index=boss_index,
+            owlevel=owlevel,
+            region=level_region[level_name],
+            level_name=level_name,
+            boss_name=boss_name,
+        )
+    return table
+
+
+BOSS_DEFEAT_LOCATION_TABLE: Dict[str, WL3BossDefeatLocationData] = _build_boss_defeat_location_table()
+assert len(BOSS_DEFEAT_LOCATION_TABLE) == 10, \
+    f"Expected 10 boss defeat locations, got {len(BOSS_DEFEAT_LOCATION_TABLE)}"
