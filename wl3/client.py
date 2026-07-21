@@ -1170,7 +1170,7 @@ class WL3Client(BizHawkClient):
     _MT_THROWABLE_NAMES = {
         0: {"Silky", "Spearhead"},
         1: {"ParaGoom"},
-        2: {"Doughnuteer", "Rock", "SpearBot"},
+        2: {"Doughnuteer", "SpearBot"},
         3: {"BeamBot", "FireBot"},
     }
 

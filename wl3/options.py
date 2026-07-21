@@ -274,7 +274,7 @@ class BigCoinsanity(Toggle):
 class BossDefeats(Toggle):
     """Adds 10 boss-defeat locations to the pool (one check per boss
     the first time it's defeated). Bosses: Wormwould, Shoot, Scowler, Jamano,
-    Anonster, Wolfenboss, Pesce, Muddee, Doll Boy, Yellow Belly (Helio)."""
+    Anonster, Wolfenboss, Pesce, Muddee, Doll Boy, Yellow Belly."""
     display_name = "Boss Defeats"
     default = 0
 
