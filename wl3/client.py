@@ -132,6 +132,13 @@ ADDR_FORCE_GAME_OVER_WRAM = 0x14A1  # wForceGameOver (bank 1 0xD4A1) — write 1
                                        # on inbound DeathLink; ROM main state
                                        # poll flips wState to ST_GAME_OVER and
                                        # clears the byte.
+ADDR_BOSS_DEFEATED_FLAGS_WRAM = 0x14D3  # wBossDefeatedFlags (bank 1 0xD4D3) — 2 bytes,
+                                        # 10 bits (0-9) for the 10 boss-defeat checks.
+ADDR_ITEM_POPUP_TIMER_WRAM = 0x14D5     # wItemPopupTimer     (bank 1 0xD4D5) — 1 byte.
+ADDR_ITEM_POPUP_TILE_ID_WRAM = 0x14D6   # wItemPopupTileID    (bank 1 0xD4D6) — 1 byte.
+                                        # Client writes TileID FIRST, then Timer, so ROM
+                                        # never observes stale (id, timer) mid-write.
+BOSS_DEFEAT_POPUP_FRAMES = 180          # ~3 seconds at 60fps
 ADDR_COIN_FLAGS_WRAM = 0x14A2  # wCoinFlags (bank 1 0xD4A2) — 25 bytes,
                                        # 1 bit per musical coin per level
                                        # (200 total). Bit (level-1)*8+idx
@@ -143,7 +150,7 @@ COINS_PER_LEVEL = 8
 # AP item ID → ROM trap ID (TRAP_* constants in wario_constants.asm).
 # Single source of truth lives in items.TRAP_AP_IDS (also used by
 # _build_trap_chest_table for offline trap dispatch).
-from .items import TRAP_AP_IDS
+from .items import TRAP_AP_IDS, ITEM_TABLE
 
 # AP item ID → list of (byte_idx, bit_idx) pairs to set in wTransformUnlocks[n].
 # byte_idx: 0 = wTransformUnlocks, 1 = wTransformUnlocks2
@@ -166,6 +173,8 @@ PROGRESSIVE_VAMPIRE_AP_ID = BASE_ITEM_ID + 500 + 1
 
 KEY_BASE_LOC_ID  = 7_770_400        # AP location ID = KEY_BASE_LOC_ID + (owlevel-1)*4 + color
 COIN_BASE_LOC_ID = 7_770_500        # AP location ID = COIN_BASE_LOC_ID + (owlevel-1)*8 + coin_idx
+BOSS_DEFEAT_BASE_LOC_ID = 7_770_700  # AP loc ID = BOSS_DEFEAT_BASE_LOC_ID + boss_index (0-9)
+NUM_BOSSES = 10                     # matches ROM wBossDefeatedFlags bit count
 KEY_BASE_ITEM_ID = BASE_ITEM_ID + 300  # 7_770_300
 KEYRING_BASE_ITEM_ID = BASE_ITEM_ID + 700  # 7_770_700 (one per level, owlevel-1 offset)
 
@@ -250,6 +259,7 @@ class WL3Client(BizHawkClient):
         self._prev_end_screen:  int   = 0
         self._prev_level_keys:  bytes = bytes(25)
         self._prev_coin_flags:  bytes = bytes(25)
+        self._prev_boss_defeated_flags: bytes = bytes(2)
         self._prev_opened_chests: bytes = bytes(13)
         self._checked_locs:     set   = set()
         self._items_handled:    int  = 0
@@ -602,6 +612,34 @@ class WL3Client(BizHawkClient):
         except RequestFailedError:
             pass
 
+        # ---- Detect boss defeats: new bits set in wBossDefeatedFlags ----
+        # 2 bytes, 10 bits total (one per boss). ROM SetBossDefeatedBit is
+        # called from each boss's defeat handler; idempotent per bit. The
+        # item-received popup handles the visual reward when the AP item
+        # comes back through the network. Gated on slot_data["boss_defeats"]
+        # so old seeds without the option don't send unknown-location checks.
+        if bool((ctx.slot_data or {}).get("boss_defeats", False)):
+            try:
+                bd_raw = (await read(ctx.bizhawk_ctx, [(ADDR_BOSS_DEFEATED_FLAGS_WRAM, 2, "WRAM")]))[0]
+                for byte_idx in range(2):
+                    new_bits = (~self._prev_boss_defeated_flags[byte_idx]) & bd_raw[byte_idx]
+                    if new_bits == 0:
+                        continue
+                    for bit in range(8):
+                        if new_bits & (1 << bit):
+                            boss_idx = byte_idx * 8 + bit
+                            if boss_idx >= NUM_BOSSES:
+                                continue
+                            loc_id = BOSS_DEFEAT_BASE_LOC_ID + boss_idx
+                            if loc_id not in self._checked_locs:
+                                self._checked_locs.add(loc_id)
+                                logger.debug(f"[WL3] Boss defeat — idx {boss_idx} -> AP loc {loc_id}")
+                                await self._show_sent_msg(ctx, loc_id)
+                                await self._trigger_item_popup(ctx, loc_id)
+                self._prev_boss_defeated_flags = bytes(bd_raw)
+            except RequestFailedError:
+                pass
+
         # ---- Detect chest pickups via wOpenedChests (non-stop mode fallback) ----
         # In non-stop mode wLevelEndScreen is cleared same-frame, so the rising-edge
         # check above may miss it. Also detect newly set bits in wOpenedChests.
@@ -689,6 +727,12 @@ class WL3Client(BizHawkClient):
                         if cf_raw[byte_idx] & (1 << bit):
                             self._checked_locs.add(COIN_BASE_LOC_ID + byte_idx * COINS_PER_LEVEL + bit)
                 self._prev_coin_flags = bytes(cf_raw)
+                if bool((ctx.slot_data or {}).get("boss_defeats", False)):
+                    bd_raw = (await read(ctx.bizhawk_ctx, [(ADDR_BOSS_DEFEATED_FLAGS_WRAM, 2, "WRAM")]))[0]
+                    for boss_idx in range(NUM_BOSSES):
+                        if bd_raw[boss_idx >> 3] & (1 << (boss_idx & 7)):
+                            self._checked_locs.add(BOSS_DEFEAT_BASE_LOC_ID + boss_idx)
+                    self._prev_boss_defeated_flags = bytes(bd_raw)
                 self._seeded_from_wram = True
                 logger.debug(f"[WL3] Seeded {len(self._checked_locs)} offline checks from wOpenedChests + wCoinFlags")
                 self._levels_shown = False  # trigger auto-print after items are processed
@@ -1011,6 +1055,32 @@ class WL3Client(BizHawkClient):
         item_name = info["item"]
         player_name = ctx.player_names.get(info["player"], f"P{info['player']}") if ctx.player_names else f"P{info['player']}"
         await self._show_msg(ctx, f"SENT {item_name} TO {player_name}")
+
+    async def _trigger_item_popup(self, ctx: "BizHawkClientContext", loc_id: int) -> None:
+        """Kick off the icon-above-Wario popup for the item at loc_id.
+
+        For our own treasures we show the actual treasure tile; for anything
+        else (progressive/combined/traps/keys/other players' items) we fall
+        back to TreasureGfx[0] as a placeholder gift icon."""
+        tid = 0
+        info = self._loc_items.get(loc_id) if self._loc_items else None
+        if info and info.get("player") == ctx.slot:
+            data = ITEM_TABLE.get(info["item"])
+            if data is not None:
+                first_tid = data.tier_ids[0] if data.tier_ids else None
+                if isinstance(first_tid, int) and 0 <= first_tid <= 0x65:
+                    tid = first_tid
+        try:
+            # Write TileID first, then Timer — the ROM's TryDrawItemPopup
+            # keys the reload on TileID != wItemPopupTilesLoadedID, so any
+            # ordering where Timer becomes non-zero before TileID is fresh
+            # would render one frame with a stale tile.
+            await write(ctx.bizhawk_ctx, [
+                (ADDR_ITEM_POPUP_TILE_ID_WRAM, [tid & 0xFF], "WRAM"),
+                (ADDR_ITEM_POPUP_TIMER_WRAM, [BOSS_DEFEAT_POPUP_FRAMES], "WRAM"),
+            ])
+        except RequestFailedError:
+            pass
 
     def _skip_messages(self) -> None:
         """Clear the message queue. Called by /skip command."""
