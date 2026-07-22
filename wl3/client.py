@@ -1170,8 +1170,8 @@ class WL3Client(BizHawkClient):
     _MT_THROWABLE_NAMES = {
         0: {"Silky", "Spearhead"},
         1: {"ParaGoom"},
-        2: {"Doughnuteer", "SpearBot"},
-        3: {"BeamBot", "FireBot"},
+        2: {"Doughnuteer", "Rock", "SpearBot"},
+        3: {"BeamBot", "FireBot", "Barrel"},
     }
 
     def _room_slot_names(self, w_obj_grp: int) -> "list[tuple[str, bool]] | None":
