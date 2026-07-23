@@ -67,6 +67,10 @@ THROWABLE_GFX_BY_SLOT: dict[int, set[str]] = {
     1: {"ParaGoomGfx"},
     2: {"DoughnuteerGfx", "RockGfx", "SpearBotGfx"},
     3: {"BeamBotGfx", "FireBotGfx", "BarrelGfx"},
+    # Rock@2 and Barrel@3 are back in the roll-in pool after the ROM-side
+    # no-explode patch (rock.asm .Destroy / barrel.asm .Func_435a6 now
+    # reset to idle state $31 instead of shattering + despawning), so
+    # they're safe to place in throw-block rooms without breaking puzzles.
 }
 
 # Electric/STING-damage enemies (Wario becomes Zombie form on touch).

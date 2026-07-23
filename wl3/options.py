@@ -271,6 +271,14 @@ class BigCoinsanity(Toggle):
     default = 0
 
 
+class BossDefeats(Toggle):
+    """Adds 10 boss-defeat locations to the pool (one check per boss
+    the first time it's defeated). Bosses: Wormwould, Shoot, Scowler, Jamano,
+    Anonster, Wolfenboss, Pesce, Muddee, Doll Boy, Yellow Belly."""
+    display_name = "Boss Defeats"
+    default = 0
+
+
 class Enemizer(Toggle):
     """This setting is unstable and needs more testing. It may cause crashes 
     and/or unbeatable seeds. Use with caution. Please report any bugs 
@@ -410,6 +418,7 @@ class WL3Options(PerGameCommonOptions):
     non_stop_chests:              NonStopChests
     in_game_messages:             InGameMessages
     bigcoinsanity:                BigCoinsanity
+    boss_defeats:                 BossDefeats
     enemizer:                     Enemizer
     hidden_passages_revealed:     HiddenPassagesRevealed
     trap_fill:                    TrapFill
