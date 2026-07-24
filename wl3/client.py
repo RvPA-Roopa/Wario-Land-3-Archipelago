@@ -284,6 +284,12 @@ class WL3Client(BizHawkClient):
         # whenever any of them changes. Toggled via /roomdebug client command.
         self._room_debug:     bool  = False
         self._prev_room_dbg: tuple = (None, None, None)
+        # /testenemy — diagnostic slot-patch requests. Queued by the command,
+        # processed by the tick loop so we can await the ROM write.
+        # Tuple of (label, target_slot | None). None = blunt all-slot mode.
+        self._pending_testenemy: "tuple[str, int | None] | None" = None
+        # /vanillaenemies — request to restore last-seen wgid to vanilla.
+        self._pending_vanilla_enemies: bool = False
         # Manual throw-block room marks, keyed by (owlevel, wRoom_byte).
         # Value: slot 0-3 for "needs throwable in this VRAM slot", the
         # string "none" for "no throwable needed" (explicit false positive).
@@ -514,46 +520,59 @@ class WL3Client(BizHawkClient):
                 mark_str = "none (no throwable needed)"
             else:
                 mark_str = f"slot {mark.get('slot')}"
-            logger.info(f"[WL3 room] lvl=0x{w_level:02x}(owlevel={owlevel}) "
-                        f"room=0x{w_room:02x} wgid=0x{w_obj_grp:02x} "
-                        f"[{routing}]  auto_throw:{auto_str}  "
-                        f"manual_mark:{mark_str}")
-            # Live-decode ObjectGroups[wgid] + composed slot from ROM so we
-            # can see what enemy data the running ROM actually resolves this
-            # room to. Bank 19 base = ROM 0x64000; ObjectGroups at 19:5062.
+            # Compact header — one scannable line.
+            logger.info(f"[WL3 room] owlevel={owlevel} room=0x{w_room:02x} "
+                        f"wgid=0x{w_obj_grp:02x}  ({routing})  "
+                        f"throw:{auto_str}  mark:{mark_str}")
+            # Slot table — resolve each gfx addr to a friendly name so it's
+            # readable at a glance. Cross-slot encoding is decoded so the
+            # table shows what enemy actually renders there.
             try:
+                from .slot_gfx_names import SLOT_GFX_NAMES
                 og_entry = (await read(ctx.bizhawk_ctx,
                     [(0x65062 + w_obj_grp * 4, 4, "ROM")]))[0]
-                common_ptr = og_entry[0] | (og_entry[1] << 8)
-                data_ptr   = og_entry[2] | (og_entry[3] << 8)
-                # data_ptr points into bank 19 relative address.
+                data_ptr = og_entry[2] | (og_entry[3] << 8)
                 slot_rom = 0x64000 + (data_ptr - 0x4000)
-                # Read bank_offset + 4 gfx ptrs (9 bytes) + up to 12 data ptr bytes
                 slot_head = (await read(ctx.bizhawk_ctx,
                     [(slot_rom, 21, "ROM")]))[0]
-                bank_off = slot_head[0]
-                gfxs = [slot_head[1 + i*2] | (slot_head[2 + i*2] << 8)
+                gfxs = [slot_head[1 + i * 2] | (slot_head[2 + i * 2] << 8)
                         for i in range(4)]
-                def _dec(g: int) -> str:
-                    if g & 0x8000:
-                        return f"XSlot(native={((g>>13)&3)},rel=${g&0x1FFF:04x})"
-                    return f"${g:04x}"
-                data_ptrs = []
+                # Count total data ptrs by walking until $FFFF.
+                total_data = 0
                 i = 9
                 while i < 21 - 1:
-                    d = slot_head[i] | (slot_head[i+1] << 8)
+                    d = slot_head[i] | (slot_head[i + 1] << 8)
                     if d == 0xFFFF:
                         break
-                    data_ptrs.append(d)
+                    total_data += 1
                     i += 2
-                logger.info(f"[WL3 room]   OG[{w_obj_grp:#04x}]="
-                            f"common=${common_ptr:04x} data=${data_ptr:04x} "
-                            f"(rom=${slot_rom:06x}) bank_off={bank_off:#04x}")
-                logger.info(f"[WL3 room]   gfx: {[_dec(g) for g in gfxs]}")
-                logger.info(f"[WL3 room]   data_ptrs (first {len(data_ptrs)}): "
-                            f"{[hex(x) for x in data_ptrs]}")
+                for slot_idx, g in enumerate(gfxs):
+                    if g & 0x8000:
+                        native = (g >> 13) & 3
+                        real_addr = (g & 0x1FFF) | 0x4000
+                        name = SLOT_GFX_NAMES.get(native, {}).get(real_addr,
+                            f"?@${real_addr:04x}")
+                        detail = f"{name} (xslot from {native}, ${real_addr:04x})"
+                    else:
+                        name = SLOT_GFX_NAMES.get(slot_idx, {}).get(g,
+                            f"?@${g:04x}")
+                        detail = f"{name} (${g:04x})"
+                    logger.info(f"  slot {slot_idx}: {detail}")
+                logger.info(f"  ObjectGroup rom=${slot_rom:06x}  "
+                            f"data ptrs total: {total_data}")
             except Exception as e:
                 logger.info(f"[WL3 room]   (ROM inspect failed: {e})")
+
+        # ---- /testenemy: patch current wgid's custom slot on request ----
+        if self._pending_testenemy is not None:
+            label, target_slot = self._pending_testenemy
+            self._pending_testenemy = None
+            await self._apply_testenemy(ctx, label, w_obj_grp, target_slot)
+
+        # ---- /vanillaenemies: restore current wgid to vanilla layout ----
+        if self._pending_vanilla_enemies:
+            self._pending_vanilla_enemies = False
+            await self._apply_vanilla_enemies(ctx, w_obj_grp)
 
         # Bit 7 is set immediately after the color byte is written (set 7, [wLevelEndScreen]),
         # so the live value is 0x81–0x84, not 0x01–0x04.  Mask it off for comparison.
@@ -704,6 +723,9 @@ class WL3Client(BizHawkClient):
             # `/mt yes` sees args = ("yes",) instead of (cp_self, "yes").
             ctx.command_processor.commands["mt"] = lambda *args: self._mt_command(
                 tuple(a for a in args if isinstance(a, str)))
+            ctx.command_processor.commands["testenemy"] = lambda *args: self._testenemy_command(
+                tuple(a for a in args if isinstance(a, str)))
+            ctx.command_processor.commands["vanillaenemies"] = lambda *_: self._vanillaenemies_command()
             self._cmd_registered = True
             # Load persisted marks lazily on first tick after connect so the
             # working directory is settled (BizHawkClient sets cwd during
@@ -1321,6 +1343,240 @@ class WL3Client(BizHawkClient):
                 f"0x{wr:02x}={info['slot']}" for wr, info in rooms)
             logger.info(f"  owlevel {ow}: {summary}")
         logger.info(f"[WL3] JSON file: {self._manual_marks_file()}")
+
+    def _testenemy_command(self, args) -> None:
+        """/testenemy [list|<EnemyGfxLabel> [slot]] — patch the current
+        room's ObjectGroup so a chosen enemy spawns for testing.
+
+          /testenemy               → show usage
+          /testenemy list          → list all available enemy Gfx labels
+          /testenemy <Label>       → BLUNT: replace all 4 gfx entries and
+                                     all data ptrs with <Label>. Every
+                                     spawn in this wgid becomes <Label>.
+          /testenemy <Label> <N>   → NARROW: cross-slot <Label> into VRAM
+                                     slot N (0-3) with tile-offset encoding.
+                                     Only slot N's gfx + the flat data ptr
+                                     at position N are replaced; the other
+                                     three slots stay vanilla, so you get
+                                     ONE test enemy alongside the room's
+                                     usual crew. Cleaner for behaviour
+                                     isolation but assumes vanilla layout
+                                     has slot-N data at flat position N
+                                     (true for gid 37 / OG37; verify others
+                                     with /roomdebug's data_ptrs dump).
+
+        Writes go to BizHawk's ROM domain — patches the running image
+        only, doesn't touch the seed on disk. Every room sharing the
+        current wgid is affected until the emulator resets."""
+        if not args or not args[0]:
+            logger.info("[WL3] Usage: /testenemy list  |  "
+                        "/testenemy <EnemyGfxLabel> [slot 0-3]")
+            return
+        arg = str(args[0]).strip()
+        if arg.lower() == "list":
+            try:
+                from . import enemy_registry as er
+                slot_pkgs = [
+                    ("slot 0", er.SLOT_0_PACKAGES),
+                    ("slot 1", er.SLOT_1_PACKAGES),
+                    ("slot 2", er.SLOT_2_PACKAGES),
+                    ("slot 3", er.SLOT_3_PACKAGES),
+                ]
+                logger.info("[WL3] /testenemy available enemies (grouped by "
+                            "vanilla native slot — but ALL can be cross-"
+                            "slotted via /testenemy <label> <slot>):")
+                for slot_name, pkg in slot_pkgs:
+                    names = ", ".join(sorted(pkg.keys()))
+                    logger.info(f"  {slot_name}: {names}")
+            except Exception as e:
+                logger.info(f"[WL3] /testenemy list failed: {e}")
+            return
+        target_slot: "int | None" = None
+        if len(args) >= 2 and args[1]:
+            try:
+                target_slot = int(str(args[1]))
+            except ValueError:
+                logger.info(f"[WL3] /testenemy: slot arg must be 0-3, got '{args[1]}'")
+                return
+            if not 0 <= target_slot <= 3:
+                logger.info(f"[WL3] /testenemy: slot arg out of range (0-3): {target_slot}")
+                return
+        self._pending_testenemy = (arg, target_slot)
+        mode = f"slot {target_slot} only" if target_slot is not None else "all 4 slots"
+        logger.info(f"[WL3] /testenemy queued: {arg} → {mode}. Next tick "
+                    f"will patch current wgid; leave + re-enter the room "
+                    f"to see it.")
+
+    def _vanillaenemies_command(self) -> None:
+        """/vanillaenemies — restore the current room's wgid ObjectGroup to
+        its vanilla enemy layout. If a random enemizer pick crashed the
+        room, this un-does the pick and puts the vanilla enemies back so
+        you can escape without a reset. Take effect: leave + re-enter room
+        (or in some cases just walk to the next room and back).
+
+        Every room sharing this wgid is affected until the emulator resets.
+        Palettes downstream in the slot aren't rewritten — colors may
+        stay whatever they were, but enemy behaviour is fully vanilla."""
+        self._pending_vanilla_enemies = True
+        logger.info("[WL3] /vanillaenemies queued. Next tick will restore "
+                    "the last-seen wgid to vanilla; leave + re-enter the "
+                    "room to see it.")
+
+    async def _apply_vanilla_enemies(self, ctx: "BizHawkClientContext",
+                                      w_obj_grp: int) -> None:
+        """Rebuild the current wgid's custom slot bytes so the room reverts
+        to its vanilla enemy composition (same logic as the enemizer's
+        _emit_vanilla_identical_slot). Palette bytes are left alone."""
+        try:
+            from . import enemizer_data as ed
+            if w_obj_grp is None:
+                logger.info("[WL3] /vanillaenemies: no current wgid — enter a level first.")
+                return
+            real_gid = ed.WGID_TO_REAL_GID.get(w_obj_grp)
+            if real_gid is None:
+                logger.info(f"[WL3] /vanillaenemies: no gid mapping for wgid "
+                            f"0x{w_obj_grp:02x}.")
+                return
+            rec = ed.OBJECT_GROUPS.get(real_gid)
+            if rec is None:
+                logger.info(f"[WL3] /vanillaenemies: no OBJECT_GROUPS entry "
+                            f"for gid {real_gid}.")
+                return
+            # Reconstruct vanilla bytes — mirrors enemizer._emit_vanilla_identical_slot.
+            # Leading DummyObjectData is prepended iff data_slot_addrs[0] is
+            # empty (see feedback_vanilla_identical_leading_dummy).
+            VANILLA_DUMMY = 0x441c
+            out = bytearray()
+            out.append(0x00)  # bank_offset
+            for addr in rec["gfx_addrs"]:
+                out.append(addr & 0xff)
+                out.append((addr >> 8) & 0xff)
+            if not rec["data_slot_addrs"][0]:
+                out.append(VANILLA_DUMMY & 0xff)
+                out.append((VANILLA_DUMMY >> 8) & 0xff)
+            for i in range(4):
+                for addr in rec["data_slot_addrs"][i]:
+                    out.append(addr & 0xff)
+                    out.append((addr >> 8) & 0xff)
+            out.append(0xff)
+            out.append(0xff)
+            # Compute custom slot ROM offset.
+            og_bytes = (await read(ctx.bizhawk_ctx,
+                [(0x65062 + w_obj_grp * 4, 4, "ROM")]))[0]
+            data_ptr = og_bytes[2] | (og_bytes[3] << 8)
+            slot_rom = 0x64000 + (data_ptr - 0x4000)
+            await write(ctx.bizhawk_ctx,
+                [(slot_rom, bytes(out), "ROM")])
+            logger.info(f"[WL3] /vanillaenemies applied: wgid 0x{w_obj_grp:02x} "
+                        f"(gid {real_gid}) restored to vanilla at "
+                        f"${slot_rom:06x}, {len(out)} bytes. Leave + re-enter room.")
+        except Exception as e:
+            logger.info(f"[WL3] /vanillaenemies failed: {e}")
+
+    async def _apply_testenemy(self, ctx: "BizHawkClientContext", label: str,
+                                w_obj_grp: int,
+                                target_slot: "int | None") -> None:
+        """Perform the actual ROM patch queued by /testenemy.
+
+        target_slot=None → blunt all-slot swap (every gfx/data becomes label).
+        target_slot=N    → narrow swap: cross-slot label into VRAM slot N
+                            with tile-offset encoding, replace flat data ptr
+                            at position N, leave other slots vanilla."""
+        try:
+            from . import enemy_registry as er
+            all_pkgs = [er.SLOT_0_PACKAGES, er.SLOT_1_PACKAGES,
+                        er.SLOT_2_PACKAGES, er.SLOT_3_PACKAGES]
+            entry = None
+            native_slot = None
+            for slot_idx, pkg in enumerate(all_pkgs):
+                if label in pkg:
+                    entry = pkg[label]
+                    native_slot = slot_idx
+                    break
+            if entry is None:
+                logger.info(f"[WL3] /testenemy: unknown enemy label '{label}'. "
+                            f"Try /testenemy list.")
+                return
+            if w_obj_grp is None:
+                logger.info("[WL3] /testenemy: no current wgid — enter a level first.")
+                return
+            gfx_addr = entry["gfx_addr"]
+            data_addr = entry["data_addrs"][0]
+            # Cross-slot encoding limit: enemies whose gfx_addr sits above
+            # 0x5FFF can't be cross-slotted (the encoded 13-bit form truncates).
+            # Only guard the narrow path — the blunt path writes at each
+            # VRAM slot's own gfx pointer position with the raw address, so
+            # no encoding is needed.
+            CROSS_SLOT_GFX_MAX = 0x5FFF
+            if target_slot is not None and target_slot != native_slot \
+                    and gfx_addr > CROSS_SLOT_GFX_MAX:
+                logger.info(f"[WL3] /testenemy: {label} (gfx=${gfx_addr:04x}) "
+                            f"can't cross-slot into slot {target_slot} "
+                            f"(gfx > $5FFF). Try its native slot {native_slot}, "
+                            f"or use the blunt form without a slot arg.")
+                return
+            # ObjectGroups[wgid] lives at ROM 0x65062 + wgid*4. Bytes [2:4]
+            # hold the data_ptr into bank $19; the custom slot starts at
+            # 0x64000 + (data_ptr - 0x4000).
+            og_bytes = (await read(ctx.bizhawk_ctx,
+                [(0x65062 + w_obj_grp * 4, 4, "ROM")]))[0]
+            data_ptr = og_bytes[2] | (og_bytes[3] << 8)
+            slot_rom = 0x64000 + (data_ptr - 0x4000)
+
+            def _encode(addr: int, tile_offset_index: int) -> int:
+                """load_objects.asm encoded form: bit 15 = encoded flag,
+                bits 13-14 = tile_offset_index (0-3 → VRAM slot), bits 0-12
+                = low bits of the address."""
+                return 0x8000 | ((tile_offset_index & 3) << 13) | (addr & 0x1FFF)
+
+            if target_slot is None:
+                # Blunt mode — rewrite the whole slot: 1 bank_offset +
+                # 4×gfx (raw, native at each slot) + 4×same data ptr +
+                # $FFFF terminator. Palette bytes downstream untouched.
+                new_bytes = bytearray()
+                new_bytes.append(0x00)
+                for _ in range(4):
+                    new_bytes.append(gfx_addr & 0xff)
+                    new_bytes.append((gfx_addr >> 8) & 0xff)
+                for _ in range(4):
+                    new_bytes.append(data_addr & 0xff)
+                    new_bytes.append((data_addr >> 8) & 0xff)
+                new_bytes.append(0xff)
+                new_bytes.append(0xff)
+                await write(ctx.bizhawk_ctx,
+                    [(slot_rom, bytes(new_bytes), "ROM")])
+                logger.info(f"[WL3] /testenemy applied (all slots): "
+                            f"wgid 0x{w_obj_grp:02x} slot@${slot_rom:06x} → "
+                            f"{label} (gfx=${gfx_addr:04x} "
+                            f"data=${data_addr:04x}). Leave + re-enter room.")
+                return
+
+            # Narrow mode — patch only slot N's gfx pointer + the flat data
+            # ptr at position N. Read the current 64-byte slot, mutate two
+            # 16-bit fields in place, write back.
+            slot_head = bytearray(
+                (await read(ctx.bizhawk_ctx, [(slot_rom, 64, "ROM")]))[0])
+            enc_gfx = _encode(gfx_addr, native_slot) \
+                if native_slot != target_slot else gfx_addr
+            enc_data = _encode(data_addr, target_slot) \
+                if native_slot != target_slot else data_addr
+            gfx_off = 1 + target_slot * 2   # after bank_offset, per-slot 2 bytes
+            data_off = 9 + target_slot * 2  # after 8 gfx bytes, flat position N
+            slot_head[gfx_off]     = enc_gfx & 0xff
+            slot_head[gfx_off + 1] = (enc_gfx >> 8) & 0xff
+            slot_head[data_off]     = enc_data & 0xff
+            slot_head[data_off + 1] = (enc_data >> 8) & 0xff
+            await write(ctx.bizhawk_ctx,
+                [(slot_rom, bytes(slot_head), "ROM")])
+            xslot_note = "" if native_slot == target_slot \
+                else f" (cross-slot from native {native_slot})"
+            logger.info(f"[WL3] /testenemy applied (slot {target_slot}"
+                        f"{xslot_note}): wgid 0x{w_obj_grp:02x} "
+                        f"gfx@${slot_rom + gfx_off:06x}=${enc_gfx:04x} "
+                        f"data@${slot_rom + data_off:06x}=${enc_data:04x}. "
+                        f"Leave + re-enter room.")
+        except Exception as e:
+            logger.info(f"[WL3] /testenemy failed: {e}")
 
     def _toggle_msg_debug(self) -> None:
         """Toggle the [WL3 msg] console log line that prints the encoded
