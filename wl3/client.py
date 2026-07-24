@@ -150,7 +150,7 @@ COINS_PER_LEVEL = 8
 # AP item ID → ROM trap ID (TRAP_* constants in wario_constants.asm).
 # Single source of truth lives in items.TRAP_AP_IDS (also used by
 # _build_trap_chest_table for offline trap dispatch).
-from .items import TRAP_AP_IDS, ITEM_TABLE
+from .items import TRAP_AP_IDS, ITEM_TABLE, ID_TO_ITEM
 
 # AP item ID → list of (byte_idx, bit_idx) pairs to set in wTransformUnlocks[n].
 # byte_idx: 0 = wTransformUnlocks, 1 = wTransformUnlocks2
@@ -288,8 +288,20 @@ class WL3Client(BizHawkClient):
         # processed by the tick loop so we can await the ROM write.
         # Tuple of (label, target_slot | None). None = blunt all-slot mode.
         self._pending_testenemy: "tuple[str, int | None] | None" = None
-        # /vanillaenemies — request to restore last-seen wgid to vanilla.
+        # /vanillaenemies — request to restore the LAST-SEEN wgid to vanilla.
+        # Applied on the next tick with wgid = self._last_seen_wgid so the
+        # user gets to leave the crashy room / return to OW and still target
+        # the room they were just in.
         self._pending_vanilla_enemies: bool = False
+        # Last non-None wgid observed by the tick loop. Persists across OW
+        # states (wObjectGroup isn't cleared) so /vanillaenemies fired from
+        # the overworld still targets the last room the player was in.
+        self._last_seen_wgid: "int | None" = None
+        # Icon-above-Wario popup queue. Boss-defeat / cross-world item
+        # receipts append treasure_ids here; the tick loop drains one at a
+        # time, waiting for wItemPopupTimer to reach 0 before writing the
+        # next so each icon gets its full ~3-second display window.
+        self._popup_queue: "list[int]" = []
         # Manual throw-block room marks, keyed by (owlevel, wRoom_byte).
         # Value: slot 0-3 for "needs throwable in this VRAM slot", the
         # string "none" for "no throwable needed" (explicit false positive).
@@ -484,6 +496,10 @@ class WL3Client(BizHawkClient):
         cur = (w_level, w_room, w_obj_grp)
         room_changed = cur != self._prev_room_dbg
         self._prev_room_dbg = cur
+        # Track last valid wgid so /vanillaenemies from OW still targets
+        # the previous room. wObjectGroup stays populated across OW ticks.
+        if w_obj_grp is not None:
+            self._last_seen_wgid = w_obj_grp
         if self._room_debug and room_changed:
             owlevel = (w_level >> 3) + 1   # decode wLevel into 1..25 overworld level index
             # NOTE: the enemizer patches ObjectGroups[wgid][2..3] to
@@ -569,10 +585,15 @@ class WL3Client(BizHawkClient):
             self._pending_testenemy = None
             await self._apply_testenemy(ctx, label, w_obj_grp, target_slot)
 
-        # ---- /vanillaenemies: restore current wgid to vanilla layout ----
+        # ---- /vanillaenemies: patch the last-seen wgid immediately so
+        # ---- the user's next entry into that room loads vanilla enemies.
         if self._pending_vanilla_enemies:
             self._pending_vanilla_enemies = False
-            await self._apply_vanilla_enemies(ctx, w_obj_grp)
+            await self._apply_vanilla_enemies(ctx, self._last_seen_wgid)
+
+        # ---- Item popup queue drain: fire next queued icon once the
+        # ---- ROM's timer has expired, so each gets its full 3-sec window.
+        await self._drain_popup_queue(ctx)
 
         # Bit 7 is set immediately after the color byte is written (set 7, [wLevelEndScreen]),
         # so the live value is 0x81–0x84, not 0x01–0x04.  Mask it off for comparison.
@@ -875,6 +896,13 @@ class WL3Client(BizHawkClient):
                            and net_item.location > 0)
             await self._grant_item(ctx, ap_id,
                                    silent=is_catch_up or is_own_trap)
+            # Fire the icon-above-Wario popup for live items received from
+            # another player's world. Catch-up receipts are suppressed so
+            # a first-connect batch doesn't blast the screen; own-world
+            # deliveries are suppressed too since those items were already
+            # visualised at pickup (chest/key sprite).
+            if not is_catch_up and net_item.player != ctx.slot:
+                self._trigger_item_popup_for_received(ap_id)
             try:
                 # Apply the in-game-messages filter for incoming items.
                 # Mode 0 (Everything): always show.
@@ -1092,13 +1120,95 @@ class WL3Client(BizHawkClient):
                 first_tid = data.tier_ids[0] if data.tier_ids else None
                 if isinstance(first_tid, int) and 0 <= first_tid <= 0x65:
                     tid = first_tid
+        self._enqueue_item_popup(tid)
+
+    def _trigger_item_popup_for_received(self, ap_id: int) -> None:
+        """Enqueue an icon-above-Wario popup for an AP-delivered item.
+        Handles regular treasures, combined items, progressive tiers,
+        Form unlocks, and keys/keyrings. Traps and unknown items fall
+        back to TreasureGfx[0]."""
+        tid = self._resolve_popup_tid(ap_id)
+        self._enqueue_item_popup(tid)
+
+    # Form (TRANSFORM_UNLOCK_ITEMS) — tier_ids there stores (byte_idx, bit_idx)
+    # pairs for the wTransformUnlocks bits, NOT a treasure_id, so we can't
+    # read it directly. Map each Form's AP ID to its TREASURE_*_FORM tid
+    # ($67-$72 per treasure_constants.asm).
+    _FORM_AP_TO_TID = {
+        BASE_ITEM_ID + 500 + 0:  0x67,  # Zombie Form
+        BASE_ITEM_ID + 500 + 2:  0x71,  # Puffy Form
+        BASE_ITEM_ID + 500 + 3:  0x70,  # Flat Form
+        BASE_ITEM_ID + 500 + 4:  0x6a,  # Invisible Form
+        BASE_ITEM_ID + 500 + 5:  0x6b,  # Fat Form
+        BASE_ITEM_ID + 500 + 7:  0x6f,  # Ice Skatin' Form
+        BASE_ITEM_ID + 500 + 8:  0x6d,  # Bouncy Form
+        BASE_ITEM_ID + 500 + 9:  0x6e,  # Yarn Form
+        BASE_ITEM_ID + 500 + 10: 0x6c,  # Snowman Form
+        BASE_ITEM_ID + 500 + 11: 0x68,  # Fire Form
+        BASE_ITEM_ID + 500 + 12: 0x72,  # Roll Form
+    }
+    _KEY_AP_ID_MIN  = 7_770_300      # KEY_BASE_ITEM_ID
+    _KEY_AP_ID_MAX  = 7_770_399      # 100 keys (25 levels × 4 colors)
+    _KEYRING_AP_ID_MIN = 7_770_700   # KEYRING_BASE_ITEM_ID
+    _KEYRING_AP_ID_MAX = 7_770_724   # 25 keyrings
+
+    def _resolve_popup_tid(self, ap_id: int) -> int:
+        """Map an AP item id → TreasureGfx index for the popup sprite.
+        Returns 0 (dummy) if we have no better match."""
+        # Progressive items — show the tier just delivered. _prog_counts
+        # was incremented by the outer loop right before this fires, so
+        # count is a 1-based tier number.
+        if ap_id in PROGRESSIVE_ITEMS or ap_id == PROGRESSIVE_VAMPIRE_AP_ID:
+            count = self._prog_counts.get(ap_id, 1)
+            if ap_id == PROGRESSIVE_VAMPIRE_AP_ID:
+                # No dedicated Vampire treasure sprite; both tiers show Bat.
+                return 0x69  # TREASURE_BAT_FORM
+            data = ID_TO_ITEM.get(ap_id)
+            if data and data.tier_ids:
+                idx = max(0, min(len(data.tier_ids) - 1, count - 1))
+                tid = data.tier_ids[idx]
+                if isinstance(tid, int) and 0 <= tid <= 0x72:
+                    return tid
+            return 0
+        # Form (TRANSFORM_UNLOCK) items.
+        if ap_id in self._FORM_AP_TO_TID:
+            return self._FORM_AP_TO_TID[ap_id]
+        # Keys / Keyrings — use TREASURE_KEYRING ($66) as the icon.
+        if self._KEY_AP_ID_MIN <= ap_id <= self._KEY_AP_ID_MAX:
+            return 0x66
+        if self._KEYRING_AP_ID_MIN <= ap_id <= self._KEYRING_AP_ID_MAX:
+            return 0x66
+        # Regular treasure / combined item — tier_ids[0] IS the display tid.
+        data = ID_TO_ITEM.get(ap_id)
+        if data and data.tier_ids:
+            tid = data.tier_ids[0]
+            if isinstance(tid, int) and 0 <= tid <= 0x72:
+                return tid
+        # Traps + unknown → gift-box.
+        return 0
+
+    def _enqueue_item_popup(self, tid: int) -> None:
+        """Queue an icon-above-Wario popup so back-to-back triggers each
+        get their full display window instead of clobbering one another.
+        The tick loop's _drain_popup_queue writes the next TileID + Timer
+        to WRAM when the ROM's wItemPopupTimer reaches 0."""
+        self._popup_queue.append(tid & 0xFF)
+
+    async def _drain_popup_queue(self, ctx: "BizHawkClientContext") -> None:
+        """If the ROM's popup timer has expired and we have queued icons,
+        write the next TileID + Timer to WRAM. Called each tick."""
+        if not self._popup_queue:
+            return
         try:
-            # Write TileID first, then Timer — the ROM's TryDrawItemPopup
-            # keys the reload on TileID != wItemPopupTilesLoadedID, so any
-            # ordering where Timer becomes non-zero before TileID is fresh
-            # would render one frame with a stale tile.
+            cur_timer = (await read(ctx.bizhawk_ctx,
+                [(ADDR_ITEM_POPUP_TIMER_WRAM, 1, "WRAM")]))[0][0]
+            if cur_timer != 0:
+                return  # Current popup still on-screen — wait.
+            tid = self._popup_queue.pop(0)
+            # TileID first, then Timer, so the ROM's TryDrawItemPopup never
+            # sees a non-zero timer pointing at a stale tile.
             await write(ctx.bizhawk_ctx, [
-                (ADDR_ITEM_POPUP_TILE_ID_WRAM, [tid & 0xFF], "WRAM"),
+                (ADDR_ITEM_POPUP_TILE_ID_WRAM, [tid], "WRAM"),
                 (ADDR_ITEM_POPUP_TIMER_WRAM, [BOSS_DEFEAT_POPUP_FRAMES], "WRAM"),
             ])
         except RequestFailedError:
@@ -1408,19 +1518,25 @@ class WL3Client(BizHawkClient):
                     f"to see it.")
 
     def _vanillaenemies_command(self) -> None:
-        """/vanillaenemies — restore the current room's wgid ObjectGroup to
-        its vanilla enemy layout. If a random enemizer pick crashed the
-        room, this un-does the pick and puts the vanilla enemies back so
-        you can escape without a reset. Take effect: leave + re-enter room
-        (or in some cases just walk to the next room and back).
+        """/vanillaenemies — restore the LAST room's wgid to vanilla
+        enemies. If a random enemizer pick crashed a room, leave/reset
+        back to the overworld and run this — the last wgid the client
+        saw (usually the room you just crashed in) gets patched. Walk
+        back into that room; vanilla enemies load and it's safe.
 
-        Every room sharing this wgid is affected until the emulator resets.
-        Palettes downstream in the slot aren't rewritten — colors may
-        stay whatever they were, but enemy behaviour is fully vanilla."""
+        If you run it while already in the target room, the patch still
+        applies to that wgid; leave + re-enter to see the vanilla enemies
+        spawn.
+
+        Every room sharing this wgid is affected until the emulator
+        reloads the ROM file. BizHawk CPU-reset preserves the patch."""
         self._pending_vanilla_enemies = True
-        logger.info("[WL3] /vanillaenemies queued. Next tick will restore "
-                    "the last-seen wgid to vanilla; leave + re-enter the "
-                    "room to see it.")
+        logger.info("[WL3] /vanillaenemies queued for last-seen wgid "
+                    f"(0x{self._last_seen_wgid:02x}). Applying on the "
+                    "next tick; leave + re-enter the target room."
+                    if self._last_seen_wgid is not None else
+                    "[WL3] /vanillaenemies queued but no wgid seen yet. "
+                    "Enter a level first, then re-run.")
 
     async def _apply_vanilla_enemies(self, ctx: "BizHawkClientContext",
                                       w_obj_grp: int) -> None:
