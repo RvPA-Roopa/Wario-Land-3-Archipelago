@@ -10,7 +10,7 @@ from typing import TYPE_CHECKING, Dict
 
 from BaseClasses import Location, Region
 
-from .locations import COIN_LOCATION_TABLE, KEY_LOCATION_TABLE, LOCATION_TABLE
+from .locations import BOSS_DEFEAT_LOCATION_TABLE, COIN_LOCATION_TABLE, KEY_LOCATION_TABLE, LOCATION_TABLE
 
 if TYPE_CHECKING:
     from . import WL3World
@@ -60,6 +60,15 @@ def create_regions(world: "WL3World") -> Dict[str, Region]:
     # the per-level rules in set_rules() apply equally to coin locations.
     if world.options.bigcoinsanity:
         for loc_name, loc_data in COIN_LOCATION_TABLE.items():
+            region = all_regions[loc_data.region]
+            loc = Location(player, loc_name, loc_data.ap_id, region)
+            region.locations.append(loc)
+
+    # Boss defeats: 10 boss-defeat locations, gated by the boss_defeats option.
+    # Each boss's reachability piggybacks on its level's chest-boss access
+    # (rules.py sets identical access to the boss-chest location).
+    if world.options.boss_defeats:
+        for loc_name, loc_data in BOSS_DEFEAT_LOCATION_TABLE.items():
             region = all_regions[loc_data.region]
             loc = Location(player, loc_name, loc_data.ap_id, region)
             region.locations.append(loc)

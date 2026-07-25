@@ -24,19 +24,19 @@ from worlds.Files import APProcedurePatch, APPatchExtension, APTokenMixin, APTok
 if TYPE_CHECKING:
     from . import WL3World
 
-CHEST_TABLE_OFFSET = 0x001B06  # LevelTreasureIDs_WithoutTemple (100 bytes)
-KEYSANITY_MODE_OFFSET = 0x001B6A  # KeysanityMode (1 byte: 0=vanilla, 1=simple, 2=full)
-KEY_TABLE_OFFSET = 0x001B6B  # LevelKeyPool (100 bytes; ITEM_KEY_BASE + index = vanilla)
-CHEST_KEY_PAL_OFFSET = 0x001BCF  # ChestKeyPalettes (100 bytes; $FF=not key, 4-7=palette)
-KEY_PAL_OVERRIDE_OFFSET = 0x001C33  # KeyPaletteOverrides (100 bytes; $FF=default, else OBPAL)
-CHEST_KEYRING_OFFSET = 0x001C97  # ChestKeyringTargets (100 bytes; $FF=not keyring, 1-25=target owlevel)
-KEY_KEYRING_OFFSET = 0x001CFB  # KeyKeyringTargets   (100 bytes; same format, but for key slots)
-INITIAL_TREASURES_OFFSET = 0x001D5F  # InitialTreasuresBits (13 bytes; OR'd into wTreasuresCollected at new-game init)
-INITIAL_KEYS_OFFSET = 0x001D6C  # InitialKeysBits      (25 bytes; OR'd into wKeyInventory      at new-game init)
-INITIAL_TRANSFORM_UNLOCKS_OFFSET = 0x001D85  # InitialTransformUnlocks  (1 byte; OR'd into wTransformUnlocks  at new-game init)
-INITIAL_TRANSFORM_UNLOCKS2_OFFSET = 0x001D86  # InitialTransformUnlocks2 (1 byte; OR'd into wTransformUnlocks2 at new-game init)
-TRAP_CHEST_TABLE_OFFSET = 0x001D87  # TrapChestTable (100 bytes; 0=no trap, 1-5=TRAP_* — offline trap dispatch from chests)
-TRAP_KEY_TABLE_OFFSET = 0x001DEB  # TrapKeyTable   (100 bytes; same encoding — offline trap dispatch from key slots)
+CHEST_TABLE_OFFSET = 0x001B30  # LevelTreasureIDs_WithoutTemple (100 bytes)
+KEYSANITY_MODE_OFFSET = 0x001B94  # KeysanityMode (1 byte: 0=vanilla, 1=simple, 2=full)
+KEY_TABLE_OFFSET = 0x001B95  # LevelKeyPool (100 bytes; ITEM_KEY_BASE + index = vanilla)
+CHEST_KEY_PAL_OFFSET = 0x001BF9  # ChestKeyPalettes (100 bytes; $FF=not key, 4-7=palette)
+KEY_PAL_OVERRIDE_OFFSET = 0x001C5D  # KeyPaletteOverrides (100 bytes; $FF=default, else OBPAL)
+CHEST_KEYRING_OFFSET = 0x001CC1  # ChestKeyringTargets (100 bytes; $FF=not keyring, 1-25=target owlevel)
+KEY_KEYRING_OFFSET = 0x001D25  # KeyKeyringTargets   (100 bytes; same format, but for key slots)
+INITIAL_TREASURES_OFFSET = 0x001D89  # InitialTreasuresBits (13 bytes; OR'd into wTreasuresCollected at new-game init)
+INITIAL_KEYS_OFFSET = 0x001D96  # InitialKeysBits      (25 bytes; OR'd into wKeyInventory      at new-game init)
+INITIAL_TRANSFORM_UNLOCKS_OFFSET = 0x001DAF  # InitialTransformUnlocks  (1 byte; OR'd into wTransformUnlocks  at new-game init)
+INITIAL_TRANSFORM_UNLOCKS2_OFFSET = 0x001DB0  # InitialTransformUnlocks2 (1 byte; OR'd into wTransformUnlocks2 at new-game init)
+TRAP_CHEST_TABLE_OFFSET = 0x001DB1  # TrapChestTable (100 bytes; 0=no trap, 1-5=TRAP_* — offline trap dispatch from chests)
+TRAP_KEY_TABLE_OFFSET = 0x001E15  # TrapKeyTable   (100 bytes; same encoding — offline trap dispatch from key slots)
 LEVEL_COIN_ITEMS_OFFSET          = 0x05836C   # LevelCoinItems       (200 bytes; bank $16 — display treasure ID per coin slot, $FF=plain)
 COIN_PAL_OVERRIDE_OFFSET         = 0x058434   # CoinPaletteOverrides (200 bytes; bank $16 — OBPAL per coin, $FF=default)
 TRAP_COIN_TABLE_OFFSET           = 0x0584FC   # TrapCoinTable        (200 bytes; bank $16 — 0=no trap, 1-5=TRAP_* — offline trap dispatch from coins)
@@ -53,6 +53,7 @@ TREASURE_YARN_TILE_OFFSET        = 0x099b80   # TreasureYarnFormGfx      — 64 
 TREASURE_ICE_SKATIN_TILE_OFFSET  = 0x099bc0   # TreasureIceSkatinFormGfx — 64 bytes (4 tiles, 2bpp)
 TREASURE_FLAT_TILE_OFFSET        = 0x099c00   # TreasureFlatFormGfx      — 64 bytes (4 tiles, 2bpp)
 TREASURE_PUFFY_TILE_OFFSET       = 0x099c40   # TreasurePuffyFormGfx     — 64 bytes (4 tiles, 2bpp)
+TREASURE_ROLL_TILE_OFFSET        = 0x099c80   # TreasureRollFormGfx      — 64 bytes (4 tiles, 2bpp)
 
 # Vanilla Form icon extractions. Each entry:
 #   (kind, offset, length, crop_x, crop_y, dest_offset)
@@ -87,9 +88,18 @@ FORM_ICON_MIRRORED_EXTRACTIONS = (
     # Fire Form — half-flame from fire_bot, mirrored to form a full flame shape.
     ("sprite", 0x1ac234, 988,  97, 0, 7, 15, TREASURE_FIRE_TILE_OFFSET),
 )
-TREASURE_DUMMY_PAL_OFFSET        = 0x09B025   # TreasureOBPals[$65] — 1 byte (palette index)
+
+# Form icons built by cropping a full 16x16 region and horizontally flipping
+# it. Same shape as FORM_ICON_EXTRACTIONS but the encoder mirrors the pixels
+# left-to-right before encoding as tiles.
+FORM_ICON_FLIPPED_EXTRACTIONS = (
+    # Roll Form — Wario face-rolling frame from the slide sheet, mirrored so
+    # motion trail is on the right (matches rolling right visually).
+    ("sprite_raw", 0x025000, 2048, 112, 32, TREASURE_ROLL_TILE_OFFSET),
+)
+TREASURE_DUMMY_PAL_OFFSET        = 0x09B065   # TreasureOBPals[$65] — 1 byte (palette index)
 TREASURE_GFX_BASE                = 0x098000   # TreasureGfx[0] — each entry 64 bytes
-TREASURE_PAL_BASE                = 0x09AFC0   # TreasureOBPals[0] — each entry 1 byte
+TREASURE_PAL_BASE                = 0x09B000   # TreasureOBPals[0] — each entry 1 byte
 KEY_COLOR_PALS = [0x08, 0x05, 0x06, 0x07]    # OBPAL: grey, red, green, blue
 OBPAL_TREASURE_PURPLE = 0x09                  # Combined unlock items
 
@@ -160,15 +170,22 @@ def _decode_tilemap(sheet_2bpp: bytes, width_tiles: int):
     return pixels
 
 
-def _encode_icon_from_pixels(pixels, crop_x: int, crop_y: int) -> bytes:
+def _encode_icon_from_pixels(pixels, crop_x: int, crop_y: int,
+                             flip_h: bool = False) -> bytes:
     """Crop a 16x16 region from a pixel grid and encode as 4 tiles of 2bpp
-    in rgbgfx --interleave order (TL, BL, TR, BR). Returns 64 bytes."""
+    in rgbgfx --interleave order (TL, BL, TR, BR). Returns 64 bytes.
+    When flip_h is True, the 16x16 region is horizontally mirrored before
+    encoding (so an icon designed as "facing right" becomes "facing left")."""
+    def px(y: int, x: int) -> int:
+        if flip_h:
+            return pixels[crop_y + y][crop_x + 15 - x]
+        return pixels[crop_y + y][crop_x + x]
     def encode_tile(ty: int, tx: int) -> bytes:
         out = bytearray()
         for y in range(8):
             lo = hi = 0
             for x in range(8):
-                v = pixels[crop_y + ty * 8 + y][crop_x + tx * 8 + x]
+                v = px(ty * 8 + y, tx * 8 + x)
                 bit = 7 - x
                 lo |= (v & 1) << bit
                 hi |= ((v >> 1) & 1) << bit
@@ -418,6 +435,16 @@ class WL3PatchExtension(APPatchExtension):
             else:
                 pixels = _decode_tilemap(raw, width_tiles=16)
             encoded = _build_mirrored_icon(pixels, crop_x, crop_y, half_w, half_h)
+            rom[dest_offset:dest_offset + len(encoded)] = encoded
+        for kind, src_offset, src_length, crop_x, crop_y, dest_offset in FORM_ICON_FLIPPED_EXTRACTIONS:
+            raw = vanilla[src_offset:src_offset + src_length]
+            if kind == "sprite":
+                pixels = _decode_sprite_sheet(_wl3_rle_decompress(raw), width_tiles=16)
+            elif kind == "sprite_raw":
+                pixels = _decode_sprite_sheet(raw, width_tiles=16)
+            else:
+                pixels = _decode_tilemap(raw, width_tiles=16)
+            encoded = _encode_icon_from_pixels(pixels, crop_x, crop_y, flip_h=True)
             rom[dest_offset:dest_offset + len(encoded)] = encoded
         return bytes(rom)
 
