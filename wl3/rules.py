@@ -28,7 +28,7 @@ from typing import TYPE_CHECKING, List
 
 from BaseClasses import CollectionState, LocationProgressType
 
-from .locations import COIN_LOCATION_TABLE, COLOR_NAMES, KEY_LOCATION_TABLE, LOCATION_TABLE
+from .locations import BOSS_DEFEAT_LOCATION_TABLE, COIN_LOCATION_TABLE, COLOR_NAMES, KEY_LOCATION_TABLE, LOCATION_TABLE
 from .options import (KeyShuffle, DifficultyOptions, MinorGlitches)
 
 if TYPE_CHECKING:
@@ -1295,6 +1295,35 @@ def set_rules(world: "WL3World") -> None:
             elif coin_rule is not None:
                 mw.get_location(loc_name, player).access_rule = \
                     lambda state, r=coin_rule: r(state, player)
+
+    # Boss defeats — reuse each boss's existing chest access rule. Boss chest
+    # locations always live in LOCATION_TABLE (they're regular chest slots
+    # from the level's grey/red/green/blue set), so we can look up the
+    # already-configured access rule and copy it onto the "Boss - Defeated"
+    # location. Mapping mirrors _BOSSES in locations.py.
+    if world.options.boss_defeats:
+        _BOSS_CHEST_FOR_DEFEAT = {
+            "Wormwould":  "The Grasslands - Grey Chest",
+            "Shoot":      "A Town in Chaos - Red Chest",
+            "Scowler":    "Sea Turtle Rocks - Grey Chest",
+            "Jamano":     "The Stagnant Swamp - Green Chest",
+            "Anonster":   "Out of the Woods - Blue Chest",
+            "Wolfenboss": "The Pool of Rain - Green Chest",
+            "Pesce":      "Bank of the Wild River - Green Chest",
+            "Muddee":     "The Stagnant Swamp - Red Chest",
+            "Doll Boy":   "The Volcano's Base - Grey Chest",
+            "Helio":      "Desert Ruins - Blue Chest",
+        }
+        for loc_name, loc_data in BOSS_DEFEAT_LOCATION_TABLE.items():
+            chest_loc_name = _BOSS_CHEST_FOR_DEFEAT.get(loc_data.boss_name)
+            if chest_loc_name is None:
+                continue
+            chest_loc = mw.get_location(chest_loc_name, player)
+            defeat_loc = mw.get_location(loc_name, player)
+            # Copy the access rule (may be the default "always-True" if no
+            # rule was set on the chest — either way, mirroring it keeps the
+            # boss-defeat reachability equivalent to the boss-chest one).
+            defeat_loc.access_rule = chest_loc.access_rule
 
     # Victory condition — collect required music boxes then beat the final boss.
     # Progressive Overalls x1 and Progressive Grab x2 are always required for the temple fight.

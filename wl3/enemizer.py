@@ -67,6 +67,10 @@ THROWABLE_GFX_BY_SLOT: dict[int, set[str]] = {
     1: {"ParaGoomGfx"},
     2: {"DoughnuteerGfx", "RockGfx", "SpearBotGfx"},
     3: {"BeamBotGfx", "FireBotGfx", "BarrelGfx"},
+    # Rock@2 and Barrel@3 are back in the roll-in pool after the ROM-side
+    # no-explode patch (rock.asm .Destroy / barrel.asm .Func_435a6 now
+    # reset to idle state $31 instead of shattering + despawning), so
+    # they're safe to place in throw-block rooms without breaking puzzles.
 }
 
 # Electric/STING-damage enemies (Wario becomes Zombie form on touch).
@@ -410,7 +414,12 @@ def _emit_slot_bytes(chosen: list[dict],
 # slot 3 instead. gid 30 (Volcano's Base Nobiiru room) added here after
 # user retest confirmed the {0} decoration-slot lock alone wasn't
 # enough — full vanilla required.
-CRASH_CONFIRMED_GIDS = frozenset({30})
+CRASH_CONFIRMED_GIDS = frozenset({30, 37})
+# gid 37 (Colossal Hole wgid 0x1F): full-vanilla lock after per-slot
+# testing. Slot 1 (Dummy, no spawns) confirmed crash-triggering when
+# randomized 2026-07-23; user then requested slots 2 (Omodon) and 3
+# (Omodonmeka) also locked. Effectively full vanilla since slot 0
+# (Owl) was already protected.
 # gid 101 (Above the Clouds day room_00 = wgid 0x7d): same
 # [Spearhead@0, Bird@1, Futamogu@2 protected, Spark@3] layout as the
 # other confirmed crashers. Reproduced 2026-07-15: entering ATC on a
@@ -514,9 +523,16 @@ def _emit_vanilla_identical_slot(rec: dict, palette_lookup) -> bytes:
         out.append(addr & 0xff)
         out.append((addr >> 8) & 0xff)
     # Data ptrs — reconstruct the flat vanilla order.
-    # Vanilla layout is [leading_dummy] + slot_data_addrs[0..3] concatenated.
-    out.append(_VANILLA_DUMMY_OBJECT_DATA_ADDR & 0xff)
-    out.append((_VANILLA_DUMMY_OBJECT_DATA_ADDR >> 8) & 0xff)
+    # Some ObjectGroups (OG30, OG88, OG96, …) start with a leading
+    # DummyObjectData in the vanilla flat list — build_apworld_enemizer_data
+    # strips that leading dummy, so data_slot_addrs[0] ends up empty. Others
+    # (OG37 = Colossal Hole) have real data for slot 0 and NO leading dummy.
+    # Detect via data_slot_addrs[0] emptiness so we don't prepend a spurious
+    # dummy for gids that never had one (which would shift every slot's data
+    # ptr and leave slot 0 with no spawns — user-reported crash 2026-07-23).
+    if not rec["data_slot_addrs"][0]:
+        out.append(_VANILLA_DUMMY_OBJECT_DATA_ADDR & 0xff)
+        out.append((_VANILLA_DUMMY_OBJECT_DATA_ADDR >> 8) & 0xff)
     for i in range(4):
         for addr in rec["data_slot_addrs"][i]:
             out.append(addr & 0xff)

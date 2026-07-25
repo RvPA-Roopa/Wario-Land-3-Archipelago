@@ -42,7 +42,7 @@ from .items import (
     TREASURE_TABLE,
     WL3ItemData,
 )
-from .locations import BASE_LOC_ID, COIN_LOCATION_TABLE, KEY_LOCATION_TABLE, LOCATION_TABLE, WL3LocationData
+from .locations import BASE_LOC_ID, BOSS_DEFEAT_LOCATION_TABLE, COIN_LOCATION_TABLE, KEY_LOCATION_TABLE, LOCATION_TABLE, WL3LocationData
 from Options import OptionGroup
 from .options import (WL3Options, MusicBoxShuffle, KeyShuffle, CombinedItems,
                       GolfPrice, GolfBuilding, IHateGolf,
@@ -226,6 +226,9 @@ class WL3World(World):
         # recognizes them); they're only added as actual locations on the
         # multiworld side when world.options.bigcoinsanity is on.
         **{name: data.ap_id for name, data in COIN_LOCATION_TABLE.items()},
+        # 10 boss-defeat locations, added to the multiworld only when the
+        # boss_defeats option is enabled (see create_regions).
+        **{name: data.ap_id for name, data in BOSS_DEFEAT_LOCATION_TABLE.items()},
     }
 
     item_name_groups = {
@@ -386,6 +389,13 @@ class WL3World(World):
         # as other slot-padding above. These become trap candidates downstream.
         if self.options.bigcoinsanity:
             for _ in range(200):
+                items.append(self.create_item(self.random.choice(filler_items)))
+
+        # Boss Defeats: 10 new boss-defeat locations need 10 new filler items.
+        # Same pattern as bigcoinsanity — random Crests, trap candidates
+        # downstream.
+        if self.options.boss_defeats:
+            for _ in range(10):
                 items.append(self.create_item(self.random.choice(filler_items)))
 
         # Trap replacement: swap a % of filler items for random trap items.
@@ -914,6 +924,8 @@ class WL3World(World):
         # silently skips _show_sent_msg.
         if self.options.bigcoinsanity:
             all_locs = {**all_locs, **COIN_LOCATION_TABLE}
+        if self.options.boss_defeats:
+            all_locs = {**all_locs, **BOSS_DEFEAT_LOCATION_TABLE}
         for loc_name, loc_data in all_locs.items():
             loc = self.multiworld.get_location(loc_name, self.player)
             if loc.item is not None:
@@ -945,6 +957,7 @@ class WL3World(World):
             "golf_par_hints":          int(self.options.golf_par_hints),
             "golf_par_hint_frequency": int(self.options.golf_par_hint_frequency),
             "in_game_messages":        int(self.options.in_game_messages),
+            "boss_defeats":            bool(self.options.boss_defeats),
             "progression_item_names":  progression_names,
             "loc_items":               loc_items,
         }
