@@ -495,7 +495,10 @@ class WL3PatchExtension(APPatchExtension):
 
         from . import enemizer as _enemizer
         rng = _random.Random(params["seed"])
-        for off, data in _enemizer.generate_patch_writes(rng, palette_lookup):
+        mode = int(params.get("mode", 1))   # default 1=full for old params.json
+        grouped = (mode == 2)
+        for off, data in _enemizer.generate_patch_writes(
+                rng, palette_lookup, grouped=grouped):
             rom[off:off + len(data)] = data
 
         # After all enemizer writes are applied, dump a per-level report
@@ -1158,9 +1161,15 @@ def write_tokens(world: "WL3World", patch: WL3ProcedurePatch) -> None:
     # bool() on an AP Toggle returns True/False based on its value; using
     # `Toggle and X` short-circuits to the Toggle object itself when the
     # value is falsy, which then explodes the JSON encoder.
-    enemizer_on = bool(getattr(world.options, "enemizer", False))
+    # Enemizer is a Choice: 0 off / 1 full / 2 grouped. Any non-zero
+    # value enables randomization; the specific value is passed through
+    # so generate_patch_writes can restrict substitution pools when
+    # grouping is on.
+    enemizer_mode = int(getattr(world.options, "enemizer", 0))
+    enemizer_on = enemizer_mode != 0
     enemizer_params = {
         "enabled": enemizer_on,
+        "mode": enemizer_mode,   # 0=off / 1=full / 2=grouped
         "seed": world.random.getrandbits(32) if enemizer_on else 0,
         "use_palette_overrides": enemizer_on and bool(world.options.enemy_palette_shuffle),
     }
