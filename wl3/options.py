@@ -279,16 +279,27 @@ class BossDefeats(Toggle):
     default = 0
 
 
-class Enemizer(Toggle):
-    """This setting is unstable and needs more testing. It may cause crashes 
-    and/or unbeatable seeds. Use with caution. Please report any bugs 
-    by using "/roomdebug" and posting it in the discord. There are some visual
-    glitches with some enemies, but they should be purely cosmetic.
-    
-    Randomize most enemy placement across levels. Some enemies stay
-    vanilla due to their gating placements. Rooms with throw blocks are 
-    guaranteed a throwable enemy. Bosses also stay vanilla."""
+class Enemizer(Choice):
+    """This setting should be stable. If you do run into a crash, 
+    use the command "/vanillaenemies" and it'll change the room your in
+    (or previous room if you're in the overworld) back to vanilla enemies. 
+
+    off:    Enemies stay vanilla.
+    full:   Enemies are fully randomized with limited restrictions.
+    grouped: Enemies are randomized by type (Ground, Flying and Water-safe)
+
+    Rooms with throw blocks are guaranteed a throwable enemy in both
+    'full' and 'grouped' modes. Bosses always stay vanilla."""
     display_name = "Enemizer"
+    option_off = 0
+    option_full = 1
+    option_grouped = 2
+    # YAML-friendly aliases: `enemizer: true` from older configs still
+    # maps to full randomization.
+    alias_true = 1
+    alias_false = 0
+    alias_yes = 1
+    alias_no = 0
     default = 0
 
 

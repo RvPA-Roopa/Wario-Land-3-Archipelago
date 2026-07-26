@@ -104,10 +104,11 @@ ADDR_LEVEL_KEYS_WRAM      = 0x117C # WRAM domain offset for wLevelKeys         (
 ADDR_KEY_INVENTORY_WRAM   = 0x1195 # WRAM domain offset for wKeyInventory      (bank 1, 0xD195)
 ADDR_OPENED_CHESTS_WRAM = 0x11AE # wOpenedChests — moved to AP Persistent    (bank 1, 0xD1AE)
                                    # to escape pause-menu collection screen wipe of $D800-$DFFF.
-ADDR_MSG_BUFFER_WRAM = 0x11BB # wMsgBuffer (96 bytes; first MSG_OAM_MAX_ROWS*MSG_OAM_MAX_COLS used)
-ADDR_MSG_TIMER_WRAM = 0x121B # wMsgTimer (1 byte)
+ADDR_MSG_BUFFER_WRAM = 0x11BB # wMsgBuffer (96 bytes; scrolling marquee uses first ~40 as flat glyphs)
+ADDR_MSG_TIMER_WRAM = 0x121B # wMsgTimer (1 byte, unused in scroll mode)
 ADDR_MSG_READY_WRAM = 0x121C # wMsgReady (1 byte, set to 1 to trigger)
-ADDR_MSG_ROWS_WRAM = 0x121E # wMsgRows (1 byte, 1..MSG_OAM_MAX_ROWS)
+ADDR_MSG_ACTIVE_WRAM = 0x121D # wMsgActive (1 byte, ROM sets to 1 while msg scrolling)
+ADDR_MSG_ROWS_WRAM = 0x121E # wMsgRows (1 byte; scrolling marquee = char count 0..40)
 
 # Layout of the OAM-sprite message renderer.
 # - MSG_OAM_MAX_COLS chars per row × MSG_OAM_MAX_ROWS rows.
@@ -262,6 +263,12 @@ class WL3Client(BizHawkClient):
         self._prev_boss_defeated_flags: bytes = bytes(2)
         self._prev_opened_chests: bytes = bytes(13)
         self._checked_locs:     set   = set()
+        # Timestamps (time.time()) of when each loc_id was locally
+        # detected as checked (chest/key/boss). Used by the
+        # items_received handler to suppress duplicate msgs when the
+        # server immediately reflects our own-world item back to us —
+        # the chest-detection path already fired the msg.
+        self._recent_check_times: dict = {}
         self._items_handled:    int  = 0
         self._caught_up:        bool = False    # False until items already in items_received at first connect have been silently re-applied
         self._cached_received:  set  = set()   # AP IDs received; kept between disconnects
@@ -273,6 +280,12 @@ class WL3Client(BizHawkClient):
         self._levels_shown:     bool = False    # True after auto-print on first connect
         self._font_loaded:      bool = False    # True after font tiles written to VRAM
         self._msg_queue:        list = []       # queued messages to display one at a time
+        # For paired popup+msg entries: when the msg queue pops a
+        # (text, tid) with tid set, the popup is enqueued and the text
+        # is stashed here so the NEXT flush cycle writes it AFTER the
+        # popup timer expires. Enforces strict "icon-A → msg-A → icon-B
+        # → msg-B" order across multiple items.
+        self._msg_pending_after_popup: str = None
         self._saved_pal7:      bytes = None    # saved BG palette 7 to restore after message
         self._loc_items:       dict = {}       # loc_id → {"item": name, "player": slot}
         # In-game message filter (slot_data["in_game_messages"]):
@@ -463,10 +476,13 @@ class WL3Client(BizHawkClient):
     async def game_watcher(self, ctx: "BizHawkClientContext") -> None:
         # Refresh the heartbeat so ROM Show* helpers know the client is in
         # control of pickup messages. ROM ticks this down by 1 each frame in
-        # TickMsgDisplay; 30 gives ~0.5s of headroom between client polls.
+        # TickMsgDisplay; 240 gives ~4s of headroom between client polls,
+        # tolerant of BizHawk pauses / laggy hosts. If it depletes to 0 the
+        # ROM's ShowTreasureMsg fires — and if the client resumes shortly
+        # after, that double-fires the msg. Bigger headroom prevents that.
         try:
             await write(ctx.bizhawk_ctx, [
-                (ADDR_CLIENT_HEARTBEAT_WRAM, bytes([30]), "WRAM"),
+                (ADDR_CLIENT_HEARTBEAT_WRAM, bytes([240]), "WRAM"),
             ])
         except RequestFailedError:
             pass
@@ -608,6 +624,7 @@ class WL3Client(BizHawkClient):
 
             if loc_id not in self._checked_locs:
                 self._checked_locs.add(loc_id)
+                self._recent_check_times[loc_id] = time.time()
                 color_name = ("Grey", "Red", "Green", "Blue")[color_index]
                 logger.debug(f"[WL3] Chest opened — level {owlevel} {color_name} → AP loc {loc_id}")
                 await self._show_sent_msg(ctx, loc_id)
@@ -624,6 +641,7 @@ class WL3Client(BizHawkClient):
                         loc_id = KEY_BASE_LOC_ID + byte_idx * 4 + bit
                         if loc_id not in self._checked_locs:
                             self._checked_locs.add(loc_id)
+                            self._recent_check_times[loc_id] = time.time()
                             color_name = ("Grey", "Red", "Green", "Blue")[bit]
                             logger.debug(f"[WL3] Key pickup — L{byte_idx+1} {color_name} → AP loc {loc_id}")
                             await self._show_sent_msg(ctx, loc_id)
@@ -646,6 +664,7 @@ class WL3Client(BizHawkClient):
                         loc_id = COIN_BASE_LOC_ID + byte_idx * COINS_PER_LEVEL + bit
                         if loc_id not in self._checked_locs:
                             self._checked_locs.add(loc_id)
+                            self._recent_check_times[loc_id] = time.time()
                             logger.debug(f"[WL3] Coin pickup — L{byte_idx+1} #{bit+1} -> AP loc {loc_id}")
                             await self._show_sent_msg(ctx, loc_id)
             self._prev_coin_flags = bytes(cf_raw)
@@ -673,6 +692,7 @@ class WL3Client(BizHawkClient):
                             loc_id = BOSS_DEFEAT_BASE_LOC_ID + boss_idx
                             if loc_id not in self._checked_locs:
                                 self._checked_locs.add(loc_id)
+                                self._recent_check_times[loc_id] = time.time()
                                 logger.debug(f"[WL3] Boss defeat — idx {boss_idx} -> AP loc {loc_id}")
                                 await self._show_sent_msg(ctx, loc_id)
                                 await self._trigger_item_popup(ctx, loc_id)
@@ -705,6 +725,7 @@ class WL3Client(BizHawkClient):
                                         loc_id = BASE_LOC_ID + loc_index
                                         if loc_id not in self._checked_locs:
                                             self._checked_locs.add(loc_id)
+                                            self._recent_check_times[loc_id] = time.time()
                                             owlevel = loc_index // 4 + 1
                                             color_name = ("Grey", "Red", "Green", "Blue")[loc_index & 3]
                                             logger.debug(f"[WL3] wOpenedChests new bit — L{owlevel} {color_name} → AP loc {loc_id}")
@@ -896,13 +917,6 @@ class WL3Client(BizHawkClient):
                            and net_item.location > 0)
             await self._grant_item(ctx, ap_id,
                                    silent=is_catch_up or is_own_trap)
-            # Fire the icon-above-Wario popup for live items received from
-            # another player's world. Catch-up receipts are suppressed so
-            # a first-connect batch doesn't blast the screen; own-world
-            # deliveries are suppressed too since those items were already
-            # visualised at pickup (chest/key sprite).
-            if not is_catch_up and net_item.player != ctx.slot:
-                self._trigger_item_popup_for_received(ap_id)
             try:
                 # Apply the in-game-messages filter for incoming items.
                 # Mode 0 (Everything): always show.
@@ -916,12 +930,33 @@ class WL3Client(BizHawkClient):
                     show_received = bool(getattr(net_item, "flags", 0) & 1)
                 if show_received:
                     item_name = ctx.item_names.lookup_in_game(ap_id) if ctx.item_names else f"ITEM {ap_id}"
+                    popup_tid = self._resolve_popup_tid(ap_id)
+                    # -1 sentinel from _resolve_popup_tid means "no icon"
+                    # (e.g. individual keys — no matching sprite exists).
+                    if popup_tid < 0:
+                        popup_tid = None
                     sender = net_item.player
-                    if sender != ctx.slot and ctx.player_names:
-                        sender_name = ctx.player_names.get(sender, f"P{sender}")
-                        await self._show_msg(ctx, f"{item_name} FROM {sender_name}")
-                    else:
-                        await self._show_msg(ctx, item_name)
+                    # OWN-item receipt suppression: for any own item from a
+                    # real check (loc > 0), the chest/key/boss-detection
+                    # path already fired a msg. Skip the msg here to avoid
+                    # a duplicate. IMPORTANT: skip only the msg, not the
+                    # loop iteration — the outer `self._items_handled += 1`
+                    # runs after this try, so a `continue` would hang the
+                    # loop on the same item forever (and starve later items
+                    # like transformations).
+                    #
+                    # Starting-inventory items come with loc <= 0 and still
+                    # fire the msg here. !release re-deliveries of own items
+                    # go silent — acceptable since !release is a deliberate
+                    # user command.
+                    skip_msg = (sender == ctx.slot
+                                and getattr(net_item, "location", 0) > 0)
+                    if not skip_msg:
+                        if sender != ctx.slot and ctx.player_names:
+                            sender_name = ctx.player_names.get(sender, f"P{sender}")
+                            await self._show_msg(ctx, f"{item_name} FROM {sender_name}", tid=popup_tid)
+                        else:
+                            await self._show_msg(ctx, item_name, tid=popup_tid)
             except Exception:
                 pass
             self._items_handled += 1
@@ -1068,58 +1103,66 @@ class WL3Client(BizHawkClient):
 
     @staticmethod
     def _encode_msg(text: str) -> bytes:
-        """Convert a string to glyph indexes for the OAM-sprite message
-        renderer. The ROM uses a scattered-slot scheme: each unique
-        glyph in the message gets assigned a free VRAM tile slot at
-        message start, so the glyph index is just a 0-38 lookup key
-        the ROM uses to allocate / load / render. Glyph order matches
-        MsgFontTiles (auto-generated by tools/build_msg_font.py):
+        """Convert a string to glyph indices for the OAM-sprite message
+        renderer. MsgAssignAndLoad in ROM allocates VRAM slots dynamically
+        per unique glyph — the ROM buffer holds indices (0..38), not tile
+        IDs. Layout matches MsgFontTiles order:
             A..Z = 0..25, 0..9 = 26..35, space = 36, '-' = 37, '&' = 38.
-        Unknown characters render as space."""
+        Unknown chars render as space (36). Empty cells use $FF."""
         out = bytearray()
-        for ch in text.upper()[:MSG_OAM_MAX_COLS * MSG_OAM_MAX_ROWS]:
+        for ch in text.upper()[:60]:
             if 'A' <= ch <= 'Z':
-                out.append(ord(ch) - ord('A'))           # 0..25
+                out.append(ord(ch) - ord('A'))
             elif '0' <= ch <= '9':
-                out.append(26 + ord(ch) - ord('0'))      # 26..35
+                out.append(26 + ord(ch) - ord('0'))
             elif ch == '-':
                 out.append(37)
             elif ch == '&':
                 out.append(38)
             else:
-                out.append(36)                            # space (incl. unknown)
+                out.append(36)
         return bytes(out)
 
     async def _show_sent_msg(self, ctx: "BizHawkClientContext", loc_id: int) -> None:
-        """Show 'SENT {item} TO {player}' if this location has another player's item."""
+        """Msg for a location the player just checked. Dispatches on the
+        owning player of the item at that location:
+          - Own item → just the treasure name (chest animation already
+            shows the pickup sprite; no icon popup needed).
+          - Other player's item → 'SENT X TO Y' with icon popup.
+        Skips silently if the location isn't in _loc_items (offline mode
+        or unknown loc) or msgs are off."""
         if not self._loc_items or loc_id not in self._loc_items:
             return
-        info = self._loc_items[loc_id]
-        if info["player"] == ctx.slot:
-            return  # own item, don't show sent message
-        # In-game-messages filter: only mode 2 (Nothing) suppresses sent-to-others
-        # messages. Mode 1 (Progression) keeps them on so the player can see what
-        # others are getting — the filter only narrows their own incoming items.
         if self._in_game_msgs == 2:
-            return
+            return  # msgs off
+        info = self._loc_items[loc_id]
         item_name = info["item"]
+        if info["player"] == ctx.slot:
+            await self._show_msg(ctx, item_name)
+            return
+        # Item for another player — msg only, no icon-above-Wario.
+        # The icon would either mismatch the other player's actual item
+        # graphic (their item isn't in our ROM) or fall back to the
+        # generic gift-box tile, which reads as "you got a gift" and
+        # confuses the intent of a SENT msg.
         player_name = ctx.player_names.get(info["player"], f"P{info['player']}") if ctx.player_names else f"P{info['player']}"
         await self._show_msg(ctx, f"SENT {item_name} TO {player_name}")
 
     async def _trigger_item_popup(self, ctx: "BizHawkClientContext", loc_id: int) -> None:
-        """Kick off the icon-above-Wario popup for the item at loc_id.
-
-        For our own treasures we show the actual treasure tile; for anything
-        else (progressive/combined/traps/keys/other players' items) we fall
-        back to TreasureGfx[0] as a placeholder gift icon."""
-        tid = 0
+        """Kick off the icon-above-Wario popup for a location the player
+        just checked. Only fires when the location holds an OWN-world item
+        (so the sprite in the corner shows the treasure they got). For
+        items sent to another player, _show_sent_msg already ties its own
+        popup to the SENT message text — firing here would double-pop."""
         info = self._loc_items.get(loc_id) if self._loc_items else None
-        if info and info.get("player") == ctx.slot:
-            data = ITEM_TABLE.get(info["item"])
-            if data is not None:
-                first_tid = data.tier_ids[0] if data.tier_ids else None
-                if isinstance(first_tid, int) and 0 <= first_tid <= 0x65:
-                    tid = first_tid
+        if not info or info.get("player") != ctx.slot:
+            return
+        tid = 0
+        data = ITEM_TABLE.get(info["item"])
+        if data is not None:
+            first_tid = data.tier_ids[0] if data.tier_ids else None
+            if isinstance(first_tid, int) and 0 <= first_tid <= 0x65:
+                tid = first_tid
         self._enqueue_item_popup(tid)
 
     def _trigger_item_popup_for_received(self, ap_id: int) -> None:
@@ -1173,9 +1216,14 @@ class WL3Client(BizHawkClient):
         # Form (TRANSFORM_UNLOCK) items.
         if ap_id in self._FORM_AP_TO_TID:
             return self._FORM_AP_TO_TID[ap_id]
-        # Keys / Keyrings — use TREASURE_KEYRING ($66) as the icon.
+        # Individual keys — no dedicated key sprite in TreasureGfx; the
+        # game uses a separate spinning-key animation for pickups. Return
+        # -1 to signal the caller to SKIP the popup entirely (msg text
+        # already says "GREY KEY", "RED KEY", etc.).
         if self._KEY_AP_ID_MIN <= ap_id <= self._KEY_AP_ID_MAX:
-            return 0x66
+            return -1
+        # Full keyrings — TREASURE_KEYRING sprite is actually a keyring,
+        # so it's accurate here.
         if self._KEYRING_AP_ID_MIN <= ap_id <= self._KEYRING_AP_ID_MAX:
             return 0x66
         # Regular treasure / combined item — tier_ids[0] IS the display tid.
@@ -1195,15 +1243,23 @@ class WL3Client(BizHawkClient):
         self._popup_queue.append(tid & 0xFF)
 
     async def _drain_popup_queue(self, ctx: "BizHawkClientContext") -> None:
-        """If the ROM's popup timer has expired and we have queued icons,
-        write the next TileID + Timer to WRAM. Called each tick."""
+        """If the ROM's popup timer has expired AND no msg is scrolling,
+        write the next queued icon's TileID + Timer to WRAM. Called each
+        tick. Waiting on wMsgActive ensures the item-msg pair for item X
+        finishes fully before item Y's popup fires, so the user sees a
+        clean 'X icon → X msg → Y icon → Y msg' sequence instead of all
+        icons stacked, then all msgs."""
         if not self._popup_queue:
             return
         try:
-            cur_timer = (await read(ctx.bizhawk_ctx,
-                [(ADDR_ITEM_POPUP_TIMER_WRAM, 1, "WRAM")]))[0][0]
-            if cur_timer != 0:
-                return  # Current popup still on-screen — wait.
+            state = await read(ctx.bizhawk_ctx, [
+                (ADDR_ITEM_POPUP_TIMER_WRAM, 1, "WRAM"),
+                (ADDR_MSG_ACTIVE_WRAM, 1, "WRAM"),
+            ])
+            cur_timer = state[0][0]
+            msg_active = state[1][0]
+            if cur_timer != 0 or msg_active != 0:
+                return  # Popup on-screen OR msg scrolling — wait.
             tid = self._popup_queue.pop(0)
             # TileID first, then Timer, so the ROM's TryDrawItemPopup never
             # sees a non-zero timer pointing at a stale tile.
@@ -1740,28 +1796,51 @@ class WL3Client(BizHawkClient):
             keys_str = " | ".join(f"{COLOR_NAMES[c]} Key" for c in range(4) if c in level_keys[level])
             logger.info(f"  {prefix} {keys_str}")
 
-    async def _show_msg(self, ctx: "BizHawkClientContext", text: str) -> None:
-        """Queue a message for in-game display."""
-        self._msg_queue.append(text)
+    async def _show_msg(self, ctx: "BizHawkClientContext", text: str, tid: int = None) -> None:
+        """Queue a message for in-game display. If `tid` is given, the
+        matching icon-above-Wario popup fires when this message is
+        flushed to ROM — keeping msg text and popup icon in sync."""
+        self._msg_queue.append((text, tid))
 
     async def _flush_msg_queue(self, ctx: "BizHawkClientContext") -> None:
         """Send the next queued message if in-level and previous message is done."""
-        if not self._msg_queue:
+        # Nothing to fire = neither a fresh queue entry nor a stashed msg
+        # from the popup-then-msg two-phase pop. Without this second half
+        # of the guard, an item whose popup has already fired would never
+        # get its msg written until an unrelated new item bumps the queue.
+        if not self._msg_queue and self._msg_pending_after_popup is None:
             return
         import time
-        # Client-side timer: wait 4.5 seconds between messages (~270 frames)
-        now = time.time()
-        if hasattr(self, '_last_msg_time') and now - self._last_msg_time < 4.5:
-            return
         try:
             # Must be in level (state 2), past init (substate >= 2), not Temple
             state_data = await read(ctx.bizhawk_ctx, [
                 (0xC09B, 1, "System Bus"),               # wState
                 (0xC09C, 1, "System Bus"),               # wSubState
+                (ADDR_MSG_ACTIVE_WRAM, 1, "WRAM"),       # wMsgActive
+                (ADDR_ITEM_POPUP_TIMER_WRAM, 1, "WRAM"), # wItemPopupTimer
             ])
             game_state = state_data[0][0]
             sub_state = state_data[1][0]
+            msg_active = state_data[2][0]
+            popup_timer = state_data[3][0]
             if game_state != 2 or sub_state < 2:
+                return
+            # Wait for the previous scrolling message to finish before firing
+            # the next one — otherwise we'd overwrite wMsgBuffer mid-scroll.
+            if msg_active != 0:
+                return
+            # Also wait for any active icon-above-Wario popup to finish.
+            # The msg system tints OBP6 with white/black glyph colours,
+            # which would tint any treasure whose native palette also
+            # uses OBP6 (green treasures in particular). Delaying msg
+            # until the popup expires lets the icon render with its true
+            # colours first.
+            if popup_timer != 0:
+                return
+            # Small post-msg gap so back-to-back messages don't visually
+            # merge into one long stream.
+            now = time.time()
+            if hasattr(self, '_last_msg_time') and now - self._last_msg_time < 0.5:
                 return
             # Suppress messages in Temple: check wOWLevel (bank 2)
             try:
@@ -1773,93 +1852,58 @@ class WL3Client(BizHawkClient):
         except RequestFailedError:
             return
 
-        text = self._msg_queue.pop(0)
+        # Two-phase pop: if a prior flush enqueued a popup, its msg is
+        # stashed in _msg_pending_after_popup. Now that both timers
+        # are 0, write that msg — the popup has finished displaying.
+        if self._msg_pending_after_popup is not None:
+            text = self._msg_pending_after_popup
+            self._msg_pending_after_popup = None
+            popup_tid = None
+        else:
+            entry = self._msg_queue.pop(0)
+            if isinstance(entry, tuple):
+                text, popup_tid = entry
+            else:
+                text, popup_tid = entry, None
+            # If this msg has a tied popup, fire the popup and stash
+            # the msg for the NEXT flush cycle. Icon renders alone
+            # (~3s), THEN msg starts scrolling — sequential per item.
+            if popup_tid is not None:
+                self._enqueue_item_popup(popup_tid)
+                self._msg_pending_after_popup = text
+                return
         self._last_msg_time = time.time()
 
-        # Word-wrap text into lines of up to `width` chars. Long words
-        # get split with a trailing dash — but the leftover chunk is fed
-        # back into the wrap loop as fresh text, NOT carried as a
-        # standalone dash-suffixed "word." That way a split like
-        # ARCHIPELAGO → "ARCHI-" / "PELAGO" never produces a same-line
-        # rejoin like "ARCHI- PELAGO"; the second half is a clean word.
-        def word_wrap(txt, width=MSG_OAM_MAX_COLS):
-            words = txt.upper().split()
-            lines_out = []
-            current = ""
-            i = 0
-            while i < len(words):
-                word = words[i]
-                if not current:
-                    if len(word) <= width:
-                        current = word
-                        i += 1
-                    else:
-                        # Word alone exceeds a full line — dash-split.
-                        lines_out.append(word[:width - 1] + "-")
-                        words[i] = word[width - 1:]
-                        # loop back with the remainder as the current word
-                    continue
-                if len(current) + 1 + len(word) <= width:
-                    current = current + " " + word
-                    i += 1
-                    continue
-                space_left = width - len(current) - 1  # -1 for space before
-                if space_left > 2 and len(word) > space_left:
-                    split_at = space_left - 1
-                    lines_out.append(current + " " + word[:split_at] + "-")
-                    current = ""
-                    words[i] = word[split_at:]
-                    # loop back with remainder as fresh word
-                    continue
-                # Doesn't fit and can't dash-split — flush current,
-                # let next iteration handle word alone.
-                lines_out.append(current)
-                current = ""
-            if current:
-                lines_out.append(current)
-            return lines_out
-
-        all_lines = word_wrap(text)
-        text_lines = all_lines[:MSG_OAM_MAX_ROWS]
-        # Overflow lines become the next page: re-encode as plain text
-        # and push to the FRONT of the queue so they show before any
-        # later-queued message. The 4.5s timer naturally paces them.
-        if len(all_lines) > MSG_OAM_MAX_ROWS:
-            remaining = all_lines[MSG_OAM_MAX_ROWS:]
-            # Glue overflow lines back into a single string for re-wrap;
-            # word_wrap re-flows them so a long word that originally
-            # forced a split still survives.
-            next_page = " ".join(remaining)
-            self._msg_queue.insert(0, next_page)
-        encoded_lines = [self._encode_msg(line) for line in text_lines]
-        num_rows = len(encoded_lines)
-
-        # Pack into wMsgBuffer: MSG_OAM_MAX_COLS bytes per row, $FF for
-        # cells that should render as no sprite. Centring each line of
-        # text inside its 10-cell row keeps short messages from hugging
-        # the left margin. Lines longer than MSG_OAM_MAX_COLS are HARD-
-        # truncated so an 11+ char line can't overflow into the next
-        # row's 10-byte slot — the word-wrap pass above is supposed to
-        # have split anything that long, this is a backstop.
-        packed = bytearray()
-        for line in encoded_lines:
-            line = line[:MSG_OAM_MAX_COLS]
-            pad_total = MSG_OAM_MAX_COLS - len(line)
-            left_pad  = max(pad_total // 2, 0)
-            right_pad = max(pad_total - left_pad, 0)
-            packed += bytearray([0xFF] * left_pad)
-            packed += line
-            packed += bytearray([0xFF] * right_pad)
+        # Scrolling marquee: send the whole message as one flat glyph
+        # stream (up to 40 chars). ROM scrolls it across the screen
+        # right-to-left. wMsgRows = character count (repurposed).
+        MSG_MAX_CHARS = 40
+        flat_text = text.upper().replace("\n", " ").strip()
+        # Collapse multiple spaces to one.
+        while "  " in flat_text:
+            flat_text = flat_text.replace("  ", " ")
+        # Truncate; overflow goes to next queue entry as another scroll.
+        if len(flat_text) > MSG_MAX_CHARS:
+            head = flat_text[:MSG_MAX_CHARS]
+            tail = flat_text[MSG_MAX_CHARS:]
+            # Try to break at a space near the boundary.
+            space_pos = head.rfind(" ")
+            if space_pos > MSG_MAX_CHARS // 2:
+                head = flat_text[:space_pos]
+                tail = flat_text[space_pos + 1:]
+            self._msg_queue.insert(0, (tail, popup_tid))
+            flat_text = head
+        packed = self._encode_msg(flat_text)
+        num_rows = len(packed)
 
         if self._msg_debug:
             packed_hex = " ".join(f"{b:02X}" for b in packed)
             logger.info(
-                f"[WL3 msg] {text!r} → rows={num_rows} "
-                f"lines={text_lines} bytes={packed_hex}"
+                f"[WL3 msg]   rows={num_rows} lines={text_lines} bytes={packed_hex}"
             )
 
-        # ROM's TickMsgDisplay handles font tile load + per-frame OAM
-        # append; we just push the packed buffer + row count + ready flag.
+        # ROM's TickMsgDisplay is now window-layer based (font at $9200-$96DF,
+        # tilemap at $9C00, rWY toggle). WRAM interface unchanged.
         try:
             await write(ctx.bizhawk_ctx, [
                 (ADDR_MSG_BUFFER_WRAM, bytes(packed), "WRAM"),
