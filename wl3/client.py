@@ -88,11 +88,11 @@ COMBINED_LEVEL_UNLOCK_ITEMS: dict[int, list[int]] = {
 }
 
 # WRAM0 addresses — always accessible via System Bus (0xC000–0xCFFF)
-ADDR_LEVEL = 0xC430   # wLevel:         (owlevel-1)*8 + state
+ADDR_LEVEL = 0xC458   # wLevel:         (owlevel-1)*8 + state
 ADDR_ROOM         = 0xC0C9   # wRoom (room ID, the last byte of room_data)
 ADDR_OBJECT_GROUP = 0xC0C8   # wObjectGroup (vanilla wgid 0x00-0x91 or enemizer 0x92+)
 ADDR_END_SCREEN     = 0xCED4   # wLevelEndScreen: 0=idle, 0x81–0x84=chest collecting
-ADDR_GAME_MODE = 0xC469   # wGameModeFlags:  bit 0 = MODE_GAME_CLEARED (final boss defeated)
+ADDR_GAME_MODE = 0xC491   # wGameModeFlags:  bit 0 = MODE_GAME_CLEARED (final boss defeated)
 ADDR_CHEST_AP_KEY   = 0x2E58   # wChestAPKey (WRAM domain, bank 2 $DE58): chest-gave-key signal (1-4)
 
 # wTreasuresCollected and wUnlockedLevels are in WRAMX bank 2.
