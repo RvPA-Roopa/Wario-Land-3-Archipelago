@@ -1086,6 +1086,8 @@ def set_rules(world: "WL3World") -> None:
         add_tf(chest_logic["The Grasslands"], blue, _has("Yarn Form"))
         add_tf(key_logic["The Grasslands"], blue, can_bounce)
         add_tf(coin_logic["The Grasslands"], 2, _has("Zombie Form"), can_fly) 
+        add_tf(coin_logic["The Grasslands"], 3, _c(can_bounce,_has("Yarn Form")))
+        add_tf(coin_logic["The Grasslands"], 4, _c(can_bounce,_has("Yarn Form")))
         add_tf(coin_logic["The Grasslands"], 6, can_bounce)
         add_tf(coin_logic["The Big Bridge"], 6, can_fly) 
         add_tf(coin_logic["The Big Bridge"], 7, can_fly) 
