@@ -99,16 +99,18 @@ ADDR_CHEST_AP_KEY   = 0x2E58   # wChestAPKey (WRAM domain, bank 2 $DE58): chest-
 # Use the "WRAM" domain (all 32 KB across all banks) for reliable bank-2 access.
 # GBC WRAM layout: bank 0 at offset 0x0000, bank 1 at 0x1000, bank 2 at 0x2000, …
 ADDR_TREASURES_WRAM     = 0x2000   # WRAM domain offset for wTreasuresCollected (bank 2, 0xD000)
-ADDR_UNLOCKED_LEVELS_WRAM = 0x1163 # WRAM domain offset for wUnlockedLevels    (bank 1, 0xD163)
-ADDR_LEVEL_KEYS_WRAM      = 0x117C # WRAM domain offset for wLevelKeys         (bank 1, 0xD17C)
-ADDR_KEY_INVENTORY_WRAM   = 0x1195 # WRAM domain offset for wKeyInventory      (bank 1, 0xD195)
-ADDR_OPENED_CHESTS_WRAM = 0x11AE # wOpenedChests — moved to AP Persistent    (bank 1, 0xD1AE)
-                                   # to escape pause-menu collection screen wipe of $D800-$DFFF.
-ADDR_MSG_BUFFER_WRAM = 0x11BB # wMsgBuffer (96 bytes; scrolling marquee uses first ~40 as flat glyphs)
-ADDR_MSG_TIMER_WRAM = 0x121B # wMsgTimer (1 byte, unused in scroll mode)
-ADDR_MSG_READY_WRAM = 0x121C # wMsgReady (1 byte, set to 1 to trigger)
-ADDR_MSG_ACTIVE_WRAM = 0x121D # wMsgActive (1 byte, ROM sets to 1 while msg scrolling)
-ADDR_MSG_ROWS_WRAM = 0x121E # wMsgRows (1 byte; scrolling marquee = char count 0..40)
+# "AP Persistent" section is PINNED to WRAMX[$d163], BANK[1] in wram.asm.
+# Do NOT let it drift — ROM readers/writers assume bank 1.
+ADDR_UNLOCKED_LEVELS_WRAM = 0x1163 # wUnlockedLevels    (bank 1, 0xD163)
+ADDR_LEVEL_KEYS_WRAM      = 0x117C # wLevelKeys         (bank 1, 0xD17C)
+ADDR_KEY_INVENTORY_WRAM   = 0x1195 # wKeyInventory      (bank 1, 0xD195)
+ADDR_OPENED_CHESTS_WRAM = 0x11AE # wOpenedChests        (bank 1, 0xD1AE)
+                                   # (in AP Persistent to escape pause-menu collection screen wipe of $D800-$DFFF)
+ADDR_MSG_BUFFER_WRAM = 0x11BB # wMsgBuffer (bank 1, 0xD1BB) 96 bytes; scrolling marquee uses first ~40 as flat glyphs
+ADDR_MSG_TIMER_WRAM = 0x121B # wMsgTimer (bank 1, 0xD21B) 1 byte, unused in scroll mode
+ADDR_MSG_READY_WRAM = 0x121C # wMsgReady (bank 1, 0xD21C) 1 byte, set to 1 to trigger
+ADDR_MSG_ACTIVE_WRAM = 0x121D # wMsgActive (bank 1, 0xD21D) 1 byte, ROM sets to 1 while msg scrolling
+ADDR_MSG_ROWS_WRAM = 0x121E # wMsgRows (bank 1, 0xD21E) 1 byte; scrolling marquee = char count 0..40
 
 # Layout of the OAM-sprite message renderer.
 # - MSG_OAM_MAX_COLS chars per row × MSG_OAM_MAX_ROWS rows.
