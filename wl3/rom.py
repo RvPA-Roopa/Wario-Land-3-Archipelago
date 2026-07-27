@@ -1153,6 +1153,27 @@ def write_tokens(world: "WL3World", patch: WL3ProcedurePatch) -> None:
     patch.write_token(APTokenTypes.WRITE, HIDDEN_PASSAGES_REVEALED_OFFSET,
                       bytes([1 if world.options.hidden_passages_revealed else 0]))
 
+    # --- Random dialog text variants ---
+    # tools/build_text_variants.py bundles all compiled RLE blobs from
+    # src/text/en/*_variants/ into text_variants.py. We pick one per
+    # seed and write it over the vanilla blob at its ROM offset. The
+    # RLE decompressor stops on the first $00 byte, so shorter variants
+    # naturally ignore trailing bytes from the vanilla slot.
+    try:
+        from . import text_variants as _tv
+        if getattr(_tv, "RUDY_PRE_FIGHT", None):
+            chosen = world.random.choice(_tv.RUDY_PRE_FIGHT)
+            # ROM offset for TextEN_HiddenFigureReplenishPower (bank $2c addr $6424).
+            patch.write_token(APTokenTypes.WRITE, 0x0B2424, chosen)
+        if getattr(_tv, "OLD_MAN_THANK_YOU", None):
+            chosen = world.random.choice(_tv.OLD_MAN_THANK_YOU)
+            # ROM offset for TextEN_OldManThankYou (bank $57 addr $6225).
+            patch.write_token(APTokenTypes.WRITE, 0x15E225, chosen)
+    except ImportError:
+        # text_variants.py hasn't been generated (run tools/build_text_variants.py
+        # after `make`). Fall back to vanilla text silently.
+        pass
+
     # Enemizer — deferred to patch-apply time so vanilla palette bytes
     # never ship in the apworld. Gen-time only rolls the seed; the
     # deferred apply_enemizer step does composition using vanilla bytes
