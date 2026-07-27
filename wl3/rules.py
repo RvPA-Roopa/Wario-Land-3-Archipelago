@@ -867,7 +867,7 @@ def set_rules(world: "WL3World") -> None:
         key_logic["Desert Ruins"][green] = _o(_c(_has("Spiked Helmet"),can_pound_cracked_blocks), _has("Garlic"), _has("Roll Form"))
         key_logic["Beneath the Waves"][red] = _c(_o(has_flippers_2, can_sink_in_water), has_flippers_1)
         key_logic["The Grasslands"][green] = _o(_has("Flute"), _has("High Jump Boots"), can_fly)
-        key_logic["The Big Bridge"][green] = _c(has_flippers_1, _o(can_pound_cracked_blocks, _has("Zombie Form")), _o(has_grab_1, can_shake_screen, can_fly))
+        key_logic["The Big Bridge"][green] = _c(has_flippers_1, _o(can_pound_cracked_blocks, _has("Zombie Form")), _o(has_grab_1, can_shake_screen, can_fly, _has("Roll Form")))
         key_logic["The Big Bridge"][blue] = _c(_o(has_flippers_1, has_grab_1), _o(_has("Garlic"), can_fly))
         key_logic["Castle of Illusions"][red] = _o(_c(_o(_c(has_grab_1, has_sun_medallion), has_grab_2), _o(can_shake_screen, _has("High Jump Boots"))), can_bounce)
         key_logic["Castle of Illusions"][blue] = _c(_o(_has("Castle Brick"), has_vampire_2), can_pound_cracked_blocks, _o(has_grab_1, can_fly, _c(_has("Zombie Form"),can_bounce)))
@@ -956,6 +956,7 @@ def set_rules(world: "WL3World") -> None:
         key_logic["The East Crater"][red] = _c(_o(can_pass_through_fire), _o(_has("Zombie Form"), has_grab_1),_o(_c(has_grab_1, _o(can_pound_cracked_blocks)), _has("Zombie Form"), _c(_has("Flat Form"),_has("Spiked Helmet"))))
         # Coins are 0 indexed, so one less than their counterparts on the level maps
         coin_logic["Out of the Woods"][3] = _o(has_flippers_2,_c(has_storm_pouch,_has("High Jump Boots")),can_fly,_has("Flat Form"))
+        coin_logic["The Peaceful Village"][1] = _o(_c(can_pound_large_solid_blocks,_has("Spiked Helmet")),_c(_has("Roll Form"),_o(_has("Fat Form"),_has("Snowman Form"))))
         coin_logic["The Vast Plain"][4] = _o(has_flippers_1,_has("Zombie Form"),_has("Flat Form"))
         coin_logic["Bank of the Wild River"][0] = _o(has_flippers_1,can_fly,_has("Flat Form"))
         coin_logic["Bank of the Wild River"][1] = _o(has_flippers_2,_has("Flat Form"))
