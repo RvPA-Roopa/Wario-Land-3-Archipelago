@@ -259,7 +259,7 @@ LEVEL_MUSIC_OFFSET               = 0x03FE40   # LevelMusic table (25 levels × 1
 MUSIC_BOXES_REQUIRED_OFFSET      = 0x080F23   # MusicBoxesRequired byte in Bank 20
 START_WITH_AXE_OFFSET            = 0x080F24   # StartWithAxeOpt byte in Bank 20
 START_WITH_MAG_GLASS_OFFSET      = 0x080F25   # StartWithMagnifyingGlassOpt byte in Bank 20
-HIDDEN_PASSAGES_REVEALED_OFFSET = 0x00F37B  # HiddenPassagesRevealedOpt byte in Bank 1
+HIDDEN_PASSAGES_REVEALED_OFFSET = 0x00F807  # HiddenPassagesRevealedOpt byte in Bank 1
 GOLF_PRICE_OPT_OFFSET            = 0x003A00   # GolfPriceOpt byte in Home bank
 GOLF_BUILDING_OPT_OFFSET         = 0x003A01   # GolfBuildingOpt byte in Home bank
 DISABLE_PAL_CYCLE_OFFSET         = 0x003A02   # DisablePalCycleOpt byte in Home bank
@@ -269,8 +269,8 @@ COMBINED_COMPANION_TABLE_OFFSET  = 0x003A05   # CombinedCompanionTable (101 byte
 TRANSFORMS_REQUIRE_ITEMS_OFFSET  = 0x003A6A   # TransformsRequireItems byte in Home bank
 DEATH_MODE_OPT_OFFSET            = 0x003A6B   # DeathModeOpt byte in Home bank (0=none, 1=grabs, 2=grabs+golf)
 BIG_COINSANITY_OPT_OFFSET        = 0x003A6C   # BigCoinsanityOpt byte in Home bank (0=vanilla coins, 1=portrait/suppress/AP-dispatch)
-GOLF_PAR_HINT_FREQ_OFFSET        = 0x003A6D   # GolfParHintFrequencyOpt byte in Home bank (0=per_hole, 1=per_course)
-TREASURE_OB_PALS_OFFSET          = 0x09AFC0   # TreasureOBPals table (indexed by treasure ID)
+GOLF_PAR_HINT_FREQ_OFFSET        = 0x003A6E   # GolfParHintFrequencyOpt byte in Home bank (0=per_hole, 1=per_course)
+TREASURE_OB_PALS_OFFSET          = 0x09B000   # TreasureOBPals table (indexed by treasure ID)
 
 # Combined-item companion chains: collecting key → also grant value (chained).
 # Tusk Set: $24→$25→$26 (two hops).
@@ -495,7 +495,10 @@ class WL3PatchExtension(APPatchExtension):
 
         from . import enemizer as _enemizer
         rng = _random.Random(params["seed"])
-        for off, data in _enemizer.generate_patch_writes(rng, palette_lookup):
+        mode = int(params.get("mode", 1))   # default 1=full for old params.json
+        grouped = (mode == 2)
+        for off, data in _enemizer.generate_patch_writes(
+                rng, palette_lookup, grouped=grouped):
             rom[off:off + len(data)] = data
 
         # After all enemizer writes are applied, dump a per-level report
@@ -1158,9 +1161,15 @@ def write_tokens(world: "WL3World", patch: WL3ProcedurePatch) -> None:
     # bool() on an AP Toggle returns True/False based on its value; using
     # `Toggle and X` short-circuits to the Toggle object itself when the
     # value is falsy, which then explodes the JSON encoder.
-    enemizer_on = bool(getattr(world.options, "enemizer", False))
+    # Enemizer is a Choice: 0 off / 1 full / 2 grouped. Any non-zero
+    # value enables randomization; the specific value is passed through
+    # so generate_patch_writes can restrict substitution pools when
+    # grouping is on.
+    enemizer_mode = int(getattr(world.options, "enemizer", 0))
+    enemizer_on = enemizer_mode != 0
     enemizer_params = {
         "enabled": enemizer_on,
+        "mode": enemizer_mode,   # 0=off / 1=full / 2=grouped
         "seed": world.random.getrandbits(32) if enemizer_on else 0,
         "use_palette_overrides": enemizer_on and bool(world.options.enemy_palette_shuffle),
     }

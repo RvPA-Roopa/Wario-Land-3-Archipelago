@@ -14,6 +14,13 @@ from typing import Any
 from . import enemizer_data
 from .enemy_registry import (SLOT_0_PACKAGES, SLOT_1_PACKAGES,
                              SLOT_2_PACKAGES, SLOT_3_PACKAGES)
+from .enemy_groups import (ENEMY_HOME, SUBSTITUTION_POOLS,
+                           NEVER_RANDOMIZE)
+from .slot_gfx_names import SLOT_GFX_NAMES
+
+# When True, random_pool restricts substitutes based on the vanilla
+# slot's enemy home category. Set by generate_patch_writes(grouped=...).
+_GROUPED_MODE = False
 
 # All protection / categorization is precomputed by
 # tools/build_apworld_enemizer_data.py and dumped into enemizer_data.
@@ -205,6 +212,33 @@ def _pick_random_per_slot(rng, fixed_slots: dict[int, dict],
                 if native != slot_idx and not _can_cross_slot(native, name):
                     continue
                 candidates.append((native, name))
+        # Grouped mode: restrict substitutes to the SUBSTITUTION_POOL of
+        # the vanilla slot enemy's HOME category. Requires the vanilla
+        # gfx addr (from avoid_vanilla_gfx_addrs) so we can reverse-look
+        # up the enemy name. Falls through unfiltered when: mode is off,
+        # vanilla gfx isn't mapped, vanilla enemy has no HOME category,
+        # or filter empties the pool.
+        if _GROUPED_MODE and avoid_vanilla_gfx_addrs is not None:
+            vanilla_gfx = avoid_vanilla_gfx_addrs[slot_idx]
+            if vanilla_gfx is not None:
+                vanilla_name = SLOT_GFX_NAMES.get(slot_idx, {}).get(vanilla_gfx)
+                home = ENEMY_HOME.get(vanilla_name) if vanilla_name else None
+                if home is not None:
+                    pool = SUBSTITUTION_POOLS.get(home, frozenset())
+                    filtered = []
+                    for ns, n in candidates:
+                        # SLOT_PACKAGES names end in "Gfx"; strip to match
+                        # enemy_groups.py which uses base labels.
+                        base = n[:-3] if n.endswith("Gfx") else n
+                        if base in NEVER_RANDOMIZE:
+                            continue
+                        if base in pool:
+                            filtered.append((ns, n))
+                    if len(filtered) >= 2:
+                        candidates = filtered
+        # Exclude NEVER_RANDOMIZE enemies from ALL modes (safety).
+        candidates = [(ns, n) for ns, n in candidates
+                      if (n[:-3] if n.endswith("Gfx") else n) not in NEVER_RANDOMIZE]
         if avoid_vanilla_gfx_addrs is not None:
             vanilla = avoid_vanilla_gfx_addrs[slot_idx]
             if vanilla is not None:
@@ -414,7 +448,18 @@ def _emit_slot_bytes(chosen: list[dict],
 # slot 3 instead. gid 30 (Volcano's Base Nobiiru room) added here after
 # user retest confirmed the {0} decoration-slot lock alone wasn't
 # enough — full vanilla required.
-CRASH_CONFIRMED_GIDS = frozenset({30, 37})
+CRASH_CONFIRMED_GIDS = frozenset({
+    30,           # Volcano's Base Nobiiru room — crashes even with per-slot locks
+    37,           # Colossal Hole wgid 0x1F — Nobiiru + Omodon/Omodonmeka combo
+    # -- Omodon+Omodonmeka PAIR gids: locked not for crash safety but per
+    # user request 2026-07-25 to keep the paired encounter intact. gfx_addrs
+    # contain both OmodonGfx (companion) and OmodonmekaGfx together (vs the
+    # solo-Omodonmeka gids 3/38/109 which continue to randomize).
+    4,            # wgids 0x13, 0x5b
+    5,            # wgid 0x7c
+    83,           # wgid 0x68
+    89,           # wgid 0x6e
+})
 # gid 37 (Colossal Hole wgid 0x1F): full-vanilla lock after per-slot
 # testing. Slot 1 (Dummy, no spawns) confirmed crash-triggering when
 # randomized 2026-07-23; user then requested slots 2 (Omodon) and 3
@@ -474,13 +519,17 @@ SLOT_LOCKED_GIDS: dict = {
                     # damage" mechanic as ToR / Spark → spikes). With
                     # slot 1 unlocked, BotWR crashes; with it locked
                     # the room is effectively whole-vanilla.
-    96: {0},        # Tower of Revival: lock Spearhead@0 (deco). Slot 3
-                    # (Spark spawn) is forced to pick from
-                    # ELECTRIC_GFX_BY_SLOT via SPIKE_ELECTRIC_SLOT_BY_GID
-                    # so wall spikes' tile references still land on
-                    # electric-family tiles. Spark, Kushimushi, Togeba,
-                    # BlueBird all eligible.
-   101: {0},        # Above The Clouds: Bird@1 + Spark@3 spawn; 0/2 deco
+    96: {0, 3},     # Tower of Revival: lock Spearhead@0 (deco) AND Spark@3
+                    # (Spark's tile-content dependency crashes when its slot
+                    # is randomized). ELECTRIC_GFX_BY_SLOT / SPIKE_ELECTRIC
+                    # substitution disabled here — locking slot 3 is safer.
+    62: {3},        # Spark@3 tile-dep lock. Preemptive per Spark-slot
+                    # pattern (user retest 2026-07-25 gid 101 crashed even
+                    # with slot 0 locked → Spark's slot must be locked too).
+    75: {3},        # Same Spark@3 lock rationale as gid 62.
+   101: {3},        # Above the Clouds day room_00: lock Spark@3 only.
+                    # Slot 0 (Spearhead), slot 1 (Bird), slot 2 (Futamogu
+                    # walkable-protected) all randomize normally.
    104: {0},        # Above The Clouds: Bird@1 + Barrel@3 spawn; 0/2 deco
    105: {0, 1},     # Above The Clouds: BeamBot@3 spawn; 0/1/2 deco
    116: {0, 1},     # Beneath The Waves: Teruteru@3 spawn; 0/1/2 deco
@@ -671,9 +720,15 @@ def _compose_custom_slot(rng, sig: tuple, palette_lookup,
     return slot_bytes, tuple(pkg["gfx_addr"] for pkg in chosen)
 
 
-def generate_patch_writes(rng, palette_lookup
+def generate_patch_writes(rng, palette_lookup, *, grouped: bool = False
                           ) -> list[tuple[int, bytes]]:
     """Return list of (rom_offset, bytes) writes for the enemizer.
+
+    grouped=True enables theme-based substitution filtering: each slot's
+    substitute must belong to the SUBSTITUTION_POOL for that slot's
+    vanilla enemy's HOME category (water/flying/ground). See
+    enemy_groups.py for the mapping. When False (default), any enemy
+    may substitute for any other subject to VRAM constraints.
 
     Option B v3 (2026-07-06): decoupled chest color from slot pool.
     Instead of partitioning 82 slots into 4 color buckets (grey/red/
@@ -712,6 +767,11 @@ def generate_patch_writes(rng, palette_lookup
       - no sig + tb_slot has throwable-by-vram slot → that slot
       - no sig, no tb_slot → any-random (prefer non-vanilla VRAM-0)
     """
+    # Set module-level grouping flag so random_pool / throwable_pool
+    # can consult it without threading a kwarg through every helper.
+    global _GROUPED_MODE
+    _GROUPED_MODE = bool(grouped)
+
     groups = enemizer_data.OBJECT_GROUPS
     wgid_to_real = enemizer_data.WGID_TO_REAL_GID
     rooms = enemizer_data.ROOM_OFFSETS
@@ -841,14 +901,21 @@ def generate_patch_writes(rng, palette_lookup
     # used as fallback; if that's also None, we auto-force a tb_slot
     # when the vanilla layout has an inherently-throwable enemy
     # (Barrel@3, Rock@2) whose whole purpose IS to be thrown.
-    AUTO_TB_BY_VANILLA_GFX = {
-        (2, 0x6502): 2,    # RockGfx at slot 2 → slot 2 must stay throwable
-        (3, 0x49ec): 3,    # BarrelGfx at slot 3 → slot 3 must stay throwable
+    # Any slot whose vanilla gfx is one of these "inherently throwable"
+    # enemies (Rock/Barrel — their sole gameplay purpose is being picked
+    # up + thrown) MUST stay throwable during randomization. Otherwise a
+    # room designed around the barrel/rock breaks silently. Rule fires
+    # per-slot: if RockGfx or BarrelGfx appears at slot N, slot N is
+    # forced to a throwable of that VRAM class.
+    INHERENTLY_THROWABLE_GFX = {
+        0x6502: "RockGfx",
+        0x49ec: "BarrelGfx",
     }
     def _auto_tb_from_gfx(rec):
-        for (i, a), sl in AUTO_TB_BY_VANILLA_GFX.items():
-            if rec.get("gfx_addrs", [None]*4)[i] == a:
-                return sl
+        gfx_addrs = rec.get("gfx_addrs", [None]*4)
+        for slot_idx, gfx in enumerate(gfx_addrs):
+            if gfx in INHERENTLY_THROWABLE_GFX:
+                return slot_idx
         return None
     throwblock_keys: "OrderedDict[tuple, None]" = OrderedDict()
     tb_slot_by_wgid: dict[int, int] = {}
@@ -925,6 +992,54 @@ def generate_patch_writes(rng, palette_lookup
         if sig[tb_slot][0] == "P":
             continue  # vanilla already has throwable in that slot
         throwblock_keys[(sig, tb_slot)] = None
+
+    # === Post-pass: force Barrel/Rock slots to be throwable unconditionally ===
+    # If a wgid's vanilla layout has BarrelGfx or RockGfx at any slot, that
+    # slot MUST stay throwable — Barrel and Rock exist ONLY to be thrown.
+    # This runs AFTER the single-slot decision above so it can add extra
+    # slots (promoting the wgid from single- to multi-slot throwable) when
+    # the scanner picked a different slot but Barrel/Rock is elsewhere.
+    # Wgids already in FORCE_VANILLA_WGIDS or MANUAL_NO_THROWABLE are left
+    # alone (user or safety config wins).
+    for wgid in list(seen_wgids):
+        if wgid in FORCE_VANILLA_WGIDS or wgid in MANUAL_NO_THROWABLE:
+            continue
+        real_id = wgid_to_real.get(wgid)
+        if real_id is None:
+            continue
+        rec = groups.get(real_id)
+        if rec is None:
+            continue
+        # Collect ALL slots with inherently-throwable gfx (Barrel/Rock).
+        br_slots = frozenset(
+            i for i, g in enumerate(rec.get("gfx_addrs", [None]*4))
+            if g in INHERENTLY_THROWABLE_GFX
+        )
+        if not br_slots:
+            continue
+        rec_locked = _rec_with_slot_locks(rec, real_id)
+        sig = _group_signature(rec_locked)
+        # Drop slots already vanilla-throwable via sig protection.
+        if sig is not None:
+            br_slots = frozenset(s for s in br_slots if sig[s][0] == "U")
+        if not br_slots:
+            continue
+        # Union with any existing multi-slot set + single-tb_slot decision.
+        existing = set(multi_tb_by_wgid.get(wgid, ()))
+        if wgid in tb_slot_by_wgid:
+            existing.add(tb_slot_by_wgid[wgid])
+        combined = frozenset(existing | set(br_slots))
+        if len(combined) >= 2:
+            # Promote to multi-slot; drop the single-slot entry.
+            multi_tb_by_wgid[wgid] = combined
+            multi_tb_keys[(sig, combined)] = None
+            tb_slot_by_wgid.pop(wgid, None)
+        else:
+            # Only one slot involved — keep as single.
+            (only_slot,) = combined
+            tb_slot_by_wgid[wgid] = only_slot
+            if sig is not None and sig[only_slot][0] != "P":
+                throwblock_keys[(sig, only_slot)] = None
 
     # === Sort sigs by wgid usage (across all rooms) ===
     def sig_usage(sig: tuple) -> int:
@@ -1128,7 +1243,14 @@ def generate_patch_writes(rng, palette_lookup
         if wgid in FORCE_VANILLA_WGIDS:
             continue
         gfx_addrs = rec.get("gfx_addrs", [])
-        if any((i, a) in FORCE_VANILLA_GFX_PAIRS for i, a in enumerate(gfx_addrs)):
+        # gid 55 (Warped Void room 0/13/27 zip-line room) is exempt from
+        # whole-group vanilla lock — slot 2 ZipLine stays vanilla via
+        # sig protection (prot_per_slot[2] = True), slot 0 PrinceFroggy
+        # also protected. Slot 3 (BrrrBear vanilla) is free to randomize.
+        # Trade-off: BG blocks that reference slot 3's byte range may
+        # visually differ from vanilla, but no gameplay-critical mechanic
+        # depends on slot 3 in this room.
+        if gid != 55 and any((i, a) in FORCE_VANILLA_GFX_PAIRS for i, a in enumerate(gfx_addrs)):
             continue
 
         rec = _rec_with_slot_locks(rec, gid)
