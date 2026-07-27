@@ -517,7 +517,7 @@ KEY_RULES: dict = {
 
 # ---------------------------------------------------------------------------
 # Per-coin access rules (additional requirements beyond the level unlock)
-# Coins are 1-8, labeled in the Google Sheet
+# Coins are 1-8, labeled on maps in the the docs
 # ---------------------------------------------------------------------------
 
 COIN_RULES: dict = {
@@ -718,7 +718,7 @@ COIN_RULES: dict = {
     "The Stagnant Swamp": [
         None,                                                                           #1
         None,                                                                           #2
-        _c(_has("Foot of Stone"),_has("High Jump Boots")),                              #3
+        _has("Foot of Stone"),                                                          #3
         _has("Foot of Stone"),                                                          #4
         _has("Foot of Stone"),                                                          #5
         _has("Spiked Helmet"),                                                          #6
@@ -792,6 +792,24 @@ COIN_RULES: dict = {
     ],
 }
 
+# ---------------------------------------------------------------------------
+# Per-boss access rules (additional requirements beyond the level unlock)
+# Bosses are each their own single location
+# ---------------------------------------------------------------------------
+
+BOSS_RULES: dict = {
+    "Wormwould":  has_overalls_1,
+    "Shoot":      _o(_has("Spiked Helmet"), can_bounce),
+    "Scowler":    _c(_has("Spiked Helmet"), has_flippers_1, can_pound_cracked_blocks),
+    "Jamano":     _c(_has("Foot of Stone"), can_jump_high),
+    "Anonster":   _c(_has("Gold Magic"), has_grab_1, has_overalls_1, can_jump_high),
+    "Wolfenboss": has_flippers_1,
+    "Pesce":      has_flippers_2,
+    "Muddee":     _c(_has("Foot of Stone"), has_overalls_1),
+    "Doll Boy":   None,
+    "Helio":      _c(_o(can_pound_solid_blocks, _has("Zombie Form")), _o(has_grab_1, can_bounce), has_overalls_1),
+}
+
 able_to_beat_rudy = _c(has_grab_2,_o(has_overalls_1,has_vampire_1,_has("Zombie Form"),_has("Fat Form"),_has("Fire Form")))
 
 # ---------------------------------------------------------------------------
@@ -809,10 +827,11 @@ def set_rules(world: "WL3World") -> None:
     difficulty = int(world.options.difficulty)
     glitches = int(world.options.minor_glitches)
 
-    # Deep copies of the rules dicts for mutation
+    # Copies of the rules dicts for mutation, deep copies for chests, keys, and coins
     chest_logic = {k: list(v) for k, v in CHEST_RULES.items()} 
     key_logic   = {k: list(v) for k, v in KEY_RULES.items()}
     coin_logic   = {k: list(v) for k, v in COIN_RULES.items()}
+    boss_logic = BOSS_RULES.copy()
     
     # Difficulty Constants
     knowledge_checks = 1
@@ -876,6 +895,7 @@ def set_rules(world: "WL3World") -> None:
         coin_logic["Castle of Illusions"][2] = _o(_c(_o(_c(has_grab_1,has_sun_medallion),has_grab_2),can_shake_screen,_has("High Jump Boots")), can_bounce)  
         coin_logic["Castle of Illusions"][5] = _c(_o(_has("Castle Brick"), has_vampire_2), _o(has_grab_1, can_fly, _has("Zombie Form")))
         coin_logic["Castle of Illusions"][6] = _c(_o(_has("Castle Brick"), has_vampire_2), _o(has_grab_1, can_fly, _has("Zombie Form")))        
+        boss_logic["Helio"] = _c(_o(can_pound_solid_blocks, _has("Zombie Form")), _o(has_grab_1, can_jump_high), has_overalls_1)
 
     if difficulty >= hard_logic:
         chest_logic["Out of the Woods"][green] = _o(has_storm_pouch,can_fly)
@@ -1135,6 +1155,9 @@ def set_rules(world: "WL3World") -> None:
         add_tf(coin_logic["Forest of Fear"], 2, can_bounce)
         add_tf(coin_logic["Forest of Fear"], 3, can_bounce)
         add_tf(coin_logic["Forest of Fear"], 7, can_pass_spikes)
+        add_tf(boss_logic, 1, _has("Zombie Form")) # Shoot
+        add_tf(boss_logic, 4, can_bounce) # Anonster
+        add_tf(boss_logic, 9, can_fly) # Helio
 
         # Certain spots need to be changed different ways depending on the player's logic options
         if difficulty < knowledge_checks:
@@ -1302,28 +1325,18 @@ def set_rules(world: "WL3World") -> None:
     # already-configured access rule and copy it onto the "Boss - Defeated"
     # location. Mapping mirrors _BOSSES in locations.py.
     if world.options.boss_defeats:
-        _BOSS_CHEST_FOR_DEFEAT = {
-            "Wormwould":  "The Grasslands - Grey Chest",
-            "Shoot":      "A Town in Chaos - Red Chest",
-            "Scowler":    "Sea Turtle Rocks - Grey Chest",
-            "Jamano":     "The Stagnant Swamp - Green Chest",
-            "Anonster":   "Out of the Woods - Blue Chest",
-            "Wolfenboss": "The Pool of Rain - Green Chest",
-            "Pesce":      "Bank of the Wild River - Green Chest",
-            "Muddee":     "The Stagnant Swamp - Red Chest",
-            "Doll Boy":   "The Volcano's Base - Grey Chest",
-            "Helio":      "Desert Ruins - Blue Chest",
-        }
         for loc_name, loc_data in BOSS_DEFEAT_LOCATION_TABLE.items():
-            chest_loc_name = _BOSS_CHEST_FOR_DEFEAT.get(loc_data.boss_name)
-            if chest_loc_name is None:
-                continue
-            chest_loc = mw.get_location(chest_loc_name, player)
-            defeat_loc = mw.get_location(loc_name, player)
-            # Copy the access rule (may be the default "always-True" if no
-            # rule was set on the chest — either way, mirroring it keeps the
-            # boss-defeat reachability equivalent to the boss-chest one).
-            defeat_loc.access_rule = chest_loc.access_rule
+            level_rule = level_rules.get(loc_data.level_name)
+            boss_rule = boss_logic.get(loc_data.boss_name)            
+            if level_rule is not None and boss_rule is not None:
+                mw.get_location(loc_name, player).access_rule = \
+                    lambda state, lr=level_rule, cr=boss_rule: lr(state, player) and cr(state, player)
+            elif level_rule is not None:
+                mw.get_location(loc_name, player).access_rule = \
+                    lambda state, r=level_rule: r(state, player)
+            elif boss_rule is not None:
+                mw.get_location(loc_name, player).access_rule = \
+                    lambda state, r=boss_rule: r(state, player)
 
     # Victory condition — collect required music boxes then beat the final boss.
     # Progressive Overalls x1 and Progressive Grab x2 are always required for the temple fight.
