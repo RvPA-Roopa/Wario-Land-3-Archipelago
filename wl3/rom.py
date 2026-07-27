@@ -259,7 +259,7 @@ LEVEL_MUSIC_OFFSET               = 0x03FE40   # LevelMusic table (25 levels × 1
 MUSIC_BOXES_REQUIRED_OFFSET      = 0x080F23   # MusicBoxesRequired byte in Bank 20
 START_WITH_AXE_OFFSET            = 0x080F24   # StartWithAxeOpt byte in Bank 20
 START_WITH_MAG_GLASS_OFFSET      = 0x080F25   # StartWithMagnifyingGlassOpt byte in Bank 20
-HIDDEN_PASSAGES_REVEALED_OFFSET = 0x00F37B  # HiddenPassagesRevealedOpt byte in Bank 1
+HIDDEN_PASSAGES_REVEALED_OFFSET = 0x00F807  # HiddenPassagesRevealedOpt byte in Bank 1
 GOLF_PRICE_OPT_OFFSET            = 0x003A00   # GolfPriceOpt byte in Home bank
 GOLF_BUILDING_OPT_OFFSET         = 0x003A01   # GolfBuildingOpt byte in Home bank
 DISABLE_PAL_CYCLE_OFFSET         = 0x003A02   # DisablePalCycleOpt byte in Home bank
@@ -269,8 +269,8 @@ COMBINED_COMPANION_TABLE_OFFSET  = 0x003A05   # CombinedCompanionTable (101 byte
 TRANSFORMS_REQUIRE_ITEMS_OFFSET  = 0x003A6A   # TransformsRequireItems byte in Home bank
 DEATH_MODE_OPT_OFFSET            = 0x003A6B   # DeathModeOpt byte in Home bank (0=none, 1=grabs, 2=grabs+golf)
 BIG_COINSANITY_OPT_OFFSET        = 0x003A6C   # BigCoinsanityOpt byte in Home bank (0=vanilla coins, 1=portrait/suppress/AP-dispatch)
-GOLF_PAR_HINT_FREQ_OFFSET        = 0x003A6D   # GolfParHintFrequencyOpt byte in Home bank (0=per_hole, 1=per_course)
-TREASURE_OB_PALS_OFFSET          = 0x09AFC0   # TreasureOBPals table (indexed by treasure ID)
+GOLF_PAR_HINT_FREQ_OFFSET        = 0x003A6E   # GolfParHintFrequencyOpt byte in Home bank (0=per_hole, 1=per_course)
+TREASURE_OB_PALS_OFFSET          = 0x09B000   # TreasureOBPals table (indexed by treasure ID)
 
 # Combined-item companion chains: collecting key → also grant value (chained).
 # Tusk Set: $24→$25→$26 (two hops).
