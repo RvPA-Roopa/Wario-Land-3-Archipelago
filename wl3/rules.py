@@ -1157,9 +1157,9 @@ def set_rules(world: "WL3World") -> None:
         add_tf(coin_logic["Forest of Fear"], 2, can_bounce)
         add_tf(coin_logic["Forest of Fear"], 3, can_bounce)
         add_tf(coin_logic["Forest of Fear"], 7, can_pass_spikes)
-        add_tf(boss_logic, 1, _has("Zombie Form")) # Shoot
-        add_tf(boss_logic, 4, can_bounce) # Anonster
-        add_tf(boss_logic, 9, can_fly) # Helio
+        add_tf(boss_logic, "Shoot", _has("Zombie Form")) # Shoot
+        add_tf(boss_logic, "Anonster", can_bounce) # Anonster
+        add_tf(boss_logic, "Helio", can_fly) # Helio
 
         # Certain spots need to be changed different ways depending on the player's logic options
         if difficulty < knowledge_checks:
