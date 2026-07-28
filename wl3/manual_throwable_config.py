@@ -37,6 +37,7 @@ MANUAL_TB_WGID_SLOT: dict = {
 MANUAL_TB_WGID_SLOTS: dict = {
     0x23: {0, 1},
     0x28: {0, 2},
+    0x53: {1, 3},
     0x86: {0, 1},
 }
 
@@ -62,6 +63,7 @@ MANUAL_MARKED_WGIDS: set = {
     0x44,
     0x46,
     0x49,
+    0x53,
     0x5c,
     0x62,
     0x6d,
