@@ -50,7 +50,7 @@ ENEMIZER_BUCKET_BASES = [0,
                          ENEMIZER_BUCKET_COUNTS[0] + ENEMIZER_BUCKET_COUNTS[1] + ENEMIZER_BUCKET_COUNTS[2]]
 THROWABLE_VRAM_SLOTS_PER_BUCKET = (0, 1, 2, 3)   # one throwable slot per bucket per VRAM slot (slot 3 added 2026-07-18 when Barrel joined slot-3 throwables — needed for auto-tb rooms with no sig, e.g. wgid 0x49 Big Bridge)
 
-DUMMY_OBJECT_DATA_ADDR = 0x441c  # sym: 19:441c DummyObjectData (was 0x43c3 in an earlier build)
+DUMMY_OBJECT_DATA_ADDR = 0x43c3
 
 # Walkable data labels (enemies that double as stepping stones).
 WALKABLE_DATA_LABELS = {
@@ -642,33 +642,18 @@ def _group_has_walkable_or_platform_gfx(rec: dict) -> bool:
 # ---------------------------------------------------------------------------
 def _compose_random_slot(rng, palette_lookup,
                          force_throwable_slot: int | None = None,
-                         force_throwable_slots: frozenset[int] | None = None,
-                         target_data_counts: tuple | None = None,
-                         avoid_vanilla_gfx_addrs: tuple | None = None,
+                         force_throwable_slots: frozenset[int] | None = None
                          ) -> tuple[bytes, tuple[int, int, int, int]]:
     """Return (slot_bytes, gfx_addrs_tuple). The tuple lets the room
     assignment step filter out slots whose VRAM-0 enemy matches the
     room's vanilla VRAM-0 — implements the "don't roll vanilla in your
-    own room" rule (like palette shuffle clamping away from 0/1).
-
-    target_data_counts: when provided, forces the flat-data-ptr list to
-    match this per-slot count shape (padding with DummyObjectData or
-    truncating chosen enemies' data_addrs as needed). Required for slots
-    dispatched to by no-sig wgids — the room's spawn table indexes into
-    the flat list by "type", and any shape mismatch shifts which enemy
-    lands at which vanilla spawn coord (see the Big Bridge Zombie-at-
-    Barrel bug 2026-07-27). When None, uses each chosen pkg's own
-    data_addrs count — only safe for slots that no wgid dispatches to
-    directly (there are no such slots in current usage)."""
+    own room" rule (like palette shuffle clamping away from 0/1)."""
     chosen, native_slots = _pick_random_per_slot(
         rng, fixed_slots={},
         force_throwable_slot=force_throwable_slot,
-        force_throwable_slots=force_throwable_slots,
-        avoid_vanilla_gfx_addrs=avoid_vanilla_gfx_addrs)
-    if target_data_counts is None:
-        target_data_counts = tuple(len(pkg["data_addrs"]) for pkg in chosen)
+        force_throwable_slots=force_throwable_slots)
     slot_bytes = _emit_slot_bytes(
-        chosen, list(target_data_counts),
+        chosen, [len(pkg["data_addrs"]) for pkg in chosen],
         palette_lookup, native_slots=native_slots)
     return slot_bytes, tuple(pkg["gfx_addr"] for pkg in chosen)
 
@@ -849,14 +834,7 @@ def generate_patch_writes(rng, palette_lookup, *, grouped: bool = False
     # vanilla. Tested 2026-07-18: locks of {1}, {1, 3}, and {1, 3, 0}
     # all crashed. The block_map borrows tile bytes from every slot in
     # these rooms; no per-slot recovery possible. Whole vanilla only.
-    # Omodon+Omodonmeka combined rooms (gids 4, 5, 37, 83, 89 → wgids
-    # 0x13, 0x1f, 0x5b, 0x68, 0x6e, 0x7c). These rooms use the paired
-    # OmodonmekaWithOmodon1/2 gfx which are in NEVER_RANDOMIZE. Locking
-    # the whole wgid keeps the combined Omodon/Meka pair intact (safe
-    # default — user re-added 2026-07-27 after too many crashes when
-    # slot substitution touched these).
-    FORCE_VANILLA_WGIDS = {0x61, 0x6a, 0x91,
-                           0x13, 0x1f, 0x5b, 0x68, 0x6e, 0x7c}
+    FORCE_VANILLA_WGIDS = {0x61, 0x6a, 0x91}
 
     # Merge in the player's hand-verified throw-block room data. Multi-slot
     # wgids get force-vanilla'd (single-forced-throwable pass can't cover
@@ -1069,63 +1047,9 @@ def generate_patch_writes(rng, palette_lookup, *, grouped: bool = False
     sigs_sorted = sorted(sig_to_wgids.keys(), key=sig_usage, reverse=True)
 
     # === Allocate 82 slots ===
-    # Shape-aware sizing: shared-slot pools are sized by the actual unique
-    # combos discovered by the shape scan below. The scan runs BEFORE
-    # budget calculation because pool sizes feed custom_budget.
-    #
-    # When grouped mode is off, keys are (shape, tb_slot) / (shape,) —
-    # 15ish shared slots, same as pre-theme-fix behavior.
-    # When grouped mode is on, keys expand to (theme_tuple, shape, tb_slot)
-    # / (theme_tuple, shape) so `_compose_random_slot` can apply the
-    # grouped filter per representative wgid — ~32 shared slots.
-    # theme_tuple is per-slot ENEMY_HOME lookup (may contain None for
-    # unclassified enemies, treated as its own bucket).
-    def _wgid_theme_tuple(rec):
-        addrs = rec.get("gfx_addrs", [None]*4)
-        out = []
-        for i, a in enumerate(addrs):
-            _name = SLOT_GFX_NAMES.get(i, {}).get(a) if a is not None else None
-            out.append(ENEMY_HOME.get(_name) if _name else None)
-        return tuple(out)
-
-    # Shared-slot key = (theme_tuple, shape) or (shape,) depending on mode.
-    # We also stash a representative wgid's gfx_addrs so the slot's
-    # compose call can pass avoid_vanilla_gfx_addrs and trigger the
-    # grouped filter for the correct room theme.
-    _needed_tb_shapes: dict = {}   # key -> (rep_gfx_addrs, shape, tb_slot)
-    _needed_any_shapes: dict = {}  # key -> (rep_gfx_addrs, shape)
-    for _wgid, _gid in wgid_to_real.items():
-        if _wgid in FORCE_VANILLA_WGIDS:
-            continue
-        _rec = groups.get(_gid)
-        if _rec is None or _rec.get("bank_offset") != 0:
-            continue
-        _rec_l = _rec_with_slot_locks(_rec, _gid)
-        _sig = _group_signature(_rec_l)
-        if _sig is not None:
-            continue
-        _shape = tuple(_rec.get("data_counts", [0]*4))
-        if _wgid in multi_tb_by_wgid:
-            continue
-        _rep_gfx = tuple(_rec.get("gfx_addrs", [None]*4))
-        _theme = _wgid_theme_tuple(_rec) if grouped else None
-        if _wgid in tb_slot_by_wgid:
-            _key = (_theme, _shape, tb_slot_by_wgid[_wgid]) if grouped \
-                   else (_shape, tb_slot_by_wgid[_wgid])
-            _needed_tb_shapes.setdefault(_key, (_rep_gfx, _shape, tb_slot_by_wgid[_wgid]))
-        else:
-            _key = (_theme, _shape) if grouped else (_shape,)
-            _needed_any_shapes.setdefault(_key, (_rep_gfx, _shape))
-    # In grouped mode, compose 2 slots per any-random key so dispatch
-    # can pick the one that best avoids the wgid's own vanilla enemies
-    # (shared slots have a single "representative" wgid at compose time
-    # — other wgids sharing the key inherit that composition and might
-    # get their own vanilla rolled at some slot; a second variant gives
-    # dispatch a choice). Non-grouped mode keeps 1 per key.
-    ANY_VARIANTS = 2 if grouped else 1
-    NUM_TB_SHARED  = max(0, len(_needed_tb_shapes))
-    NUM_ANY_SHARED = max(1, len(_needed_any_shapes) * ANY_VARIANTS)
-    custom_budget = NUM_TOTAL_SLOTS - NUM_TB_SHARED - NUM_ANY_SHARED
+    NUM_THROWABLE = len(THROWABLE_VRAM_SLOTS_PER_BUCKET)  # 3
+    NUM_ANY_MIN   = 4    # baseline any-random pool (matches old sum across buckets)
+    custom_budget = NUM_TOTAL_SLOTS - NUM_THROWABLE - NUM_ANY_MIN
 
     # Option 2 — opportunistic sharing between regular sigs and throwblock
     # combos. Compose regular sigs first (biased at their throwblock tb_slot
@@ -1152,10 +1076,6 @@ def generate_patch_writes(rng, palette_lookup, *, grouped: bool = False
         return out
     _throwable_addrs_by_slot = _build_throwable_addr_set()
 
-    # (Shape scan moved above budget calc — reuse its results here.)
-    needed_tb_shapes = _needed_tb_shapes
-    needed_any_shapes = _needed_any_shapes
-
     # Pessimistic count: assume every throwblock combo needs a dedicated
     # slot. Compose that many regular sigs first, then sharing may free
     # slots that we fill with additional regular sigs afterwards.
@@ -1163,45 +1083,21 @@ def generate_patch_writes(rng, palette_lookup, *, grouped: bool = False
                                 - len(throwblock_keys)
                                 - len(multi_tb_keys))
     tb_keys_list = list(throwblock_keys.keys())
-    # Reserve the shared-slot budget from NUM_TOTAL_SLOTS. The old
-    # NUM_THROWABLE (fixed 4 throwable_by_vram) is replaced by
-    # NUM_TB_SHARED (one slot per unique (shape, tb_slot)).
-    num_any_shared_actual = NUM_TOTAL_SLOTS - NUM_TB_SHARED \
+    num_any = NUM_TOTAL_SLOTS - NUM_THROWABLE \
               - len(tb_keys_list) - len(multi_tb_keys) - initial_regular_count
-    assert num_any_shared_actual >= NUM_ANY_SHARED, \
-        f"shared slot budget exhausted: need {NUM_ANY_SHARED} any-shape slots, have {num_any_shared_actual}"
+    assert num_any >= 1, "no any-random slots left"
 
     composed = bytearray()
     slot_gfx_addrs: list[tuple[int, int, int, int]] = [None] * NUM_TOTAL_SLOTS
     slot_idx = 0
 
-    # Any-random slots — one per unique dispatch key. Key = (shape,) in
-    # full-random mode, (theme_tuple, shape) in grouped mode. any_by_key
-    # maps key → list of slot_idxs (a key can have multiple slots for
-    # variety; dispatch picks randomly among key-matched entries only —
-    # never a mismatched shape, which would shift the flat list).
-    any_by_key: dict[tuple, list[int]] = {}
-    _fallback_key = ((None,) * 4, (1, 1, 1, 1)) if grouped else ((1, 1, 1, 1),)
-    _base_any_entries = list(needed_any_shapes.items()) if needed_any_shapes \
-                        else [(_fallback_key, (None, (1, 1, 1, 1)))]
-    _base_any_entries.sort(key=lambda kv: str(kv[0]))
-    # Duplicate each entry ANY_VARIANTS times — grouped mode composes 2
-    # variants per key so dispatch can pick the one that best avoids the
-    # current wgid's vanilla enemies.
-    _any_entries = [entry for entry in _base_any_entries for _ in range(ANY_VARIANTS)]
-    # Pad up to num_any_shared_actual with extra (1,1,1,1) slots keyed to
-    # the fallback bucket for variety. Only shape (1,1,1,1) pads —
-    # other shapes' spawn tables aren't compatible with a (1,1,1,1) slot.
-    while len(_any_entries) < num_any_shared_actual:
-        _any_entries.append((_fallback_key, (None, (1, 1, 1, 1))))
-    for _key, (_rep_gfx, _shape) in _any_entries:
-        slot_bytes, gfx_sig = _compose_random_slot(
-            rng, palette_lookup,
-            target_data_counts=_shape,
-            avoid_vanilla_gfx_addrs=_rep_gfx if grouped else None)
+    # Any-random slots
+    any_pool: list[int] = []
+    for _ in range(num_any):
+        slot_bytes, gfx_sig = _compose_random_slot(rng, palette_lookup)
         composed.extend(slot_bytes)
         slot_gfx_addrs[slot_idx] = gfx_sig
-        any_by_key.setdefault(_key, []).append(slot_idx)
+        any_pool.append(slot_idx)
         slot_idx += 1
 
     # Spike rooms: force the unprotected "electric" slot to pick from
@@ -1302,53 +1198,22 @@ def generate_patch_writes(rng, palette_lookup, *, grouped: bool = False
                 rep_pal_offsets=sig_to_rep_pal_offs[sig],
                 rep_vanilla_gfx_addrs=sig_to_rep_gfx_addrs[sig])
         else:
-            # sig=None multi-tb: use vanilla shape from a representative
-            # wgid so the flat data-ptr list matches (same shape-shift bug
-            # as throwable_by_vram — 2026-07-27).
-            _rep_shape = None
-            for _wg, _slots in multi_tb_by_wgid.items():
-                if _slots == tb_slots_set:
-                    _rep_gid = wgid_to_real.get(_wg)
-                    if _rep_gid is not None:
-                        _rep_rec = groups.get(_rep_gid)
-                        if _rep_rec is not None:
-                            _rep_shape = tuple(_rep_rec.get("data_counts", [0]*4))
-                            break
             slot_bytes, gfx_sig = _compose_random_slot(
                 rng, palette_lookup,
-                force_throwable_slots=tb_slots_set,
-                target_data_counts=_rep_shape)
+                force_throwable_slots=tb_slots_set)
         composed.extend(slot_bytes)
         slot_gfx_addrs[slot_idx] = gfx_sig
         multi_tb_key_to_id[(sig, tb_slots_set)] = slot_idx
         slot_idx += 1
 
-    # Throwable-by-(key, vram) slots (fallback for TB rooms with no
-    # custom sig slot). One per unique dispatch key so the flat data-ptr
-    # list preserves the destination wgid's spawn-type indexing AND
-    # (in grouped mode) the theme filter kicks in for each room theme.
-    throwable_by_key: dict[tuple, int] = {}
-    _tb_entries = sorted(needed_tb_shapes.items(), key=lambda kv: str(kv[0]))
-    for _key, (_rep_gfx, _shape, _vs) in _tb_entries:
+    # Throwable-by-vram slots (fallback for TB rooms with no custom slot)
+    throwable_by_vram: dict[int, int] = {}
+    for vs in THROWABLE_VRAM_SLOTS_PER_BUCKET:
         slot_bytes, gfx_sig = _compose_random_slot(
-            rng, palette_lookup,
-            force_throwable_slot=_vs,
-            target_data_counts=_shape,
-            avoid_vanilla_gfx_addrs=_rep_gfx if grouped else None)
+            rng, palette_lookup, force_throwable_slot=vs)
         composed.extend(slot_bytes)
         slot_gfx_addrs[slot_idx] = gfx_sig
-        throwable_by_key[_key] = slot_idx
-        slot_idx += 1
-
-    # Pad remaining budget with additional (1,1,1,1) any-random slots so
-    # slot_idx matches NUM_TOTAL_SLOTS. Padded into the shape-(1,1,1,1)
-    # fallback bucket so dispatch's shape-safety check catches them.
-    while slot_idx < NUM_TOTAL_SLOTS:
-        slot_bytes, gfx_sig = _compose_random_slot(
-            rng, palette_lookup, target_data_counts=(1, 1, 1, 1))
-        composed.extend(slot_bytes)
-        slot_gfx_addrs[slot_idx] = gfx_sig
-        any_by_key.setdefault(_fallback_key, []).append(slot_idx)
+        throwable_by_vram[vs] = slot_idx
         slot_idx += 1
 
     assert slot_idx == NUM_TOTAL_SLOTS, \
@@ -1404,43 +1269,17 @@ def generate_patch_writes(rng, palette_lookup, *, grouped: bool = False
             slot = sig_to_regular_id[sig]
         elif sig is not None:
             continue   # sig didn't fit → stay vanilla
-        elif tb_slot is not None:
-            # Dispatch to the key-matched throwable slot. Key encodes
-            # (theme_tuple, shape, tb_slot) in grouped mode, (shape, tb_slot)
-            # in full-random mode.
-            _shape = tuple(rec.get("data_counts", [0]*4))
-            if grouped:
-                _theme = _wgid_theme_tuple(rec)
-                _key = (_theme, _shape, tb_slot)
-            else:
-                _key = (_shape, tb_slot)
-            slot = throwable_by_key.get(_key)
-            if slot is None:
-                continue   # no matching throwable slot → stay vanilla
+        elif tb_slot is not None and tb_slot in throwable_by_vram:
+            slot = throwable_by_vram[tb_slot]
         else:
-            # No sig, no tb_slot: pick ONLY from slots composed with the
-            # wgid's dispatch key. Key = (theme_tuple, shape) in grouped
-            # mode, (shape,) in full-random mode.
-            _shape = tuple(rec.get("data_counts", [0]*4))
-            if grouped:
-                _theme = _wgid_theme_tuple(rec)
-                _key = (_theme, _shape)
-            else:
-                _key = (_shape,)
-            candidates = list(any_by_key.get(_key, ()))
-            if not candidates:
-                continue   # no key-matched slot → stay vanilla
-            # Score each candidate by how many of the 4 VRAM slots avoid
-            # THIS wgid's vanilla gfx (higher = better, since shared
-            # composition may have matched a different rep wgid's vanilla).
-            vanilla_addrs = list(gfx_addrs) + [None] * (4 - len(gfx_addrs))
-            def _avoidance_score(s):
-                composed_addrs = slot_gfx_addrs[s]
-                return sum(1 for i in range(4)
-                           if vanilla_addrs[i] is not None
-                           and composed_addrs[i] != vanilla_addrs[i])
-            best_score = max(_avoidance_score(s) for s in candidates)
-            candidates = [s for s in candidates if _avoidance_score(s) == best_score]
+            # No sig, no tb_slot: any-random, prefer non-vanilla VRAM-0
+            vanilla_v0 = gfx_addrs[0] if gfx_addrs else None
+            candidates = list(any_pool)
+            if vanilla_v0 is not None:
+                non_match = [s for s in candidates
+                             if slot_gfx_addrs[s][0] != vanilla_v0]
+                if non_match:
+                    candidates = non_match
             slot = rng.choice(candidates)
 
         # Patch ObjectGroups[wgid][2..3] = dw (SLOT_BANK_ADDR_BASE + slot*64)
