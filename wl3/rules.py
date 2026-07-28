@@ -1028,7 +1028,7 @@ def set_rules(world: "WL3World") -> None:
         add_tf(coin_logic["Out of the Woods"], 4, can_bounce)
         add_tf(coin_logic["Out of the Woods"], 6, _has("Flat Form"), _has("Roll Form"))
         add_tf(coin_logic["Out of the Woods"], 7, _has("Fat Form"), _has("Zombie Form"))
-        add_tf(chest_logic["The Peaceful Village"], red, can_pound_solid_blocks, _has("Zombie Form"))
+        add_tf(chest_logic["The Peaceful Village"], red, _has("Fat Form"), _has("Zombie Form"))
         add_tf(chest_logic["The Peaceful Village"], green, _has("Invisible Form"), can_fly)
         add_tf(key_logic["The Peaceful Village"], grey, can_pound_solid_blocks, _has("Zombie Form"))
         add_tf(key_logic["The Peaceful Village"], red, can_pound_solid_blocks, _has("Zombie Form"))
