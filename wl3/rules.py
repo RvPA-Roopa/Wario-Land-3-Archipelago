@@ -1137,6 +1137,7 @@ def set_rules(world: "WL3World") -> None:
         add_tf(chest_logic["The Colossal Hole"], grey, can_jump_high, has_sun_medallion)
         add_tf(chest_logic["The Colossal Hole"], green, _has("Fire Form"), _has("Zombie Form"))
         add_tf(chest_logic["The Colossal Hole"], blue, can_jump_high, has_sun_medallion)
+        add_tf(key_logic["The Colossal Hole"], grey, can_jump_high, has_sun_medallion)
         add_tf(key_logic["The Colossal Hole"], green,  _has("Fire Form")) 
         add_tf(key_logic["The Colossal Hole"], blue, can_jump_high, has_sun_medallion)
         add_tf(coin_logic["The Colossal Hole"], 0, can_jump_high, has_sun_medallion) 
