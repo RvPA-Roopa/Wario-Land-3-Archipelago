@@ -1052,7 +1052,14 @@ def write_tokens(world: "WL3World", patch: WL3ProcedurePatch) -> None:
         # the overworld's hue shift. Offsets are HACKED-ROM positions (bank
         # 1 grew ~542 bytes vs vanilla), so they're flagged source="rom" to
         # tell apply_palette_shuffle to read from the post-bsdiff rom.
-        TITLE_PALETTE_OFFSETS = [0x51a0, 0x51e0, 0x5220, 0x5260]
+        # UPDATE THESE any time bank-1 layout shifts (grep warioland3.sym
+        # for Pals_4f82 / Pals_4fc2 / Pals_5002 / Pals_5042). The old
+        # offsets 0x51a0/0x51e0/0x5220/0x5260 collided with
+        # LevelTreasureRequirements after a section shift — writing here
+        # smashed the treasure requirements table for owlevels 22-25
+        # (Colossal Hole, Warped Void, East Crater, Forest of Fear),
+        # forcing every high-level variant to fail its treasure check.
+        TITLE_PALETTE_OFFSETS = [0x51ba, 0x51fa, 0x523a, 0x527a]
         for offset in TITLE_PALETTE_OFFSETS:
             palette_params["overworld_bg"].append({
                 "offset": offset,
