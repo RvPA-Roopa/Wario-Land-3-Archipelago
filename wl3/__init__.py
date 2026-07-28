@@ -52,7 +52,8 @@ from .options import (WL3Options, MusicBoxShuffle, KeyShuffle, CombinedItems,
                       MusicShuffle, EnemyPaletteShuffle, LevelBGPaletteShuffle,
                       OverworldBGPaletteShuffle,
                       WarioPaletteShuffle, WarioColors,
-                      DifficultyOptions, MinorGlitches)
+                      DifficultyOptions, MinorGlitches,
+                      RudyHitPoints)
 from .regions import create_regions
 from .rom import WL3ProcedurePatch, write_tokens, KEY_COLOR_PALS, OBPAL_TREASURE_PURPLE
 from .rules import MUSIC_BOXES, set_rules
@@ -185,7 +186,8 @@ class WL3WebWorld(WebWorld):
                              GolfParHints, GolfParHintFrequency]),
         OptionGroup("Quality of Life", [StartWithMagnifyingGlass, ReduceFlashing,
                                        NonStopChests, InGameMessages,
-                                       TrapFill, TrapWeights, LocalFillPercent]),
+                                       TrapFill, TrapWeights, LocalFillPercent,
+                                       RudyHitPoints]),
         OptionGroup("Cosmetics", [MusicShuffle, OverworldBGPaletteShuffle,
                                   LevelBGPaletteShuffle, EnemyPaletteShuffle,
                                   WarioPaletteShuffle, WarioColors]),
