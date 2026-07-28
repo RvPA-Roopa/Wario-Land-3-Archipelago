@@ -11,6 +11,9 @@ When two checks are too close together, the palette of one will be overwritten b
 **Large Non-Cracked Blocks require Garlic + Tier 2 Overalls**
 The Peaceful Village Blue Chest and The West Crater Red Chest both require Tier 2 Overalls AND Garlic. This is due to how large non-cracked blocks handle collision — this is vanilla behavior.
 
+**Level Variant Glitches**
+Very rarely, levels may load the wrong variant, either allowing the player to go out of logic or blocking off an area that should be in logic. In order to load the correct variant, simply exit the level and re-enter. If exiting via the pause menu doesn't work, exit via a chest door.
+
 **N3 (The Vast Plain at Night) — Chemical background glitch**
 If you have the blue or red chemical item, the stalks in this level will produce a glitched-looking background. This is a visual issue only and does not affect gameplay.
 
@@ -29,6 +32,7 @@ With the blue or red chemical, octopi will grow and appear to open the underwate
 The Tower of Revival level has some graphical roughness, but all mechanics work correctly. Specifically:
 - The Blue Snake Door will appear open but still requires the correct treasures to actually enter
 - The wire will appear built but cannot be climbed without the Statue
+- With "Hidden Passages Revealed" turned on, some hidden passages will appear to be cracked blocks, but are actually only breakable with garlic.
 
 **S5 (Cave of Flames) — Visual Issues**
 Cave of Flames rust blocks show up as non-breakable blocks if you just have rust spray but not explosive plunger box, due to the graphic set per variant. This is only visual, you can break these blocks.

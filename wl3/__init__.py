@@ -44,7 +44,7 @@ from .items import (
 )
 from .locations import BASE_LOC_ID, BOSS_DEFEAT_LOCATION_TABLE, COIN_LOCATION_TABLE, KEY_LOCATION_TABLE, LOCATION_TABLE, WL3LocationData
 from Options import OptionGroup
-from .options import (WL3Options, MusicBoxShuffle, KeyShuffle, CombinedItems,
+from .options import (WL3Options, MusicBoxShuffle, KeyShuffle, CombinedItems, BossDefeats,
                       GolfPrice, GolfBuilding, IHateGolf,
                       GolfParHints, GolfParHintFrequency,
                       StartWithMagnifyingGlass, ReduceFlashing, NonStopChests, InGameMessages,
@@ -153,6 +153,19 @@ BOSS_CHEST_LOCATIONS = [
     "The Stagnant Swamp - Red Chest",      # Muddee
     "The Volcano's Base - Grey Chest",     # Doll Boy
     "Desert Ruins - Blue Chest",           # Helio
+]
+
+BOSS_DEFEAT_LOCATIONS = [
+    "Wormwould - Defeated",
+    "Shoot - Defeated",
+    "Scowler - Defeated",
+    "Jamano - Defeated",
+    "Anonster - Defeated",
+    "Wolfenboss - Defeated",
+    "Pesce - Defeated",
+    "Muddee - Defeated",
+    "Doll Boy - Defeated",
+    "Helio - Defeated",
 ]
 
 
@@ -285,7 +298,7 @@ class WL3World(World):
     def create_items(self) -> None:
         items: List[WL3Item] = []
         skip_items = set()
-        filler_items = ["Clubs Crest (1 Coin)"] * 15 + ["Diamonds Crest (5 Coins)"] * 10 + ["Heart Crest (20 Coins)"] * 5 + ["Spades Crest (50 Coins)"]
+        filler_items = ["Clubs Crest (1 Coin)"] * 15 + ["Diamonds Crest (5 Coins)"] * 10 + ["Heart Crest (20 Coins)"] * 5 + ["Spades Crest (50 Coins)"] + ["Rocket"] + ["Pocket Pet"] + ["Fighter Mannequin"] + ["Telephone"] + ["Crown"] + ["Earthen Figure"] + ["Saber"] + ["Goblet"] + ["Teapot"] + ["UFO"] + ["Minicar"] + ["Locomotive"]
 
         if self.options.start_with_axe:
             skip_items.add("Axe")
@@ -359,14 +372,14 @@ class WL3World(World):
         base_total = sum(base_counts.values())
         slots_remaining = 100 - len(items)
         if slots_remaining >= base_total:
-            # Use the full distribution table; top up with extra filler crests.
+            # Use the full distribution table; top up with extra filler
             for name, count in base_counts.items():
                 for _ in range(count):
                     items.append(self.create_item(name))
             for _ in range(slots_remaining - base_total):
                 items.append(self.create_item(self.random.choice(filler_items)))
         else:
-            # Less slots than the table wants — fill with extra filler crests.
+            # Less slots than the table wants — fill with extra filler
             for _ in range(slots_remaining):
                 items.append(self.create_item(self.random.choice(filler_items)))
 
@@ -394,7 +407,7 @@ class WL3World(World):
                 items.append(self.create_item(self.random.choice(filler_items)))
 
         # Boss Defeats: 10 new boss-defeat locations need 10 new filler items.
-        # Same pattern as bigcoinsanity — random Crests, trap candidates
+        # Same pattern as bigcoinsanity — random filler, trap candidates
         # downstream.
         if self.options.boss_defeats:
             for _ in range(10):
@@ -501,7 +514,10 @@ class WL3World(World):
 
         mode = self.options.music_box_shuffle
         if mode == MusicBoxShuffle.option_any_boss:
-            allowed = BOSS_CHEST_LOCATIONS
+            if self.options.boss_defeats:
+                allowed = BOSS_DEFEAT_LOCATIONS
+            else:
+                allowed = BOSS_CHEST_LOCATIONS
 
             pool = self.multiworld.itempool
             music_box_items = [item for item in pool
