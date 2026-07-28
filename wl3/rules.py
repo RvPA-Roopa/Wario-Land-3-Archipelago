@@ -1084,6 +1084,7 @@ def set_rules(world: "WL3World") -> None:
         add_tf(coin_logic["The West Crater"], 0, can_bounce)
         add_tf(coin_logic["The West Crater"], 1, _has("Yarn Form"), _c(_has("Rust Spray"), can_pound_cracked_blocks))
         add_tf(coin_logic["The West Crater"], 3, _has("Fat Form"))
+        add_tf(key_logic["The Grasslands"], grey, _has("Flat Form"), can_bounce)
         add_tf(chest_logic["The Grasslands"], blue, _has("Yarn Form"))
         add_tf(key_logic["The Grasslands"], blue, can_bounce)
         add_tf(coin_logic["The Grasslands"], 2, _has("Zombie Form"), can_fly) 
@@ -1142,7 +1143,9 @@ def set_rules(world: "WL3World") -> None:
         add_tf(key_logic["The Colossal Hole"], blue, can_jump_high, has_sun_medallion)
         add_tf(coin_logic["The Colossal Hole"], 0, can_jump_high, has_sun_medallion) 
         add_tf(coin_logic["The Colossal Hole"], 1, can_jump_high, has_sun_medallion) 
+        add_tf(coin_logic["The Colossal Hole"], 2, can_jump_high, has_sun_medallion) 
         # add_tf(coin_logic["The Colossal Hole"], 3, _has("Flat Form"), _has("Roll Form")) # uncomment if omodonmeka are randomized
+        add_tf(coin_logic["The Colossal Hole"], 4, can_jump_high, has_sun_medallion) 
         add_tf(coin_logic["The Colossal Hole"], 6, can_jump_high, has_sun_medallion) 
         add_tf(key_logic["The Warped Void"], blue, _has("Fat Form"))
         # add_tf(key_logic["The Warped Void"], blue, _c(_has("Fat Form"), _has("Flat Form"))) # uncomment if omodonmeka are randomized
