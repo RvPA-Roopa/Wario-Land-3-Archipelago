@@ -1015,6 +1015,7 @@ def set_rules(world: "WL3World") -> None:
         key_logic["Desert Ruins"][green] = _o(_c(_has("Spiked Helmet"), _o(can_pound_cracked_blocks, _has("Flat Form"))), _has("Garlic"), _has("Roll Form"))
         chest_logic["The Big Bridge"][green] = _c(_o(has_flippers_1,_has("Flat Form")),_o(has_grab_1,can_fly,can_shake_screen),_o(can_pound_cracked_blocks,_has("Zombie Form")))
         key_logic["The Big Bridge"][blue] = _c(_o(has_flippers_1,_has("Flat Form"),has_grab_1), _o(_has("Garlic"), can_fly))
+        coin_logic["The Big Bridge"][7] = _c(_o(has_flippers_1,_has("Flat Form"),has_grab_1),_o(_c(_has("Garlic"),_o(can_shake_screen,can_bounce)),can_fly))
         coin_logic["Beneath the Waves"][4] = _c(has_chemicals,_o(has_flippers_1,_has("Flat Form")),_o(_c(can_shake_screen,has_grab_1),has_grab_2,can_pass_spikes,can_fly))
     if glitches >= easy_glitches and difficulty >= hard_logic:
         coin_logic["Out of the Woods"][3] = _o(has_flippers_2,has_storm_pouch,can_fly,_has("Flat Form"))
