@@ -770,6 +770,10 @@ class WL3Client(BizHawkClient):
             ctx.command_processor.commands["testenemy"] = lambda *args: self._testenemy_command(
                 tuple(a for a in args if isinstance(a, str)))
             ctx.command_processor.commands["vanillaenemies"] = lambda *_: self._vanillaenemies_command()
+            ctx.command_processor.commands["dbgtreasures"] = lambda *args: self._dbgtreasures_command(
+                ctx, tuple(a for a in args if isinstance(a, str)))
+            ctx.command_processor.commands["setwlevel"] = lambda *args: self._setwlevel_command(
+                ctx, tuple(a for a in args if isinstance(a, str)))
             self._cmd_registered = True
             # Load persisted marks lazily on first tick after connect so the
             # working directory is settled (BizHawkClient sets cwd during
@@ -1411,6 +1415,130 @@ class WL3Client(BizHawkClient):
         logger.info("  Use `/mt <slot>` (0-3) to mark this room as needing "
                     "a throwable in that slot,")
         logger.info("  or `/mt none` if no throwable is needed here.")
+
+    def _setwlevel_command(self, ctx, args) -> None:
+        """/setwlevel <hex> — write directly to wLevel ($C458) for debugging
+        the variant-dispatch bug. Reads back to confirm."""
+        import asyncio
+        if not args or not args[0]:
+            logger.error("[WL3] /setwlevel: pass a hex value (e.g. 'C6' for FoF night V3)")
+            return
+        try:
+            val = int(args[0], 16) & 0xFF
+        except ValueError:
+            logger.error(f"[WL3] /setwlevel: bad hex '{args[0]}'")
+            return
+
+        async def _do():
+            try:
+                await write(ctx.bizhawk_ctx, [(0x0458, bytes([val]), "WRAM")])
+                back = (await read(ctx.bizhawk_ctx, [(0x0458, 1, "WRAM")]))[0][0]
+                logger.info(f"[WL3] /setwlevel wrote 0x{val:02X}; readback 0x{back:02X}"
+                            f"  ({'stuck' if back == val else 'CLOBBERED — something wrote back'})")
+            except Exception as e:
+                logger.error(f"[WL3] /setwlevel: {e}")
+
+        asyncio.create_task(_do())
+
+    def _dbgtreasures_command(self, ctx, args) -> None:
+        """/dbgtreasures [<hex_id>] — dump wTreasuresCollected bit state
+        for debugging variant unlocks. With an id, checks just that bit
+        (e.g. `/dbgtreasures 39` for Mystery Handle).
+        Also cross-checks against ap_bits (what the client THINKS should
+        be there per received AP items) so we can see if the ROM is
+        clearing a bit the client set."""
+        import asyncio
+        try:
+            from . import items as _items_mod
+        except Exception:
+            _items_mod = None
+
+        async def _do():
+            try:
+                reads = await read(ctx.bizhawk_ctx, [
+                    (ADDR_TREASURES_WRAM, 13, "WRAM"),
+                    (0x0458, 1, "WRAM"),        # wLevel (WRAM0 $C458)
+                    (0x200F, 1, "WRAM"),        # wOWLevel (WRAM2 $D00F)
+                    (0x048D, 1, "WRAM"),        # wDayNight (WRAM0 $C48D)
+                ])
+                cur, wlevel_b, wowlevel_b, wdaynight_b = reads
+                wlevel = wlevel_b[0]
+                wowlevel = wowlevel_b[0]
+                wdaynight = wdaynight_b[0]
+                base = ((wowlevel - 1) & 0xFF) * 8 if wowlevel else 0
+                logger.info(f"[WL3] wOWLevel={wowlevel} (0x{wowlevel:02X})"
+                            f"  wLevel={wlevel} (0x{wlevel:02X})"
+                            f"  wDayNight={wdaynight} (0x{wdaynight:02X}, bit0={wdaynight & 1})"
+                            f"  base=(wOWLevel-1)*8={base}"
+                            f"  variant={wlevel - base if wlevel >= base else '?'}"
+                            f"  (0=V1,1=V2,2=V3,3=V4, +4=night)")
+            except Exception as e:
+                logger.error(f"[WL3] /dbgtreasures: read failed: {e}")
+                return
+            # Build ap_bits from cached received items (mirrors
+            # _update_level_unlocks_cached).
+            ap_bits = bytearray(13)
+            for ap_id in self._cached_received:
+                tid = ap_id - BASE_ITEM_ID
+                if 0 <= tid < 0x65:
+                    ap_bits[tid >> 3] |= 1 << (tid & 7)
+                elif ap_id in COMBINED_GRANTS:
+                    for tid2 in COMBINED_GRANTS[ap_id]:
+                        ap_bits[tid2 >> 3] |= 1 << (tid2 & 7)
+            # Optional treasure_id → name lookup (skip failures gracefully).
+            id_to_name = {}
+            if _items_mod is not None:
+                for row in getattr(_items_mod, "_REGULAR", ()):
+                    try:
+                        tid, _cls, name = row[0], row[1], row[2]
+                        id_to_name[tid] = name
+                    except Exception:
+                        pass
+
+            # Single-bit query mode
+            if args and args[0]:
+                try:
+                    tid = int(args[0], 16)
+                except ValueError:
+                    logger.error(f"[WL3] /dbgtreasures: bad id '{args[0]}'"
+                                 " (expected hex like '39')")
+                    return
+                byte_i, bit_i = tid >> 3, tid & 7
+                rom_bit = bool(cur[byte_i] & (1 << bit_i))
+                cli_bit = bool(ap_bits[byte_i] & (1 << bit_i))
+                name = id_to_name.get(tid, "?")
+                logger.info(f"[WL3] treasure 0x{tid:02X} ({name}):"
+                            f" ROM_bit={rom_bit}  client_expected={cli_bit}"
+                            f"  byte[{byte_i}]=ROM:0x{cur[byte_i]:02X}"
+                            f" / client:0x{ap_bits[byte_i]:02X}")
+                return
+
+            # Full dump: list all set bits with names + any discrepancies
+            logger.info("[WL3] /dbgtreasures — bit state")
+            logger.info(f"  ROM    bytes: {' '.join(f'{b:02X}' for b in cur)}")
+            logger.info(f"  client bytes: {' '.join(f'{b:02X}' for b in ap_bits)}")
+            missing_in_rom = []
+            extra_in_rom = []
+            for tid in range(0x65):
+                byte_i, bit_i = tid >> 3, tid & 7
+                r = bool(cur[byte_i] & (1 << bit_i))
+                c = bool(ap_bits[byte_i] & (1 << bit_i))
+                if c and not r:
+                    missing_in_rom.append(tid)
+                elif r and not c:
+                    extra_in_rom.append(tid)
+            if missing_in_rom:
+                logger.warning("  MISSING in ROM (client has, ROM doesn't):")
+                for tid in missing_in_rom:
+                    logger.warning(f"    0x{tid:02X} {id_to_name.get(tid,'?')}")
+            if extra_in_rom:
+                logger.info("  Extra in ROM (ROM has, client didn't add — likely local pickup):")
+                for tid in extra_in_rom:
+                    logger.info(f"    0x{tid:02X} {id_to_name.get(tid,'?')}")
+            if not missing_in_rom and not extra_in_rom:
+                logger.info("  ROM and client bit views agree.")
+
+        asyncio.create_task(_do())
 
     def _mt_command(self, args) -> None:
         """/mt [<slot>|none|clear|list] — mark whether the current room
