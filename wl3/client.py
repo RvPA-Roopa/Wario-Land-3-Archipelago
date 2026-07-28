@@ -772,6 +772,8 @@ class WL3Client(BizHawkClient):
             ctx.command_processor.commands["vanillaenemies"] = lambda *_: self._vanillaenemies_command()
             ctx.command_processor.commands["dbgtreasures"] = lambda *args: self._dbgtreasures_command(
                 ctx, tuple(a for a in args if isinstance(a, str)))
+            ctx.command_processor.commands["setwlevel"] = lambda *args: self._setwlevel_command(
+                ctx, tuple(a for a in args if isinstance(a, str)))
             self._cmd_registered = True
             # Load persisted marks lazily on first tick after connect so the
             # working directory is settled (BizHawkClient sets cwd during
@@ -1414,6 +1416,30 @@ class WL3Client(BizHawkClient):
                     "a throwable in that slot,")
         logger.info("  or `/mt none` if no throwable is needed here.")
 
+    def _setwlevel_command(self, ctx, args) -> None:
+        """/setwlevel <hex> — write directly to wLevel ($C458) for debugging
+        the variant-dispatch bug. Reads back to confirm."""
+        import asyncio
+        if not args or not args[0]:
+            logger.error("[WL3] /setwlevel: pass a hex value (e.g. 'C6' for FoF night V3)")
+            return
+        try:
+            val = int(args[0], 16) & 0xFF
+        except ValueError:
+            logger.error(f"[WL3] /setwlevel: bad hex '{args[0]}'")
+            return
+
+        async def _do():
+            try:
+                await write(ctx.bizhawk_ctx, [(0x0458, bytes([val]), "WRAM")])
+                back = (await read(ctx.bizhawk_ctx, [(0x0458, 1, "WRAM")]))[0][0]
+                logger.info(f"[WL3] /setwlevel wrote 0x{val:02X}; readback 0x{back:02X}"
+                            f"  ({'stuck' if back == val else 'CLOBBERED — something wrote back'})")
+            except Exception as e:
+                logger.error(f"[WL3] /setwlevel: {e}")
+
+        asyncio.create_task(_do())
+
     def _dbgtreasures_command(self, ctx, args) -> None:
         """/dbgtreasures [<hex_id>] — dump wTreasuresCollected bit state
         for debugging variant unlocks. With an id, checks just that bit
@@ -1429,8 +1455,23 @@ class WL3Client(BizHawkClient):
 
         async def _do():
             try:
-                cur = (await read(ctx.bizhawk_ctx,
-                                  [(ADDR_TREASURES_WRAM, 13, "WRAM")]))[0]
+                reads = await read(ctx.bizhawk_ctx, [
+                    (ADDR_TREASURES_WRAM, 13, "WRAM"),
+                    (0x0458, 1, "WRAM"),        # wLevel (WRAM0 $C458)
+                    (0x200F, 1, "WRAM"),        # wOWLevel (WRAM2 $D00F)
+                    (0x048D, 1, "WRAM"),        # wDayNight (WRAM0 $C48D)
+                ])
+                cur, wlevel_b, wowlevel_b, wdaynight_b = reads
+                wlevel = wlevel_b[0]
+                wowlevel = wowlevel_b[0]
+                wdaynight = wdaynight_b[0]
+                base = ((wowlevel - 1) & 0xFF) * 8 if wowlevel else 0
+                logger.info(f"[WL3] wOWLevel={wowlevel} (0x{wowlevel:02X})"
+                            f"  wLevel={wlevel} (0x{wlevel:02X})"
+                            f"  wDayNight={wdaynight} (0x{wdaynight:02X}, bit0={wdaynight & 1})"
+                            f"  base=(wOWLevel-1)*8={base}"
+                            f"  variant={wlevel - base if wlevel >= base else '?'}"
+                            f"  (0=V1,1=V2,2=V3,3=V4, +4=night)")
             except Exception as e:
                 logger.error(f"[WL3] /dbgtreasures: read failed: {e}")
                 return
