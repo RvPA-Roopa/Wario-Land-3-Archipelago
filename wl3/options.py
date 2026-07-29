@@ -64,6 +64,16 @@ class RandomLevelStarts(Range):
     default     = 0
 
 
+class RudyHitPoints(Range):
+    """How many hits Wario must land on Rudy
+    before he's defeated. Vanilla is 4.
+    """
+    display_name = "Rudy Hit Points"
+    range_start = 1
+    range_end   = 10
+    default     = 4
+
+
 class MusicBoxesRequired(Range):
     """How many of the 5 music boxes Wario must collect before
     the Temple opens and the final boss becomes accessible.
@@ -418,6 +428,7 @@ class WL3Options(PerGameCommonOptions):
     transformation_shuffle:       TransformationShuffle
     music_boxes_required:         MusicBoxesRequired
     music_box_shuffle:            MusicBoxShuffle
+    rudy_hit_points:              RudyHitPoints
     # QoL
     golf_price:                   GolfPrice
     golf_building:                GolfBuilding
