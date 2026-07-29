@@ -270,6 +270,12 @@ TRANSFORMS_REQUIRE_ITEMS_OFFSET  = 0x003A6A   # TransformsRequireItems byte in H
 DEATH_MODE_OPT_OFFSET            = 0x003A6B   # DeathModeOpt byte in Home bank (0=none, 1=grabs, 2=grabs+golf)
 BIG_COINSANITY_OPT_OFFSET        = 0x003A6C   # BigCoinsanityOpt byte in Home bank (0=vanilla coins, 1=portrait/suppress/AP-dispatch)
 GOLF_PAR_HINT_FREQ_OFFSET        = 0x003A6E   # GolfParHintFrequencyOpt byte in Home bank (0=per_hole, 1=per_course)
+# Rudy hit count: `ld a, $XX` immediate byte at HiddenFigureFunc+20.
+# HiddenFigureFunc lives at bank 13 offset $4C80 (13:4c80), and the target
+# immediate byte is 20 bytes into the function (right after the second `ld hl`).
+# Vanilla source is `$04`; the AP option lets the player pick 1-10 without
+# touching the ROM layout. Re-audit if hidden_figure.asm changes above line 15.
+RUDY_HIT_POINTS_OFFSET           = 0x04CC94
 TREASURE_OB_PALS_OFFSET          = 0x09B000   # TreasureOBPals table (indexed by treasure ID)
 
 # Combined-item companion chains: collecting key → also grant value (chained).
@@ -887,6 +893,13 @@ def write_tokens(world: "WL3World", patch: WL3ProcedurePatch) -> None:
     music_boxes_required = int(world.options.music_boxes_required)
     patch.write_token(APTokenTypes.WRITE, MUSIC_BOXES_REQUIRED_OFFSET,
                       bytes([music_boxes_required]))
+
+    # Rudy (Hidden Figure) hit points — patch the immediate byte in
+    # HiddenFigureFunc's initializer so a player-chosen 1-10 controls
+    # how many hits Wario needs to land. ROM layout unchanged.
+    rudy_hit_points = int(world.options.rudy_hit_points)
+    patch.write_token(APTokenTypes.WRITE, RUDY_HIT_POINTS_OFFSET,
+                      bytes([rudy_hit_points]))
 
     start_with_axe = int(world.options.start_with_axe)
     patch.write_token(APTokenTypes.WRITE, START_WITH_AXE_OFFSET,
