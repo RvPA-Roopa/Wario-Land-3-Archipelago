@@ -1151,10 +1151,12 @@ def set_rules(world: "WL3World") -> None:
         # add_tf(key_logic["The Warped Void"], blue, _c(_has("Fat Form"), _has("Flat Form"))) # uncomment if omodonmeka are randomized
         add_tf(coin_logic["The Warped Void"], 1, can_bounce)
         # add_tf(coin_logic["The Warped Void"], 4, _has("Flat Form", has_vampire_2)) # uncomment if omodonmeka are randomized
+        add_tf(key_logic["The East Crater"], green, can_fly)
         add_tf(chest_logic["The East Crater"], blue, can_jump_high) # could have been removed by knowledge check
         add_tf(key_logic["The East Crater"], blue, can_jump_high) # could have been removed by knowledge check
         add_tf(coin_logic["The East Crater"], 0, can_fly)
-        # add_tf(coin_logic["The East Crater"], 4, _has("Flat Form"), _has("Roll Form")) # uncomment if omodonmeka are randomized
+        add_tf(coin_logic["The East Crater"], 1, can_fly)
+        add_tf(coin_logic["The East Crater"], 4, _has("Flat Form"), _has("Roll Form")) # uncomment if omodonmeka are randomized
         add_tf(coin_logic["The East Crater"], 7, can_jump_high) # could have been removed by knowledge check
         add_tf(chest_logic["Forest of Fear"], red, can_bounce)
         add_tf(chest_logic["Forest of Fear"], blue, _has("Zombie Form"))
@@ -1195,6 +1197,7 @@ def set_rules(world: "WL3World") -> None:
             add_tf(key_logic["The Colossal Hole"], grey, can_jump_high, has_sun_medallion)
             add_tf(coin_logic["The Colossal Hole"], 2, can_jump_high, has_sun_medallion, _has("Zombie Form")) 
             add_tf(coin_logic["The Colossal Hole"], 4, can_jump_high, has_sun_medallion) 
+            add_tf(coin_logic["The East Crater"], 2, can_kill_frogs)
 
         if difficulty >= knowledge_checks:
             key_logic["The Peaceful Village"][grey] = _o(can_pound_solid_blocks, _has("Zombie Form"), _has("Garlic"))
