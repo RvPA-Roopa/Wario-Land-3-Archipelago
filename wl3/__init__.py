@@ -925,6 +925,84 @@ class WL3World(World):
 
         return list(coin_items), list(coin_pals)
 
+    def _build_boss_item_assignments(self) -> "tuple[List[int], List[int], List[int]]":
+        """Return (LevelBossItems, BossKeyringTargets, TrapBossTable), each 10 bytes.
+
+        Index: boss_index (0-9) — matches SetBossDefeatedBit ordering.
+
+        Encoding is identical to LevelCoinItems / LevelKeyPool (so GrantBossItem
+        can dispatch through the same three-way switch as GrantCoinItem):
+          - $FF                       → no offline grant (foreign / boss_defeats
+                                        disabled). AP client will still deliver
+                                        via the boss-defeat check if online.
+          - $00-$65 (treasure ID)     → GrantTreasureByID; also handles gems
+                                        ($4E-$54) as no-op placeholders.
+          - $66 (TREASURE_KEYRING)    → BossKeyringTargets[idx] holds target
+                                        owlevel; grant all 4 keys.
+          - bit 7 set                 → key item, decoded to wKeyInventory bit.
+          - trap                      → LevelBossItems holds a gem disguise;
+                                        TrapBossTable[idx] holds the trap id
+                                        (1-5). GrantBossItem checks trap FIRST.
+
+        Bosses are progression-adjacent (they're on the intended goal path), so
+        placing traps here is possible but rare. Foreign items get a gem
+        disguise so the local "you sent X" popup still fires cleanly.
+        """
+        from .items import COMBINED_ITEMS, KEY_ITEM_TABLE, KEYRING_ITEM_TABLE, TRAP_AP_IDS
+
+        boss_items    = bytearray([0xFF] * 10)
+        keyring_tgts  = bytearray([0xFF] * 10)
+        trap_table    = bytearray([0x00] * 10)
+
+        # Option OFF — leave all defaults so no offline grant fires. The
+        # client also skips boss-defeat polling when this option is off.
+        if not self.options.boss_defeats:
+            return list(boss_items), list(keyring_tgts), list(trap_table)
+
+        for loc_name, loc_data in BOSS_DEFEAT_LOCATION_TABLE.items():
+            idx = loc_data.boss_index
+            location = self.multiworld.get_location(loc_name, self.player)
+            item = location.item
+            if item is None or item.player != self.player:
+                # Foreign — pick a gem disguise so ShowTreasureMsg still fires
+                # locally (indicating "you sent this to someone") without
+                # trying to grant a real treasure. GrantTreasureByID skips
+                # $4E-$54 via its .chk_gem branch.
+                if item is not None:
+                    cls = item.classification
+                    if cls in (ItemClassification.progression,
+                               ItemClassification.progression_skip_balancing):
+                        boss_items[idx] = 0x4E  # Red Gem
+                    elif cls == ItemClassification.useful:
+                        boss_items[idx] = 0x50  # Blue Gem
+                    else:
+                        boss_items[idx] = 0x4F  # Green Gem
+                continue
+
+            # Own item.
+            if item.name in KEY_ITEM_TABLE:
+                key_data = KEY_ITEM_TABLE[item.name]
+                boss_items[idx] = 0x80 | ((key_data.owlevel - 1) * 4 + key_data.color_index)
+            elif item.name in KEYRING_ITEM_TABLE:
+                boss_items[idx] = 0x66
+                keyring_tgts[idx] = KEYRING_ITEM_TABLE[item.name].owlevel
+            elif item.name in TRANSFORM_UNLOCK_ITEMS:
+                boss_items[idx] = FORM_DISPLAY_TREASURE[item.name]
+            elif item.name in COMBINED_ITEMS:
+                item_data = ITEM_TABLE.get(item.name)
+                boss_items[idx] = item_data.tier_ids[0] if item_data else 0x4F
+            else:
+                item_data = ITEM_TABLE.get(item.name)
+                if item_data is None:
+                    boss_items[idx] = 0x4F
+                elif item_data.ap_id in TRAP_AP_IDS_SET:
+                    boss_items[idx] = self.random.choice(TRAP_DISGUISE_POOL)
+                    trap_table[idx] = TRAP_AP_IDS[item_data.ap_id]
+                else:
+                    boss_items[idx] = item_data.tier_ids[0]
+
+        return list(boss_items), list(keyring_tgts), list(trap_table)
+
     # ------------------------------------------------------------------
     # Slot data
     # ------------------------------------------------------------------
