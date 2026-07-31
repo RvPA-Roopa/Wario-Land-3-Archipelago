@@ -1926,11 +1926,98 @@ class WL3Client(BizHawkClient):
             keys_str = " | ".join(f"{COLOR_NAMES[c]} Key" for c in range(4) if c in level_keys[level])
             logger.info(f"  {prefix} {keys_str}")
 
+    # ROM's MsgSlotPool holds 14 glyph pairs (11 safe + 3 popup-icon
+    # overflow; sparkle tiles are NOT safe because they render for
+    # keysanity/coinsanity glows continuously in-level). Messages with
+    # more than 14 unique renderable glyphs get paginated so no letters
+    # truncate.
+    _MSG_MAX_UNIQUE = 14
+    _MSG_RENDERABLE = frozenset("ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789 -&")
+
+    @classmethod
+    def _paginate_msg(cls, text: str) -> list:
+        """Return a list of pages, each with ≤11 unique renderable glyphs.
+
+        Safe by construction: single pass over words, no mutation of
+        `text`, no unbounded loops. Words that individually exceed 11
+        unique glyphs are hard-truncated (rare — most AP item words fit).
+        Any exception is caught by the caller (_show_msg) which falls
+        back to a single-page append.
+        """
+        if not text or not isinstance(text, str):
+            return [text]
+        # Fast path: fits already.
+        uniq_all = 0
+        seen = set()
+        for c in text.upper():
+            if c in cls._MSG_RENDERABLE and c not in seen:
+                seen.add(c)
+                uniq_all += 1
+                if uniq_all > cls._MSG_MAX_UNIQUE:
+                    break
+        if uniq_all <= cls._MSG_MAX_UNIQUE:
+            return [text]
+
+        pages = []
+        cur_words = []
+        cur_uniq = set()
+        for word in text.split(" "):
+            # Compute what unique glyphs this word would add. When joining
+            # onto an existing page, we insert a space separator — so we
+            # must include ' ' in the merged uniqueness count for pages
+            # with 2+ words.
+            word_uniq = {c for c in word.upper() if c in cls._MSG_RENDERABLE}
+            if cur_words:
+                word_uniq = word_uniq | {" "} if " " in cls._MSG_RENDERABLE else word_uniq
+            merged = cur_uniq | word_uniq
+            if len(merged) <= cls._MSG_MAX_UNIQUE:
+                cur_words.append(word)
+                cur_uniq = merged
+                continue
+            # Word doesn't fit. Flush current page (if any).
+            if cur_words:
+                pages.append(" ".join(cur_words))
+                cur_words = []
+                cur_uniq = set()
+            # Try the word alone in a fresh page.
+            if len(word_uniq) <= cls._MSG_MAX_UNIQUE:
+                cur_words = [word]
+                cur_uniq = set(word_uniq)
+            else:
+                # Word is too wide on its own (rare — long acronym with all
+                # unique chars). Hard-truncate to fit.
+                trunc = []
+                trunc_uniq = set()
+                for ch in word:
+                    cu = ch.upper()
+                    new_uniq = trunc_uniq | ({cu} if cu in cls._MSG_RENDERABLE else set())
+                    if len(new_uniq) > cls._MSG_MAX_UNIQUE:
+                        break
+                    trunc.append(ch)
+                    trunc_uniq = new_uniq
+                if trunc:
+                    pages.append("".join(trunc))
+                # else: skip the word entirely (shouldn't happen with valid input)
+        if cur_words:
+            pages.append(" ".join(cur_words))
+        return pages if pages else [text]
+
     async def _show_msg(self, ctx: "BizHawkClientContext", text: str, tid: int = None) -> None:
         """Queue a message for in-game display. If `tid` is given, the
         matching icon-above-Wario popup fires when this message is
-        flushed to ROM — keeping msg text and popup icon in sync."""
-        self._msg_queue.append((text, tid))
+        flushed to ROM — keeping msg text and popup icon in sync.
+
+        Long messages (>11 unique glyphs) are split into pages so the
+        ROM's marquee doesn't truncate letters. `tid` only ties to the
+        first page's popup. On any pagination failure, falls back to a
+        single-append of the original text so we never LOSE the message
+        entirely (worst case: some letters truncate in-game)."""
+        try:
+            pages = self._paginate_msg(text)
+        except Exception:
+            pages = [text]
+        for i, page in enumerate(pages):
+            self._msg_queue.append((page, tid if i == 0 else None))
 
     async def _flush_msg_queue(self, ctx: "BizHawkClientContext") -> None:
         """Send the next queued message if in-level and previous message is done."""
