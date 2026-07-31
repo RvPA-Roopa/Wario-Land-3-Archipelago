@@ -24,23 +24,26 @@ from worlds.Files import APProcedurePatch, APPatchExtension, APTokenMixin, APTok
 if TYPE_CHECKING:
     from . import WL3World
 
-CHEST_TABLE_OFFSET = 0x001B30  # LevelTreasureIDs_WithoutTemple (100 bytes)
-KEYSANITY_MODE_OFFSET = 0x001B94  # KeysanityMode (1 byte: 0=vanilla, 1=simple, 2=full)
-KEY_TABLE_OFFSET = 0x001B95  # LevelKeyPool (100 bytes; ITEM_KEY_BASE + index = vanilla)
-CHEST_KEY_PAL_OFFSET = 0x001BF9  # ChestKeyPalettes (100 bytes; $FF=not key, 4-7=palette)
-KEY_PAL_OVERRIDE_OFFSET = 0x001C5D  # KeyPaletteOverrides (100 bytes; $FF=default, else OBPAL)
-CHEST_KEYRING_OFFSET = 0x001CC1  # ChestKeyringTargets (100 bytes; $FF=not keyring, 1-25=target owlevel)
-KEY_KEYRING_OFFSET = 0x001D25  # KeyKeyringTargets   (100 bytes; same format, but for key slots)
-INITIAL_TREASURES_OFFSET = 0x001D89  # InitialTreasuresBits (13 bytes; OR'd into wTreasuresCollected at new-game init)
-INITIAL_KEYS_OFFSET = 0x001D96  # InitialKeysBits      (25 bytes; OR'd into wKeyInventory      at new-game init)
-INITIAL_TRANSFORM_UNLOCKS_OFFSET = 0x001DAF  # InitialTransformUnlocks  (1 byte; OR'd into wTransformUnlocks  at new-game init)
-INITIAL_TRANSFORM_UNLOCKS2_OFFSET = 0x001DB0  # InitialTransformUnlocks2 (1 byte; OR'd into wTransformUnlocks2 at new-game init)
-TRAP_CHEST_TABLE_OFFSET = 0x001DB1  # TrapChestTable (100 bytes; 0=no trap, 1-5=TRAP_* — offline trap dispatch from chests)
-TRAP_KEY_TABLE_OFFSET = 0x001E15  # TrapKeyTable   (100 bytes; same encoding — offline trap dispatch from key slots)
+CHEST_TABLE_OFFSET = 0x001B38   # LevelTreasureIDs_WithoutTemple (100 bytes)
+KEYSANITY_MODE_OFFSET = 0x001B9C   # KeysanityMode (1 byte: 0=vanilla, 1=simple, 2=full)
+KEY_TABLE_OFFSET = 0x001B9D   # LevelKeyPool (100 bytes; ITEM_KEY_BASE + index = vanilla)
+CHEST_KEY_PAL_OFFSET = 0x001C01   # ChestKeyPalettes (100 bytes; $FF=not key, 4-7=palette)
+KEY_PAL_OVERRIDE_OFFSET = 0x001C65   # KeyPaletteOverrides (100 bytes; $FF=default, else OBPAL)
+CHEST_KEYRING_OFFSET = 0x001CC9   # ChestKeyringTargets (100 bytes; $FF=not keyring, 1-25=target owlevel)
+KEY_KEYRING_OFFSET = 0x001D2D   # KeyKeyringTargets   (100 bytes; same format, but for key slots)
+INITIAL_TREASURES_OFFSET = 0x001D91   # InitialTreasuresBits (13 bytes; OR'd into wTreasuresCollected at new-game init)
+INITIAL_KEYS_OFFSET = 0x001D9E   # InitialKeysBits      (25 bytes; OR'd into wKeyInventory      at new-game init)
+INITIAL_TRANSFORM_UNLOCKS_OFFSET = 0x001DB7   # InitialTransformUnlocks  (1 byte; OR'd into wTransformUnlocks  at new-game init)
+INITIAL_TRANSFORM_UNLOCKS2_OFFSET = 0x001DB8   # InitialTransformUnlocks2 (1 byte; OR'd into wTransformUnlocks2 at new-game init)
+TRAP_CHEST_TABLE_OFFSET = 0x001DB9   # TrapChestTable (100 bytes; 0=no trap, 1-5=TRAP_* — offline trap dispatch from chests)
+TRAP_KEY_TABLE_OFFSET = 0x001E1D   # TrapKeyTable   (100 bytes; same encoding — offline trap dispatch from key slots)
 LEVEL_COIN_ITEMS_OFFSET          = 0x05836C   # LevelCoinItems       (200 bytes; bank $16 — display treasure ID per coin slot, $FF=plain)
 COIN_PAL_OVERRIDE_OFFSET         = 0x058434   # CoinPaletteOverrides (200 bytes; bank $16 — OBPAL per coin, $FF=default)
 TRAP_COIN_TABLE_OFFSET           = 0x0584FC   # TrapCoinTable        (200 bytes; bank $16 — 0=no trap, 1-5=TRAP_* — offline trap dispatch from coins)
 COIN_KEYRING_TARGETS_OFFSET      = 0x0585C4   # CoinKeyringTargets   (200 bytes; bank $16 — $FF=not keyring, 1-25=target owlevel)
+LEVEL_BOSS_ITEMS_OFFSET          = 0x05868C   # LevelBossItems       (10 bytes;  bank $16 — same encoding as LevelCoinItems)
+TRAP_BOSS_TABLE_OFFSET           = 0x058696   # TrapBossTable        (10 bytes;  bank $16 — 0=no trap, 1-5=TRAP_*)
+BOSS_KEYRING_TARGETS_OFFSET      = 0x0586A0   # BossKeyringTargets   (10 bytes;  bank $16 — $FF=not keyring, 1-25=target owlevel)
 TREASURE_DUMMY_TILE_OFFSET       = 0x099940   # TreasureGfx[$65] — 64 bytes (4 tiles, 2bpp)
 TREASURE_ZOMBIE_TILE_OFFSET      = 0x0999c0   # TreasureZombieFormGfx    — 64 bytes (4 tiles, 2bpp)
 TREASURE_FIRE_TILE_OFFSET        = 0x099a00   # TreasureFireFormGfx      — 64 bytes (4 tiles, 2bpp)
@@ -889,6 +892,15 @@ def write_tokens(world: "WL3World", patch: WL3ProcedurePatch) -> None:
     # placeholder so the portrait/popup stays consistent.
     trap_coin_table = list(world._build_trap_coin_table())
     patch.write_token(APTokenTypes.WRITE, TRAP_COIN_TABLE_OFFSET, bytes(trap_coin_table))
+
+    # Boss-defeat item tables (offline grant). Only populated when the
+    # boss_defeats option is on; otherwise all three tables ship as
+    # defaults ($FF / $00 / $FF) and GrantBossItem's ret-on-$FF path
+    # makes it a no-op.
+    boss_items, boss_keyring_targets, boss_traps = world._build_boss_item_assignments()
+    patch.write_token(APTokenTypes.WRITE, LEVEL_BOSS_ITEMS_OFFSET,     bytes(boss_items))
+    patch.write_token(APTokenTypes.WRITE, BOSS_KEYRING_TARGETS_OFFSET, bytes(boss_keyring_targets))
+    patch.write_token(APTokenTypes.WRITE, TRAP_BOSS_TABLE_OFFSET,      bytes(boss_traps))
 
     music_boxes_required = int(world.options.music_boxes_required)
     patch.write_token(APTokenTypes.WRITE, MUSIC_BOXES_REQUIRED_OFFSET,
