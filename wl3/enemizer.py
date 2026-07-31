@@ -533,6 +533,11 @@ SLOT_LOCKED_GIDS: dict = {
    104: {0},        # Above The Clouds: Bird@1 + Barrel@3 spawn; 0/2 deco
    105: {0, 1},     # Above The Clouds: BeamBot@3 spawn; 0/1/2 deco
    116: {0, 1},     # Beneath The Waves: Teruteru@3 spawn; 0/1/2 deco
+    65: {3},        # Grasslands wRoom 0x0A (wgid 0x50): slot 3 (Barrel) used as
+                    # a platform Wario stands on to reach a check. Slot 2 (Bubble)
+                    # already sig-protected via FORCE_LOCK_GFX_PAIRS. Slot 3 lock
+                    # keeps Barrel's tiles + spawn data; since Barrel is throwable,
+                    # the tb_slot=3 requirement is auto-satisfied by the sig.
     # (Slot 2 is already sig-protected in each — Futamogu categorized
     # as walkable — so we only need to add whichever additional
     # decoration slots aren't already covered.)

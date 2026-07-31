@@ -30,6 +30,7 @@ MANUAL_TB_WGID_SLOT: dict = {
     0x7a: 0,
     0x80: 3,
     0x89: 1,
+    0x8f: 0,
 }
 
 # Multi-slot cases: enemizer forces throwable at EACH
@@ -73,6 +74,7 @@ MANUAL_MARKED_WGIDS: set = {
     0x80,
     0x86,
     0x89,
+    0x8f,
 }
 
 # Wgids the player explicitly said DO NOT need a throwable.
