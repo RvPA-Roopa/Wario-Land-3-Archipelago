@@ -152,7 +152,7 @@ BOSS_CHEST_LOCATIONS = [
     "Bank of the Wild River - Green Chest", # Pesce
     "The Stagnant Swamp - Red Chest",      # Muddee
     "The Volcano's Base - Grey Chest",     # Doll Boy
-    "Desert Ruins - Blue Chest",           # Helio
+    "Desert Ruins - Blue Chest",           # Yellow Belly
 ]
 
 BOSS_DEFEAT_LOCATIONS = [
@@ -165,7 +165,7 @@ BOSS_DEFEAT_LOCATIONS = [
     "Pesce - Defeated",
     "Muddee - Defeated",
     "Doll Boy - Defeated",
-    "Helio - Defeated",
+    "Yellow Belly - Defeated",
 ]
 
 
