@@ -894,6 +894,7 @@ def set_rules(world: "WL3World") -> None:
         coin_logic["Tower of Revival"][0] = _c(has_golden_eyes, _has("Garlic"), has_grab_2, _has("Spiked Helmet"), _has("Statue"), can_jump_high)
         coin_logic["Castle of Illusions"][1] = _o(_c(_o(_c(has_grab_1,has_sun_medallion),has_grab_2),_has("High Jump Boots")), can_bounce)
         coin_logic["Castle of Illusions"][2] = _o(_c(_o(_c(has_grab_1,has_sun_medallion),has_grab_2),can_shake_screen,_has("High Jump Boots")), can_bounce)  
+        coin_logic["Castle of Illusions"][3] = _o(has_grab_2,can_bounce)
         coin_logic["Castle of Illusions"][5] = _c(_o(_has("Castle Brick"), has_vampire_2), _o(has_grab_1, can_fly, _has("Zombie Form")))
         coin_logic["Castle of Illusions"][6] = _c(_o(_has("Castle Brick"), has_vampire_2), _o(has_grab_1, can_fly, _has("Zombie Form")))        
         coin_logic["The East Crater"][6] = _c(_has("Pick Axe"))
@@ -916,6 +917,8 @@ def set_rules(world: "WL3World") -> None:
         coin_logic["The Pool of Rain"][6] = _c(has_flippers_1,_has("Spiked Helmet"))
         coin_logic["The Frigid Sea"][3] = _o(has_grab_1,can_bounce)      
         coin_logic["The Frigid Sea"][5] = _c(_has("Scepter"),has_flippers_1,_has("Spiked Helmet"))    
+        coin_logic["The Warped Void"][6] = _o(_c(has_key_cards, has_grab_1,_has("Spiked Helmet")),_c(_has("Warp Removal Apparatus"), can_fly))
+        coin_logic["The Warped Void"][7] = _o(_c(has_key_cards, has_grab_1,_has("Spiked Helmet")),_c(_has("Warp Removal Apparatus"), can_fly))
 
     # Override some level requirements if glitches are in logic (overwrites difficulty options, we assume glitched players can do most tricks)
     if glitches >= easy_glitches:
