@@ -189,7 +189,7 @@ _BOSSES = [
     (6, "Pesce",       4, "Bank of the Wild River"),# BotWR boss
     (7, "Muddee",     19, "The Stagnant Swamp"),    # Stagnant Swamp (red chest boss)
     (8, "Doll Boy",    8, "The Volcano's Base"),    # Volcano's Base boss
-    (9, "Helio",       7, "Desert Ruins"),          # Desert Ruins boss
+    (9, "Yellow Belly", 7, "Desert Ruins"),         # Desert Ruins boss
 ]
 
 
