@@ -459,6 +459,7 @@ CRASH_CONFIRMED_GIDS = frozenset({
     5,            # wgid 0x7c
     83,           # wgid 0x68
     89,           # wgid 0x6e
+    110,          # wgid 0x88 — user confirmed crash 2026-08-01, /vanillaenemies restored
 })
 # gid 37 (Colossal Hole wgid 0x1F): full-vanilla lock after per-slot
 # testing. Slot 1 (Dummy, no spawns) confirmed crash-triggering when
@@ -1246,6 +1247,15 @@ def generate_patch_writes(rng, palette_lookup, *, grouped: bool = False
         if rec.get("bank_offset") != 0:
             continue   # boss → vanilla
         if wgid in FORCE_VANILLA_WGIDS:
+            continue
+        # CRASH_CONFIRMED_GIDS with no protected slots have no sig, so the
+        # _compose_regular vanilla-identical path never fires for them.
+        # Skip them here so they stay fully vanilla in the ROM (same effect
+        # as FORCE_VANILLA_WGIDS). Covers the Omodon+Omodonmeka PAIR gids
+        # 4/5/83/89 (all prot_per_slot=[F,F,F,F]) that the user requested
+        # be kept intact 2026-07-25 — previously only gid 37 worked because
+        # it has slot 0 walkable-protected, giving it a sig.
+        if gid in CRASH_CONFIRMED_GIDS:
             continue
         gfx_addrs = rec.get("gfx_addrs", [])
         # gid 55 (Warped Void room 0/13/27 zip-line room) is exempt from
