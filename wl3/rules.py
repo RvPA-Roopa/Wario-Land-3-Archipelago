@@ -867,7 +867,7 @@ def set_rules(world: "WL3World") -> None:
         key_logic["Desert Ruins"][green] = _o(_c(_has("Spiked Helmet"),can_pound_cracked_blocks), _has("Garlic"), _has("Roll Form"))
         key_logic["Beneath the Waves"][red] = _c(_o(has_flippers_2, can_sink_in_water), has_flippers_1)
         key_logic["The Grasslands"][green] = _o(_has("Flute"), _has("High Jump Boots"), can_fly)
-        key_logic["The Big Bridge"][green] = _c(has_flippers_1, _o(can_pound_cracked_blocks, _has("Zombie Form")), _o(has_grab_1, can_shake_screen, can_fly, _has("Roll Form")))
+        key_logic["The Big Bridge"][green] = _c(has_flippers_1, _o(can_pound_cracked_block_o(has_storm_pouch,can_flyo(has_grab_1, can_shake_screen, can_fly, _has("Roll Form")))
         key_logic["The Big Bridge"][blue] = _c(_o(has_flippers_1, has_grab_1), _o(_has("Garlic"), can_fly))
         key_logic["Castle of Illusions"][red] = _o(_c(_o(_c(has_grab_1, has_sun_medallion), has_grab_2), _o(can_shake_screen, _has("High Jump Boots"))), can_bounce)
         key_logic["Castle of Illusions"][blue] = _c(_o(_has("Castle Brick"), has_vampire_2), can_pound_cracked_blocks, _o(has_grab_1, can_fly, _c(_has("Zombie Form"),can_bounce)))
@@ -896,6 +896,8 @@ def set_rules(world: "WL3World") -> None:
         coin_logic["Castle of Illusions"][2] = _o(_c(_o(_c(has_grab_1,has_sun_medallion),has_grab_2),can_shake_screen,_has("High Jump Boots")), can_bounce)  
         coin_logic["Castle of Illusions"][5] = _c(_o(_has("Castle Brick"), has_vampire_2), _o(has_grab_1, can_fly, _has("Zombie Form")))
         coin_logic["Castle of Illusions"][6] = _c(_o(_has("Castle Brick"), has_vampire_2), _o(has_grab_1, can_fly, _has("Zombie Form")))        
+        coin_logic["The East Crater"][6] = _c(_has("Pick Axe"), has_grab_1)
+        coin_logic["The East Crater"][7] = _c(_has("Pick Axe"), has_grab_1)
         boss_logic["Yellow Belly"] = _c(_o(can_pound_solid_blocks, _has("Zombie Form")), _o(has_grab_1, can_jump_high), has_overalls_1)
 
     if difficulty >= hard_logic:
@@ -1157,6 +1159,7 @@ def set_rules(world: "WL3World") -> None:
         add_tf(coin_logic["The East Crater"], 0, can_fly)
         add_tf(coin_logic["The East Crater"], 1, can_fly)
         add_tf(coin_logic["The East Crater"], 4, _has("Flat Form"), _has("Roll Form")) # uncomment if omodonmeka are randomized
+        add_tf(coin_logic["The East Crater"], 6, can_jump_high) # could have been removed by knowledge check
         add_tf(coin_logic["The East Crater"], 7, can_jump_high) # could have been removed by knowledge check
         add_tf(chest_logic["Forest of Fear"], red, can_bounce)
         add_tf(chest_logic["Forest of Fear"], blue, _has("Zombie Form"))
