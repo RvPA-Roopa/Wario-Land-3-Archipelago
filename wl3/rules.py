@@ -807,7 +807,7 @@ BOSS_RULES: dict = {
     "Pesce":      has_flippers_2,
     "Muddee":     _c(_has("Foot of Stone"), has_overalls_1),
     "Doll Boy":   None,
-    "Helio":      _c(_o(can_pound_solid_blocks, _has("Zombie Form")), _o(has_grab_1, can_bounce), has_overalls_1),
+    "Yellow Belly": _c(_o(can_pound_solid_blocks, _has("Zombie Form")), _o(has_grab_1, can_bounce), has_overalls_1),
 }
 
 able_to_beat_rudy = _c(has_grab_2,_o(has_overalls_1,has_vampire_1,_has("Zombie Form"),_has("Fat Form"),_has("Fire Form")))
@@ -896,7 +896,7 @@ def set_rules(world: "WL3World") -> None:
         coin_logic["Castle of Illusions"][2] = _o(_c(_o(_c(has_grab_1,has_sun_medallion),has_grab_2),can_shake_screen,_has("High Jump Boots")), can_bounce)  
         coin_logic["Castle of Illusions"][5] = _c(_o(_has("Castle Brick"), has_vampire_2), _o(has_grab_1, can_fly, _has("Zombie Form")))
         coin_logic["Castle of Illusions"][6] = _c(_o(_has("Castle Brick"), has_vampire_2), _o(has_grab_1, can_fly, _has("Zombie Form")))        
-        boss_logic["Helio"] = _c(_o(can_pound_solid_blocks, _has("Zombie Form")), _o(has_grab_1, can_jump_high), has_overalls_1)
+        boss_logic["Yellow Belly"] = _c(_o(can_pound_solid_blocks, _has("Zombie Form")), _o(has_grab_1, can_jump_high), has_overalls_1)
 
     if difficulty >= hard_logic:
         chest_logic["Out of the Woods"][green] = _o(has_storm_pouch,can_fly)
@@ -1168,7 +1168,7 @@ def set_rules(world: "WL3World") -> None:
         add_tf(coin_logic["Forest of Fear"], 7, can_pass_spikes)
         add_tf(boss_logic, "Shoot", _has("Zombie Form")) # Shoot
         add_tf(boss_logic, "Anonster", can_bounce) # Anonster
-        add_tf(boss_logic, "Helio", can_fly) # Helio
+        add_tf(boss_logic, "Yellow Belly", can_fly) # Yellow Belly
 
         # Certain spots need to be changed different ways depending on the player's logic options
         if difficulty < knowledge_checks:
