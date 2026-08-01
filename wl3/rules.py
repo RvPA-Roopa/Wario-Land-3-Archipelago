@@ -782,8 +782,7 @@ COIN_RULES: dict = {
         _c(_has("Mystery Handle"),
            _o(_c(has_grab_1,_has("High Jump Boots")),_has("Puffy Form"))),              #2
         _has("Mystery Handle"),                                                         #3
-        _c(_has("Mystery Handle"), _o(_c(has_grab_2, _has("High Jump Boots")),
-                                      can_bounce)),                                     #4
+        _c(_has("Mystery Handle"), _o(has_grab_2,can_bounce)),                          #4
         None,                                                                           #5
         _c(_has("Mystery Handle"), _o(_c(has_grab_2, _has("High Jump Boots")),
                                       can_bounce)),                                     #6
