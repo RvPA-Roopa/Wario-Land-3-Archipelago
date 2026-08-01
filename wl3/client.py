@@ -755,25 +755,19 @@ class WL3Client(BizHawkClient):
             ctx.command_processor.commands["levels"] = lambda *_: self._show_unlocked_levels(ctx)
             ctx.command_processor.commands["skip"] = lambda *_: self._skip_messages()
             ctx.command_processor.commands["keys"] = lambda *_: self._show_keys()
-            ctx.command_processor.commands["roomdebug"] = lambda *_: self._toggle_room_debug()
-            ctx.command_processor.commands["debugtracker"] = lambda *_: self._toggle_tracker_debug()
-            ctx.command_processor.commands["msgdump"] = lambda *_: self._toggle_msg_debug()
-            # Manual throw-block marking commands. Uses a closure so we can
-            # capture the current room's (owlevel, wRoom) at command time
-            # from the last cached values in self._prev_room_dbg.
-            # AP's CommandProcessor dispatches by treating the lambda as an
-            # unbound method — it prepends the CommandProcessor instance
-            # as the first positional arg. Filter to keep only strings so
-            # `/mt yes` sees args = ("yes",) instead of (cp_self, "yes").
-            ctx.command_processor.commands["mt"] = lambda *args: self._mt_command(
-                tuple(a for a in args if isinstance(a, str)))
-            ctx.command_processor.commands["testenemy"] = lambda *args: self._testenemy_command(
-                tuple(a for a in args if isinstance(a, str)))
+            # Debug commands — disabled in public builds. Uncomment to re-enable.
+            # ctx.command_processor.commands["roomdebug"] = lambda *_: self._toggle_room_debug()
+            # ctx.command_processor.commands["debugtracker"] = lambda *_: self._toggle_tracker_debug()
+            # ctx.command_processor.commands["msgdump"] = lambda *_: self._toggle_msg_debug()
+            # ctx.command_processor.commands["mt"] = lambda *args: self._mt_command(
+            #     tuple(a for a in args if isinstance(a, str)))
+            # ctx.command_processor.commands["testenemy"] = lambda *args: self._testenemy_command(
+            #     tuple(a for a in args if isinstance(a, str)))
             ctx.command_processor.commands["vanillaenemies"] = lambda *_: self._vanillaenemies_command()
-            ctx.command_processor.commands["dbgtreasures"] = lambda *args: self._dbgtreasures_command(
-                ctx, tuple(a for a in args if isinstance(a, str)))
-            ctx.command_processor.commands["setwlevel"] = lambda *args: self._setwlevel_command(
-                ctx, tuple(a for a in args if isinstance(a, str)))
+            # ctx.command_processor.commands["dbgtreasures"] = lambda *args: self._dbgtreasures_command(
+            #     ctx, tuple(a for a in args if isinstance(a, str)))
+            # ctx.command_processor.commands["setwlevel"] = lambda *args: self._setwlevel_command(
+            #     ctx, tuple(a for a in args if isinstance(a, str)))
             self._cmd_registered = True
             # Load persisted marks lazily on first tick after connect so the
             # working directory is settled (BizHawkClient sets cwd during
