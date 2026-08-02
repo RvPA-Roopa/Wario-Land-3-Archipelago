@@ -39,7 +39,7 @@ Requirements to open each chest and reach each key, by level. The **With Enemize
 | Slot | Chest | Key | With Enemizer (Chest) | With Enemizer (Key) |
 |---|---|---|---|---|
 | Grey | *(none)* | *(none)* |  | (Pound solid blocks OR Zombie Form) |
-| Red | Flute OR Jump high | Flute OR Jump high OR Pound solid blocks | (Pound solid blocks OR Zombie Form) | (Pound solid blocks OR Zombie Form) |
+| Red | Flute OR Jump high | Flute OR Jump high OR Pound solid blocks | (Fat Form OR Zombie Form) | (Pound solid blocks OR Zombie Form) |
 | Green | (Flute OR Jump high) AND (Pound cracked blocks OR Zombie Form) | Flute OR Jump high | (Invisible Form OR Fly) |  |
 | Blue | Pound large solid blocks OR ((Shake screen OR Zombie Form) AND Garlic) | Pound large solid blocks OR ((Shake screen OR Zombie Form) AND Garlic) |  |  |
 
@@ -63,7 +63,7 @@ Requirements to open each chest and reach each key, by level. The **With Enemize
 | Slot | Chest | Key | With Enemizer (Chest) | With Enemizer (Key) |
 |---|---|---|---|---|
 | Grey | *(none)* | *(none)* | Invisible Form | Invisible Form |
-| Red | Pound cracked blocks | Pound cracked blocks | Puffy Form | Puffy Form |
+| Red | Pound cracked blocks | Pound cracked blocks | Puffy Form | Puffy Form AND (Puffy Form OR Roll Form) AND (Puffy Form OR (Spiked Helmet AND Flat Form) OR Roll Form) |
 | Green | Magic Seeds OR Fly | Magic Seeds OR Fly | Invisible Form | Invisible Form |
 | Blue | Chemicals | Chemicals | Invisible Form | Invisible Form |
 
@@ -92,9 +92,9 @@ Requirements to open each chest and reach each key, by level. The **With Enemize
 
 | Slot | Chest | Key | With Enemizer (Chest) | With Enemizer (Key) |
 |---|---|---|---|---|
-| Grey | *(none)* | *(none)* | Fire Form | Bounce |
+| Grey | *(none)* | *(none)* | Fire Form | Bounce AND (Bounce OR Garlic) |
 | Red | Flippers 1 AND Grab 1 | Grab 1 AND (Zombie Form OR Flippers 2 OR (Flippers 1 AND Spiked Helmet)) |  |  |
-| Green | Statue OR Bounce | Garlic |  |  |
+| Green | Statue OR Bounce | Garlic |  | Bounce AND (Bounce OR Garlic) |
 | Blue | Sapling of Growth AND Flippers 1 AND Garlic | Flippers 1 AND Garlic AND Sapling of Growth |  |  |
 
 **Easy Glitches changes:**
@@ -134,7 +134,13 @@ Requirements to open each chest and reach each key, by level. The **With Enemize
 
 **Knowledge Checks changes:**
 - Blue chest → Overalls 1 AND (Jump high OR Grab 1) AND (Pound solid blocks OR Zombie Form)
-- Green key → (Spiked Helmet AND (Pound cracked blocks OR Flat Form)) OR Garlic
+- Green key → (Spiked Helmet AND Pound cracked blocks) OR Garlic OR Roll Form
+
+**Easy Glitches changes:**
+- Green key → (Spiked Helmet AND (Pound cracked blocks OR Flat Form))
+
+**Easy Glitches + Knowledge Checks changes:**
+- Green key → (Spiked Helmet AND (Pound cracked blocks OR Flat Form)) OR Garlic OR Roll Form
 
 ### The Volcano's Base
 
@@ -145,14 +151,14 @@ Requirements to open each chest and reach each key, by level. The **With Enemize
 | Grey | *(none)* | *(none)* |  |  |
 | Red | Truck Wheel OR Fly | Truck Wheel OR Bat |  |  |
 | Green | (Flute AND Truck Wheel) OR Fly | (Truck Wheel OR Fly) AND Flippers 1 |  |  |
-| Blue | Foot of Stone | Foot of Stone AND (Flippers 2 OR (Flippers 1 AND Spiked Helmet)) |  |  |
+| Blue | Foot of Stone | (Foot of Stone OR Roll Form) AND (Flippers 2 OR (Flippers 1 AND Spiked Helmet)) |  |  |
 
 **Hard Tricks changes:**
 - Red key → Truck Wheel OR Flat Form OR Fly
 
 **Easy Glitches changes:**
 - Green key → (Truck Wheel OR Fly) AND (Flippers 1 OR Flat Form)
-- Blue key → (Foot of Stone OR (Flat Form AND Spiked Helmet)) AND (Flat Form OR Flippers 2 OR (Flippers 1 AND Spiked Helmet))
+- Blue key → (Foot of Stone OR Roll Form OR (Flat Form AND Spiked Helmet)) AND (Flat Form OR Flippers 2 OR (Flippers 1 AND Spiked Helmet))
 
 ### The Pool of Rain
 
@@ -195,7 +201,7 @@ Requirements to open each chest and reach each key, by level. The **With Enemize
 |---|---|---|---|---|
 | Grey | Flippers 1 | High Jump Boots OR Fly |  |  |
 | Red | Flippers 1 AND (High Jump Boots OR Fly) | Flippers 2 AND Spiked Helmet AND Grab 2 |  |  |
-| Green | Flippers 1 AND (Grab 1 OR Yarn Form) AND (High Jump Boots OR Fly) | Flippers 1 AND Sapling of Growth | Yarn Form |  |
+| Green | Flippers 1 AND (Grab 1 OR Yarn Form OR Roll Form) AND (High Jump Boots OR Fly) | Flippers 1 AND Sapling of Growth | (Yarn Form OR Roll Form) |  |
 | Blue | Flippers 1 AND (Grab 1 OR Fat Form) AND (High Jump Boots OR Fly) | Flippers 1 AND Chemicals | Fat Form |  |
 
 **Knowledge Checks changes:**
@@ -203,7 +209,7 @@ Requirements to open each chest and reach each key, by level. The **With Enemize
 
 **Hard Tricks changes:**
 - Red chest → Flippers 1
-- Green chest → Flippers 1 AND (Grab 1 OR Yarn Form)
+- Green chest → Flippers 1 AND (Grab 1 OR Yarn Form OR Roll Form)
 - Blue chest → Flippers 1 AND (Grab 1 OR Fat Form)
 
 **Easy Glitches changes:**
@@ -224,8 +230,8 @@ Requirements to open each chest and reach each key, by level. The **With Enemize
 
 | Slot | Chest | Key | With Enemizer (Chest) | With Enemizer (Key) |
 |---|---|---|---|---|
-| Grey | Pound cracked blocks OR Yarn Form | *(none)* | (Yarn Form OR (Rust Spray AND Pound cracked blocks)) | Fire Form |
-| Red | (Overalls 2 AND Garlic) OR Fat Form | (Pound cracked blocks OR Yarn Form) AND (Grab 1 OR Bounce) |  |  |
+| Grey | Pound cracked blocks OR Yarn Form | *(none)* | (Yarn Form OR (Rust Spray AND Pound cracked blocks)) |  |
+| Red | (Overalls 2 AND Garlic) OR Fat Form | (Pound cracked blocks OR Yarn Form) AND (Grab 1 OR Fly) |  |  |
 | Green | (Pass through fire AND Jump high) OR Fly | (Pass through fire AND Jump high) OR Fly |  |  |
 | Blue | Rust Spray | Rust Spray AND Grab 1 |  |  |
 
@@ -235,7 +241,7 @@ Requirements to open each chest and reach each key, by level. The **With Enemize
 
 | Slot | Chest | Key | With Enemizer (Chest) | With Enemizer (Key) |
 |---|---|---|---|---|
-| Grey | Overalls 1 OR Fly | *(none)* |  |  |
+| Grey | Overalls 1 OR Fly | *(none)* |  | (Flat Form OR Bounce) |
 | Red | Magic Seeds AND (Pound cracked blocks OR Zombie Form) | *(none)* |  |  |
 | Green | (Flute OR Puffy Form) AND Flippers 1 | Flute OR Puffy Form |  |  |
 | Blue | Jump high | Jump high | Yarn Form | Bounce |
@@ -264,7 +270,7 @@ Requirements to open each chest and reach each key, by level. The **With Enemize
 | Blue | Scepter AND Flippers 1 AND ((Garlic AND Spiked Helmet) OR Puffy Form) | Flippers 1 AND (Garlic OR Fly) |  |  |
 
 **Knowledge Checks changes:**
-- Green key → Flippers 1 AND (Pound cracked blocks OR Zombie Form) AND (Grab 1 OR Shake screen OR Fly)
+- Green key → Flippers 1 AND (Pound cracked blocks OR Zombie Form) AND (Grab 1 OR Shake screen OR Fly OR Roll Form)
 - Blue key → (Flippers 1 OR Grab 1) AND (Garlic OR Fly)
 
 **Easy Glitches changes:**
@@ -284,10 +290,10 @@ Requirements to open each chest and reach each key, by level. The **With Enemize
 
 | Slot | Chest | Key | With Enemizer (Chest) | With Enemizer (Key) |
 |---|---|---|---|---|
-| Grey | *(none)* | *(none)* |  | Fly |
-| Red | Glass Eyes | Glass Eyes | Fat Form AND Fire Form AND Zombie Form | Fat Form AND Fire Form AND Zombie Form |
-| Green | Statue | Statue |  | Fat Form |
-| Blue | Golden Eyes AND Statue AND ((Garlic AND Grab 2 AND Spiked Helmet AND High Jump Boots) OR (Yarn Form AND Jump high)) | Statue AND Golden Eyes | Flat Form AND Yarn Form |  |
+| Grey | *(none)* | *(none)* |  | Fly AND Fire Form AND (Fire Form OR ((Flat Form OR Bat OR Roll Form) AND Fly)) AND Fly |
+| Red | Glass Eyes | Glass Eyes | Fire Form AND Fat Form AND Zombie Form AND (Fire Form OR Fly) AND ((Fat Form AND Zombie Form AND Fire Form) OR Garlic) | Fire Form AND Fat Form AND Zombie Form AND (Fire Form OR Fly) AND ((Fat Form AND Zombie Form AND Fire Form) OR Garlic) |
+| Green | Statue | Statue | Fire Form AND (Fire Form OR ((Flat Form OR Bat OR Roll Form) AND Fly)) | Fire Form AND Fat Form AND (Fire Form OR ((Flat Form OR Bat OR Roll Form) AND Fly)) AND Fat Form |
+| Blue | Golden Eyes AND Statue AND ((Garlic AND Grab 2 AND Spiked Helmet AND High Jump Boots) OR (Yarn Form AND Jump high)) | Statue AND Golden Eyes | Fire Form AND Yarn Form AND Flat Form AND (Fire Form OR ((Flat Form OR Bat OR Roll Form) AND Fly)) AND Yarn Form AND (Flat Form OR Roll Form OR Bat) | Fire Form AND (Fire Form OR ((Flat Form OR Bat OR Roll Form) AND Fly)) |
 
 **Knowledge Checks changes:**
 - Blue chest → Golden Eyes AND Statue AND Jump high AND ((Garlic AND Grab 2 AND Spiked Helmet) OR Yarn Form)
@@ -300,8 +306,8 @@ Requirements to open each chest and reach each key, by level. The **With Enemize
 |---|---|---|---|---|
 | Grey | *(none)* | *(none)* |  |  |
 | Red | Foot of Stone | Foot of Stone | Fly | Fly |
-| Green | Foot of Stone AND Flippers 2 AND (Shake screen OR Fly) | Foot of Stone AND Flippers 2 AND (Shake screen OR Fly) |  | Bat |
-| Blue | Rust Spray AND (Pound cracked blocks OR Zombie Form) | Rust Spray AND (Pound cracked blocks OR Zombie Form) | Fire Form | Fire Form |
+| Green | Foot of Stone AND Flippers 2 AND (Shake screen OR Fly) | Foot of Stone AND Flippers 2 AND (Shake screen OR Fly) | Fly | Fly |
+| Blue | Rust Spray AND (Pound cracked blocks OR Zombie Form OR Roll Form) | Rust Spray AND (Pound cracked blocks OR Zombie Form OR Roll Form) | (Fire Form OR Roll Form) AND (Fire Form OR Roll Form OR (Spiked Helmet AND Flat Form)) | (Fire Form OR Roll Form) AND (Fire Form OR Roll Form OR (Spiked Helmet AND Flat Form)) |
 
 **Easy Glitches changes:**
 - Green chest → Foot of Stone AND (Flippers 2 OR Flat Form) AND (Shake screen OR Fly)
@@ -315,14 +321,14 @@ Requirements to open each chest and reach each key, by level. The **With Enemize
 
 | Slot | Chest | Key | With Enemizer (Chest) | With Enemizer (Key) |
 |---|---|---|---|---|
-| Grey | *(none)* | Grab 1 |  | Fire Form |
-| Red | Bounce OR (High Jump Boots AND ((Grab 1 AND Shake screen) OR Fat Form)) | Jump high | Bounce AND (Flat Form OR Flippers 2) AND Fat Form | Bounce |
-| Green | Explosive Plunger Box | Explosive Plunger Box | (Invisible Form OR Zombie Form) AND Fire Form | Invisible Form |
+| Grey | *(none)* | Grab 1 OR Roll Form |  |  |
+| Red | Bounce OR (High Jump Boots AND ((Grab 1 AND Shake screen) OR Fat Form)) | Jump high | Bounce AND (Flat Form OR Flippers 2 OR Roll Form) AND Fat Form | Bounce |
+| Green | Explosive Plunger Box | Explosive Plunger Box | (Invisible Form OR Zombie Form) | Invisible Form |
 | Blue | Rust Spray AND Pound cracked blocks AND ((Grab 1 AND High Jump Boots) OR Bounce) | Rust Spray AND Pound cracked blocks AND ((Grab 1 AND High Jump Boots) OR Bounce) | Bounce | Bounce |
 
 **Easy Glitches changes:**
 - Blue chest → (Rust Spray OR (Flat Form AND Bouncy Form)) AND ((Grab 1 AND High Jump Boots) OR Bounce)
-- Grey key → Grab 1 OR (Flat Form AND Spiked Helmet)
+- Grey key → Grab 1 OR Roll Form OR (Flat Form AND Spiked Helmet)
 - Blue key → (Rust Spray OR (Flat Form AND Bouncy Form)) AND ((Grab 1 AND High Jump Boots) OR Bounce)
 
 **All Glitches changes:**
@@ -335,9 +341,9 @@ Requirements to open each chest and reach each key, by level. The **With Enemize
 | Slot | Chest | Key | With Enemizer (Chest) | With Enemizer (Key) |
 |---|---|---|---|---|
 | Grey | *(none)* | *(none)* |  |  |
-| Red | (High Jump Boots AND Grab 1 AND Spiked Helmet) OR Bounce | (High Jump Boots AND Grab 1 AND Spiked Helmet) OR Bounce |  |  |
+| Red | (High Jump Boots AND ((Grab 1 AND Spiked Helmet) OR Roll Form)) OR Bounce | (High Jump Boots AND Grab 1 AND Spiked Helmet) OR Bounce |  |  |
 | Green | Scissors AND Jump high | Scissors AND Jump high | Zombie Form |  |
-| Blue | Scissors AND Full Moon Gong AND High Jump Boots AND Overalls 2 AND Grab 1 | (Scissors AND Jump high) OR Fly |  |  |
+| Blue | Scissors AND Full Moon Gong AND Jump high AND (High Jump Boots AND Overalls 2 AND Grab 1) AND Roll Form | (Scissors AND Jump high) OR Fly | (Bounce OR Roll Form) |  |
 
 **Knowledge Checks changes:**
 - Red chest → (High Jump Boots AND Spiked Helmet) OR Bounce
@@ -389,13 +395,15 @@ Requirements to open each chest and reach each key, by level. The **With Enemize
 | Slot | Chest | Key | With Enemizer (Chest) | With Enemizer (Key) |
 |---|---|---|---|---|
 | Grey | Pound cracked blocks | Grab 1 OR Fly |  |  |
-| Red | Grab 1 OR Fly | (Grab 2 AND (Shake screen OR High Jump Boots)) OR Bounce |  | (Bounce OR Grab 2) |
+| Red | Grab 1 OR Fly | (Grab 2 AND (Shake screen OR High Jump Boots)) OR Bounce |  | Bounce |
 | Green | Grab 1 OR Fly | Grab 2 OR Bounce |  | Bounce |
-| Blue | Grab 1 OR Fly | Castle Brick AND Pound cracked blocks AND (Grab 1 OR Fly) |  | Bat |
+| Blue | Grab 1 OR Fly | Castle Brick AND Pound cracked blocks AND (Grab 1 OR Fly) |  |  |
 
 **Knowledge Checks changes:**
+- Green chest → Grab 1 OR Bounce
+- Blue chest → Grab 1 OR Bounce
 - Red key → (((Grab 1 AND Sun Medallion) OR Grab 2) AND (Shake screen OR High Jump Boots)) OR Bounce
-- Blue key → (Castle Brick OR Bat) AND Pound cracked blocks AND (Grab 1 OR Fly OR Zombie Form)
+- Blue key → (Castle Brick OR Bat) AND Pound cracked blocks AND (Grab 1 OR Fly OR (Zombie Form AND Bounce))
 
 **All Glitches changes:**
 - Grey chest → *(none)*
@@ -407,10 +415,10 @@ Requirements to open each chest and reach each key, by level. The **With Enemize
 
 | Slot | Chest | Key | With Enemizer (Chest) | With Enemizer (Key) |
 |---|---|---|---|---|
-| Grey | *(none)* | *(none)* | Fly | Fly |
-| Red | Garlic | Garlic AND (Grab 1 OR Zombie Form) | Flat Form |  |
-| Green | Sun Medallion OR Jump high | Sun Medallion OR Jump high | Bat AND (Fire Form OR Zombie Form) | Bat AND Fire Form |
-| Blue | Explosive Plunger Box AND Jump high | Explosive Plunger Box AND Jump high | Fly | Fly |
+| Grey | *(none)* | *(none)* | (Jump high OR Sun Medallion) | (Jump high OR Sun Medallion) AND (Jump high OR Sun Medallion) |
+| Red | Garlic | Garlic AND (Grab 1 OR Zombie Form) |  |  |
+| Green | Sun Medallion OR Jump high | Sun Medallion OR Jump high | (Fire Form OR Zombie Form) | Fire Form |
+| Blue | Explosive Plunger Box AND Jump high | Explosive Plunger Box AND Jump high | (Jump high OR Sun Medallion) | (Jump high OR Sun Medallion) |
 
 ### The Warped Void
 
@@ -421,7 +429,7 @@ Requirements to open each chest and reach each key, by level. The **With Enemize
 | Grey | *(none)* | Grab 1 |  |  |
 | Red | Warp Removal Apparatus | Warp Removal Apparatus |  |  |
 | Green | Warp Removal Apparatus AND (Grab 1 OR Fly) | Warp Removal Apparatus AND (Grab 1 OR Bounce) |  |  |
-| Blue | (Key Cards AND Grab 1) OR (Warp Removal Apparatus AND Fly) | (Key Cards AND Grab 1) OR (Warp Removal Apparatus AND Fly) |  | Fat Form AND Flat Form |
+| Blue | (Key Cards AND Grab 1) OR (Warp Removal Apparatus AND Fly) | (Key Cards AND Grab 1) OR (Warp Removal Apparatus AND Fly) |  | Fat Form |
 
 ### The East Crater
 
@@ -430,8 +438,8 @@ Requirements to open each chest and reach each key, by level. The **With Enemize
 | Slot | Chest | Key | With Enemizer (Chest) | With Enemizer (Key) |
 |---|---|---|---|---|
 | Grey | Grab 1 OR Zombie Form | (Grab 1 OR Zombie Form) AND (Shake screen OR Fly) |  |  |
-| Red | Pass through fire AND ((Grab 1 AND Pound cracked blocks) OR Fire Form) AND (Zombie Form OR Grab 1) | Pass through fire AND ((Grab 1 AND Pound cracked blocks) OR Zombie Form) |  |  |
-| Green | (Jackhammer OR Fly) AND Grab 1 | Grab 1 AND (Jackhammer OR Fly) | Fly | Fly |
+| Red | Pass through fire AND ((Grab 1 AND (Pound cracked blocks OR Roll Form)) OR Fire Form) AND (Zombie Form OR Grab 1) | Pass through fire AND ((Grab 1 AND Pound cracked blocks) OR Zombie Form OR Roll Form) |  |  |
+| Green | (Jackhammer OR Fly) AND Grab 1 | Grab 1 AND (Jackhammer OR Fly) |  | Fly |
 | Blue | Pick Axe AND Grab 1 AND Jump high | Jump high AND Pick Axe AND Grab 1 | Jump high | Jump high |
 
 **Knowledge Checks changes:**
@@ -456,7 +464,7 @@ Requirements to open each chest and reach each key, by level. The **With Enemize
 | Grey | *(none)* | *(none)* |  |  |
 | Red | Mystery Handle AND (Grab 2 OR Bounce) | Mystery Handle AND ((Grab 2 AND High Jump Boots) OR Bounce) | Bounce | Bounce |
 | Green | Mystery Handle AND Grab 1 | Mystery Handle AND Grab 1 |  | Fly |
-| Blue | Demon's Blood OR Zombie Form | Demon's Blood OR Zombie Form | Zombie Form | Pass spikes |
+| Blue | Demon's Blood OR Zombie Form | Demon's Blood OR Pass spikes | Zombie Form | Pass spikes |
 
 ## Big Coin Logic
 
@@ -474,7 +482,7 @@ Requirements to reach each of the 8 musical big coins per level. **With Enemizer
 | #4 | Flippers 2 OR (Storm Pouch AND High Jump Boots) OR Fly |  |
 | #5 | Jump high | Bounce |
 | #6 | *(none)* |  |
-| #7 | Pound cracked blocks | Flat Form |
+| #7 | Pound cracked blocks | (Flat Form OR Roll Form) |
 | #8 | Gold Magic AND (Jump high OR Fat Form OR Zombie Form) | (Fat Form OR Zombie Form) |
 
 **Knowledge Checks changes:**
@@ -508,6 +516,9 @@ Requirements to reach each of the 8 musical big coins per level. **With Enemizer
 **Knowledge Checks changes:**
 - Coin #4 → (Flute OR Jump high) AND (Zombie Form OR Pound cracked blocks)
 - Coin #1 → Zombie Form OR Garlic
+
+**Easy Glitches changes:**
+- Coin #2 → (Pound large solid blocks AND Spiked Helmet) OR (Roll Form AND (Fat Form OR Snowman Form))
 
 **All Glitches changes:**
 - Coin #4 → Zombie Form OR Pound cracked blocks
@@ -548,7 +559,7 @@ Requirements to reach each of the 8 musical big coins per level. **With Enemizer
 | #5 | (Air Pump OR Fly) AND Jump high | Kill frogs |
 | #6 | *(none)* | Fire Form |
 | #7 | Garlic AND Grab 1 |  |
-| #8 | Air Pump OR Fly | Kill frogs AND Fly |
+| #8 | Air Pump OR Fly | Kill frogs AND (Fly OR High Jump Boots) |
 
 **Knowledge Checks changes:**
 - Coin #5 → Air Pump OR Fly
@@ -566,7 +577,7 @@ Requirements to reach each of the 8 musical big coins per level. **With Enemizer
 | Coin | Requirement | With Enemizer |
 |---|---|---|
 | #1 | *(none)* | Bounce |
-| #2 | Garlic OR Fly OR Flat Form | (Fly OR Flat Form) |
+| #2 | Garlic OR Fly OR Flat Form |  |
 | #3 | *(none)* |  |
 | #4 | *(none)* | Bounce |
 | #5 | Grab 1 AND Flippers 1 |  |
@@ -607,15 +618,16 @@ Requirements to reach each of the 8 musical big coins per level. **With Enemizer
 | Coin | Requirement | With Enemizer |
 |---|---|---|
 | #1 | *(none)* |  |
-| #2 | Pound cracked blocks OR Garlic OR Zombie Form |  |
+| #2 | Pound cracked blocks OR Garlic |  |
 | #3 | (Pound solid blocks OR Zombie Form) AND (Grab 1 OR Bounce) AND Overalls 1 | Bounce |
-| #4 | Spiked Helmet AND Grab 1 | Bouncy Form |
+| #4 | Spiked Helmet AND Grab 1 | (Bouncy Form OR High Jump Boots) |
 | #5 | *(none)* |  |
 | #6 | Pound cracked blocks |  |
 | #7 | Pound solid blocks AND Grab 1 |  |
 | #8 | Pound solid blocks OR Zombie Form | Fly |
 
 **Knowledge Checks changes:**
+- Coin #2 → Pound cracked blocks OR Garlic OR (Zombie Form AND Jump high)
 - Coin #3 → (Pound solid blocks OR Zombie Form) AND (Grab 1 OR Jump high) AND Overalls 1
 
 **Easy Glitches changes:**
@@ -634,13 +646,13 @@ Requirements to reach each of the 8 musical big coins per level. **With Enemizer
 | #5 | Truck Wheel OR Bat |  |
 | #6 | Truck Wheel OR Fly |  |
 | #7 | Truck Wheel OR Fly | Fly |
-| #8 | Foot of Stone AND Flippers 1 | Fly |
+| #8 | (Foot of Stone OR Roll Form) AND Flippers 1 | Fly |
 
 **Knowledge Checks changes:**
 - Coin #5 → *(none)*
 
 **Easy Glitches changes:**
-- Coin #8 → (Foot of Stone OR (Flat Form AND Spiked Helmet)) AND (Flat Form OR Flippers 1)
+- Coin #8 → (Foot of Stone OR Roll Form OR (Flat Form AND Spiked Helmet)) AND (Flat Form OR Flippers 1)
 
 ### The Pool of Rain
 
@@ -679,7 +691,7 @@ Requirements to reach each of the 8 musical big coins per level. **With Enemizer
 | #5 | (Grab 2 OR Kill frogs) AND ((Shake screen AND High Jump Boots AND Grab 1) OR (Bouncy Form AND Grab 1) OR Fly) |  |
 | #6 | (Electric Fan Propeller AND Grab 1) OR Fly |  |
 | #7 | (Grab 2 OR Kill frogs) AND Grab 1 |  |
-| #8 | ((Shake screen AND High Jump Boots) OR Puffy Form OR Bouncy Form) AND (Grab 2 OR Kill frogs) AND Grab 1 |  |
+| #8 | ((Shake screen AND High Jump Boots) OR Puffy Form OR Bouncy Form) AND (Grab 2 OR Kill frogs) AND Grab 1 | (Bouncy Form OR Puffy Form) |
 
 **Knowledge Checks changes:**
 - Coin #3 → Pound solid blocks OR (Spiked Helmet AND Pound cracked blocks)
@@ -724,7 +736,7 @@ Requirements to reach each of the 8 musical big coins per level. **With Enemizer
 | #5 | Pound large solid blocks |  |
 | #6 | (Pass through fire AND Jump high) OR Fly |  |
 | #7 | (Pass through fire AND High Jump Boots) OR Fly |  |
-| #8 | (Pound cracked blocks OR Yarn Form) AND (Grab 1 OR Bounce) |  |
+| #8 | (Pound cracked blocks OR Yarn Form) AND (Grab 1 OR Fly) |  |
 
 **Knowledge Checks changes:**
 - Coin #2 → (Rust Spray AND Pound cracked blocks) OR (Bouncy Form AND Spiked Helmet AND Fly)
@@ -738,8 +750,8 @@ Requirements to reach each of the 8 musical big coins per level. **With Enemizer
 | #1 | Flute OR Puffy Form |  |
 | #2 | Magic Seeds |  |
 | #3 | *(none)* | (Zombie Form OR Fly) |
-| #4 | (High Jump Boots AND Grab 1) OR Bounce |  |
-| #5 | Jump high |  |
+| #4 | (High Jump Boots AND Grab 1) OR Bounce | Bounce AND Yarn Form |
+| #5 | Jump high | Bounce AND Yarn Form |
 | #6 | Flute OR Puffy Form |  |
 | #7 | Jump high | Bounce |
 | #8 | Magic Seeds |  |
@@ -758,7 +770,7 @@ Requirements to reach each of the 8 musical big coins per level. **With Enemizer
 | #2 | (Pound cracked blocks OR Zombie Form) AND (Flippers 1 OR Sink in water) |  |
 | #3 | (Pound cracked blocks OR Zombie Form) AND Flippers 1 |  |
 | #4 | (Pound cracked blocks OR Zombie Form) AND Flippers 1 |  |
-| #5 | Scepter AND Flippers 1 | Flippers 2 |
+| #5 | Scepter AND Flippers 1 |  |
 | #6 | Scepter AND Flippers 1 AND ((Garlic AND Spiked Helmet) OR Puffy Form) |  |
 | #7 | Flippers 1 AND (Pound cracked blocks OR Zombie Form) AND (Shake screen OR Fly) | Fly |
 | #8 | Flippers 1 AND ((Garlic AND (Shake screen OR Bounce)) OR Fly) | Fly |
@@ -775,23 +787,26 @@ Requirements to reach each of the 8 musical big coins per level. **With Enemizer
 - Coin #7 → (Flippers 1 OR Flat Form) AND (Pound cracked blocks OR Zombie Form) AND (Shake screen OR Fly)
 - Coin #8 → (Flippers 1 OR Flat Form) AND ((Garlic AND (Shake screen OR Bounce)) OR Fly)
 
+**Easy Glitches + Knowledge Checks changes:**
+- Coin #8 → (Flippers 1 OR Flat Form OR Grab 1) AND ((Garlic AND (Shake screen OR Bounce)) OR Fly)
+
 ### Tower of Revival
 
 **Entrance:** Skull Ring Red AND Skull Ring Blue *(Combined Items: Skull Ring)*
 
 | Coin | Requirement | With Enemizer |
 |---|---|---|
-| #1 | Golden Eyes AND Garlic AND Grab 2 AND Spiked Helmet AND Statue AND High Jump Boots |  |
-| #2 | Statue AND Golden Eyes |  |
-| #3 | Statue |  |
-| #4 | Statue AND Garlic | Fat Form |
-| #5 | Glass Eyes |  |
-| #6 | Glass Eyes | Fat Form |
-| #7 | Glass Eyes | Fat Form AND Fire Form AND Zombie Form |
-| #8 | *(none)* | Fly |
+| #1 | Golden Eyes AND Garlic AND Grab 2 AND Spiked Helmet AND Statue AND High Jump Boots | Fire Form AND Flat Form AND (Fire Form OR ((Flat Form OR Bat OR Roll Form) AND Fly)) AND (Flat Form OR Roll Form OR Bat) |
+| #2 | Statue AND Golden Eyes | Fire Form AND (Fire Form OR ((Flat Form OR Bat OR Roll Form) AND Fly)) |
+| #3 | Statue | Fire Form AND (Fire Form OR ((Flat Form OR Bat OR Roll Form) AND Fly)) |
+| #4 | Statue AND Garlic | Fire Form AND Fat Form AND (Fire Form OR ((Flat Form OR Bat OR Roll Form) AND Fly)) AND Fat Form |
+| #5 | Glass Eyes | Fire Form AND (Fire Form OR ((Flat Form OR Bat OR Roll Form) AND Fly)) |
+| #6 | Glass Eyes | Fire Form AND Fat Form AND (Fire Form OR ((Flat Form OR Bat OR Roll Form) AND Fly)) AND Fat Form |
+| #7 | Glass Eyes | Fat Form AND Fire Form AND Zombie Form AND (Fire Form OR ((Flat Form OR Bat OR Roll Form) AND Fly)) AND ((Fat Form AND Zombie Form AND Fire Form) OR Garlic) |
+| #8 | *(none)* | Fire Form AND Fly AND (Fire Form OR ((Flat Form OR Bat OR Roll Form) AND Fly)) AND Fly |
 
 **Knowledge Checks changes:**
-- Coin #1 → Golden Eyes AND Statue AND Jump high AND ((Garlic AND Grab 2 AND Spiked Helmet) OR Yarn Form)
+- Coin #1 → Golden Eyes AND Garlic AND Grab 2 AND Spiked Helmet AND Statue AND Jump high
 
 ### The Steep Canyon
 
@@ -802,11 +817,11 @@ Requirements to reach each of the 8 musical big coins per level. **With Enemizer
 | #1 | *(none)* |  |
 | #2 | *(none)* |  |
 | #3 | Foot of Stone | Fly |
-| #4 | Foot of Stone AND Flippers 2 AND (Shake screen OR Fly) | Bat |
-| #5 | Foot of Stone AND Flippers 2 AND (Shake screen OR Fly) | Bat |
-| #6 | Foot of Stone AND Flippers 2 AND (Shake screen OR Fly) |  |
-| #7 | Rust Spray AND (Pound cracked blocks OR Zombie Form) | Fire Form |
-| #8 | Rust Spray AND (Pound cracked blocks OR Zombie Form) | Fire Form |
+| #4 | Foot of Stone AND Flippers 2 AND (Shake screen OR Fly) | Fly |
+| #5 | Foot of Stone AND Flippers 2 AND (Shake screen OR Fly) | Fly |
+| #6 | Foot of Stone AND Flippers 2 AND (Shake screen OR Fly) | Fly |
+| #7 | Rust Spray AND (Pound cracked blocks OR Zombie Form OR Roll Form) | (Fire Form OR Roll Form) AND (Fire Form OR Roll Form OR (Spiked Helmet AND Flat Form)) |
+| #8 | Rust Spray AND (Pound cracked blocks OR Zombie Form) | (Fire Form OR Roll Form) AND (Fire Form OR Roll Form OR (Spiked Helmet AND Flat Form)) |
 
 **Easy Glitches changes:**
 - Coin #4 → Foot of Stone AND (Flippers 2 OR Flat Form) AND (Shake screen OR Fly)
@@ -823,8 +838,8 @@ Requirements to reach each of the 8 musical big coins per level. **With Enemizer
 | #1 | Jump high | Bounce |
 | #2 | Jump high | Bounce |
 | #3 | Explosive Plunger Box |  |
-| #4 | Bounce OR (High Jump Boots AND Grab 1 AND Shake screen) | Bounce AND (Flippers 2 OR Flat Form) |
-| #5 | Spiked Helmet | Bounce |
+| #4 | Bounce OR (High Jump Boots AND Grab 1 AND Shake screen) | Bounce AND (Flippers 2 OR Flat Form OR Roll Form) |
+| #5 | Spiked Helmet | Bouncy Form |
 | #6 | Rust Spray AND Pound cracked blocks AND Grab 1 AND Jump high | Bounce |
 | #7 | Rust Spray AND Pound cracked blocks AND Grab 1 AND Jump high | Bounce |
 | #8 | Rust Spray AND Pound cracked blocks AND ((Grab 1 AND High Jump Boots) OR Bounce) | Bounce |
@@ -857,11 +872,11 @@ Requirements to reach each of the 8 musical big coins per level. **With Enemizer
 |---|---|---|
 | #1 | *(none)* |  |
 | #2 | *(none)* |  |
-| #3 | Foot of Stone AND High Jump Boots |  |
+| #3 | Foot of Stone |  |
 | #4 | Foot of Stone |  |
 | #5 | Foot of Stone |  |
 | #6 | Spiked Helmet |  |
-| #7 | Explosive Plunger Box | Fly |
+| #7 | Explosive Plunger Box OR Zombie Form | Fly |
 | #8 | Foot of Stone AND (Bounce OR (High Jump Boots AND Grab 1)) | Bounce |
 
 ### The Frigid Sea
@@ -898,16 +913,17 @@ Requirements to reach each of the 8 musical big coins per level. **With Enemizer
 |---|---|---|
 | #1 | *(none)* | (Zombie Form OR Fly) |
 | #2 | (Grab 2 AND High Jump Boots) OR Bounce | Bounce |
-| #3 | (Grab 2 AND (High Jump Boots OR Shake screen)) OR Bounce | (Bounce OR Grab 2) |
+| #3 | (Grab 2 AND (High Jump Boots OR Shake screen)) OR Bounce | Bounce |
 | #4 | (Grab 2 AND High Jump Boots) OR Bounce | Bounce |
 | #5 | Grab 2 OR Bounce | Bounce |
-| #6 | Castle Brick AND (Grab 1 OR Fly) | Bat |
-| #7 | Castle Brick AND (Grab 1 OR Fly) | Bat |
+| #6 | Castle Brick AND (Grab 1 OR Fly) |  |
+| #7 | Castle Brick AND (Grab 1 OR Fly) |  |
 | #8 | Grab 2 OR Bounce | Bounce |
 
 **Knowledge Checks changes:**
 - Coin #2 → (((Grab 1 AND Sun Medallion) OR Grab 2) AND High Jump Boots) OR Bounce
 - Coin #3 → (((Grab 1 AND Sun Medallion) OR Grab 2) AND Shake screen AND High Jump Boots) OR Bounce
+- Coin #4 → Grab 2 OR Bounce
 - Coin #6 → (Castle Brick OR Bat) AND (Grab 1 OR Fly OR Zombie Form)
 - Coin #7 → (Castle Brick OR Bat) AND (Grab 1 OR Fly OR Zombie Form)
 
@@ -917,14 +933,14 @@ Requirements to reach each of the 8 musical big coins per level. **With Enemizer
 
 | Coin | Requirement | With Enemizer |
 |---|---|---|
-| #1 | *(none)* | Fly |
-| #2 | Sun Medallion OR Jump high | Bat |
-| #3 | *(none)* | Fly |
-| #4 | *(none)* | Flat Form |
-| #5 | *(none)* | Fly |
-| #6 | (Sun Medallion OR Fly) AND Grab 1 | Bat |
-| #7 | Explosive Plunger Box AND Jump high | Fly |
-| #8 | Garlic AND ((Spiked Helmet AND Jump high) OR Fly) | Flat Form |
+| #1 | *(none)* | (Jump high OR Sun Medallion) |
+| #2 | Sun Medallion OR Jump high | (Jump high OR Sun Medallion) |
+| #3 | *(none)* | (Jump high OR Sun Medallion) AND (Jump high OR Sun Medallion OR Zombie Form) |
+| #4 | *(none)* |  |
+| #5 | *(none)* | (Jump high OR Sun Medallion) AND (Jump high OR Sun Medallion) |
+| #6 | (Sun Medallion OR Fly) AND Grab 1 |  |
+| #7 | Explosive Plunger Box AND Jump high | (Jump high OR Sun Medallion) |
+| #8 | Garlic AND ((Spiked Helmet AND Jump high) OR Fly) |  |
 
 ### The Warped Void
 
@@ -936,10 +952,14 @@ Requirements to reach each of the 8 musical big coins per level. **With Enemizer
 | #2 | Grab 1 OR Bounce | Bounce |
 | #3 | Grab 1 |  |
 | #4 | Warp Removal Apparatus AND (Grab 1 OR Fly) |  |
-| #5 | Warp Removal Apparatus | Flat Form |
+| #5 | Warp Removal Apparatus |  |
 | #6 | Warp Removal Apparatus |  |
 | #7 | (Key Cards AND Grab 1 AND High Jump Boots AND Spiked Helmet) OR (Warp Removal Apparatus AND Fly) |  |
 | #8 | (Key Cards AND Grab 1 AND High Jump Boots AND Spiked Helmet) OR (Warp Removal Apparatus AND Fly) |  |
+
+**Hard Tricks changes:**
+- Coin #7 → (Key Cards AND Grab 1 AND Spiked Helmet) OR (Warp Removal Apparatus AND Fly)
+- Coin #8 → (Key Cards AND Grab 1 AND Spiked Helmet) OR (Warp Removal Apparatus AND Fly)
 
 ### The East Crater
 
@@ -948,13 +968,17 @@ Requirements to reach each of the 8 musical big coins per level. **With Enemizer
 | Coin | Requirement | With Enemizer |
 |---|---|---|
 | #1 | *(none)* | Fly |
-| #2 | Grab 1 |  |
-| #3 | Zombie Form OR Grab 1 |  |
+| #2 | Grab 1 | Fly |
+| #3 | Zombie Form OR Grab 1 | Kill frogs |
 | #4 | Pass through fire AND Grab 1 |  |
-| #5 | (Zombie Form OR Grab 1) AND Pass through fire | Flat Form |
+| #5 | (Zombie Form OR Grab 1) AND Pass through fire | (Flat Form OR Roll Form) |
 | #6 | Grab 1 AND (Fly OR Jackhammer) |  |
-| #7 | Pick Axe AND Jump high AND (Grab 1 OR Fly) |  |
+| #7 | Pick Axe AND Jump high AND (Grab 1 OR Fly) | Jump high AND Grab 1 |
 | #8 | Pick Axe AND Grab 1 AND Jump high | Jump high |
+
+**Knowledge Checks changes:**
+- Coin #7 → Pick Axe
+- Coin #8 → Pick Axe AND Grab 1
 
 ### Forest of Fear
 
@@ -965,7 +989,7 @@ Requirements to reach each of the 8 musical big coins per level. **With Enemizer
 | #1 | High Jump Boots OR Fly |  |
 | #2 | Mystery Handle AND ((Grab 1 AND High Jump Boots) OR Puffy Form) |  |
 | #3 | Mystery Handle | Bounce |
-| #4 | Mystery Handle AND ((Grab 2 AND High Jump Boots) OR Bounce) | Bounce |
+| #4 | Mystery Handle AND (Grab 2 OR Bounce) | Bounce |
 | #5 | *(none)* |  |
 | #6 | Mystery Handle AND ((Grab 2 AND High Jump Boots) OR Bounce) |  |
 | #7 | *(none)* |  |
@@ -981,7 +1005,7 @@ What each ability shorthand actually accepts. Anything not listed below maps 1:1
 | Fly | Bat OR Puffy Form |
 | Jump high | Puffy Form OR Bouncy Form OR High Jump Boots OR Bat |
 | Kill frogs | Vampire OR Fire Form OR Fat Form OR Zombie Form OR Ice Skatin' Form |
-| Pass spikes | Zombie Form OR Vampire OR Fire Form OR Snowman Form OR Flat Form |
+| Pass spikes | Zombie Form OR Vampire OR Fire Form OR Snowman Form OR Flat Form OR Ice Skatin' Form |
 | Pass through fire | Vampire OR Zombie Form OR Fire Form OR Fire Drencher |
 | Pound cracked blocks | Overalls 1 OR Fat Form OR Snowman Form |
 | Pound large solid blocks | (Overalls 2 AND Garlic) OR Fat Form |
