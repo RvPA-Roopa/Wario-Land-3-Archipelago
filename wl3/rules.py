@@ -782,8 +782,7 @@ COIN_RULES: dict = {
         _c(_has("Mystery Handle"),
            _o(_c(has_grab_1,_has("High Jump Boots")),_has("Puffy Form"))),              #2
         _has("Mystery Handle"),                                                         #3
-        _c(_has("Mystery Handle"), _o(_c(has_grab_2, _has("High Jump Boots")),
-                                      can_bounce)),                                     #4
+        _c(_has("Mystery Handle"), _o(has_grab_2,can_bounce)),                          #4
         None,                                                                           #5
         _c(_has("Mystery Handle"), _o(_c(has_grab_2, _has("High Jump Boots")),
                                       can_bounce)),                                     #6
@@ -894,8 +893,11 @@ def set_rules(world: "WL3World") -> None:
         coin_logic["Tower of Revival"][0] = _c(has_golden_eyes, _has("Garlic"), has_grab_2, _has("Spiked Helmet"), _has("Statue"), can_jump_high)
         coin_logic["Castle of Illusions"][1] = _o(_c(_o(_c(has_grab_1,has_sun_medallion),has_grab_2),_has("High Jump Boots")), can_bounce)
         coin_logic["Castle of Illusions"][2] = _o(_c(_o(_c(has_grab_1,has_sun_medallion),has_grab_2),can_shake_screen,_has("High Jump Boots")), can_bounce)  
+        coin_logic["Castle of Illusions"][3] = _o(has_grab_2,can_bounce)
         coin_logic["Castle of Illusions"][5] = _c(_o(_has("Castle Brick"), has_vampire_2), _o(has_grab_1, can_fly, _has("Zombie Form")))
         coin_logic["Castle of Illusions"][6] = _c(_o(_has("Castle Brick"), has_vampire_2), _o(has_grab_1, can_fly, _has("Zombie Form")))        
+        coin_logic["The East Crater"][6] = _c(_has("Pick Axe"))
+        coin_logic["The East Crater"][7] = _c(_has("Pick Axe"), has_grab_1)
         boss_logic["Yellow Belly"] = _c(_o(can_pound_solid_blocks, _has("Zombie Form")), _o(has_grab_1, can_jump_high), has_overalls_1)
 
     if difficulty >= hard_logic:
@@ -914,6 +916,8 @@ def set_rules(world: "WL3World") -> None:
         coin_logic["The Pool of Rain"][6] = _c(has_flippers_1,_has("Spiked Helmet"))
         coin_logic["The Frigid Sea"][3] = _o(has_grab_1,can_bounce)      
         coin_logic["The Frigid Sea"][5] = _c(_has("Scepter"),has_flippers_1,_has("Spiked Helmet"))    
+        coin_logic["The Warped Void"][6] = _o(_c(has_key_cards, has_grab_1,_has("Spiked Helmet")),_c(_has("Warp Removal Apparatus"), can_fly))
+        coin_logic["The Warped Void"][7] = _o(_c(has_key_cards, has_grab_1,_has("Spiked Helmet")),_c(_has("Warp Removal Apparatus"), can_fly))
 
     # Override some level requirements if glitches are in logic (overwrites difficulty options, we assume glitched players can do most tricks)
     if glitches >= easy_glitches:
@@ -1151,10 +1155,13 @@ def set_rules(world: "WL3World") -> None:
         # add_tf(key_logic["The Warped Void"], blue, _c(_has("Fat Form"), _has("Flat Form"))) # uncomment if omodonmeka are randomized
         add_tf(coin_logic["The Warped Void"], 1, can_bounce)
         # add_tf(coin_logic["The Warped Void"], 4, _has("Flat Form", has_vampire_2)) # uncomment if omodonmeka are randomized
+        add_tf(key_logic["The East Crater"], green, can_fly)
         add_tf(chest_logic["The East Crater"], blue, can_jump_high) # could have been removed by knowledge check
         add_tf(key_logic["The East Crater"], blue, can_jump_high) # could have been removed by knowledge check
         add_tf(coin_logic["The East Crater"], 0, can_fly)
-        # add_tf(coin_logic["The East Crater"], 4, _has("Flat Form"), _has("Roll Form")) # uncomment if omodonmeka are randomized
+        add_tf(coin_logic["The East Crater"], 1, can_fly)
+        add_tf(coin_logic["The East Crater"], 4, _has("Flat Form"), _has("Roll Form")) # uncomment if omodonmeka are randomized
+        add_tf(coin_logic["The East Crater"], 6, _c(can_jump_high, has_grab_1)) # could have been removed by knowledge check
         add_tf(coin_logic["The East Crater"], 7, can_jump_high) # could have been removed by knowledge check
         add_tf(chest_logic["Forest of Fear"], red, can_bounce)
         add_tf(chest_logic["Forest of Fear"], blue, _has("Zombie Form"))
@@ -1195,6 +1202,7 @@ def set_rules(world: "WL3World") -> None:
             add_tf(key_logic["The Colossal Hole"], grey, can_jump_high, has_sun_medallion)
             add_tf(coin_logic["The Colossal Hole"], 2, can_jump_high, has_sun_medallion, _has("Zombie Form")) 
             add_tf(coin_logic["The Colossal Hole"], 4, can_jump_high, has_sun_medallion) 
+            add_tf(coin_logic["The East Crater"], 2, can_kill_frogs)
 
         if difficulty >= knowledge_checks:
             key_logic["The Peaceful Village"][grey] = _o(can_pound_solid_blocks, _has("Zombie Form"), _has("Garlic"))
