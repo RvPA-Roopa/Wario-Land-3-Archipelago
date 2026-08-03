@@ -50,7 +50,7 @@ ENEMIZER_BUCKET_BASES = [0,
                          ENEMIZER_BUCKET_COUNTS[0] + ENEMIZER_BUCKET_COUNTS[1] + ENEMIZER_BUCKET_COUNTS[2]]
 THROWABLE_VRAM_SLOTS_PER_BUCKET = (0, 1, 2, 3)   # one throwable slot per bucket per VRAM slot (slot 3 added 2026-07-18 when Barrel joined slot-3 throwables — needed for auto-tb rooms with no sig, e.g. wgid 0x49 Big Bridge)
 
-DUMMY_OBJECT_DATA_ADDR = 0x43c3
+DUMMY_OBJECT_DATA_ADDR = 0x441c  # sym: 19:441c DummyObjectData (was stale $43c3 → spawned Kushimushi from padded barrel slots)
 
 # Walkable data labels (enemies that double as stepping stones).
 WALKABLE_DATA_LABELS = {
