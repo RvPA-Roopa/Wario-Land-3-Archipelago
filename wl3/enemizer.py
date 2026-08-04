@@ -495,10 +495,16 @@ CRASH_CONFIRMED_GIDS = frozenset({
 # randomized — locking just slot 3 preserves the crash-critical enemy
 # while keeping variety in the other two slots.
 SLOT_LOCKED_GIDS: dict = {
-    59: {3},        # gid 59 Grasslands: lock Nobiiru@3 (crash confirmed
+    59: {3},        # gid 59 Grasslands Day: lock Nobiiru@3 (crash confirmed
                     # still present after leading-Dummy fix — retested
                     # 2026-07-18, tile-content dependency like the
                     # CRASH_CONFIRMED_GIDS pattern)
+    # Same Nobiiru@3 tile-content pattern — user hit gid 36 (Big Bridge)
+    # crash 2026-08-03, gid 68 (East Crater) and gid 90 (Grasslands Night)
+    # locked preemptively (identical [X, Y, Z, Nobiiru] shape).
+    36: {3},        # gid 36 Big Bridge (wgid 0x3e): Haridama/Webber/Bubble/Nobiiru
+    68: {3},        # gid 68 East Crater (wgid 0x54): Spearhead/Webber/Kobatto/Nobiiru
+    90: {3},        # gid 90 Grasslands Night (wgid 0x70): Spearhead/Bird/Hebarii/Nobiiru
     # gid 30 moved to CRASH_CONFIRMED_GIDS 2026-07-18 — {0} decoration-
     # slot lock alone still crashed on user retest. Whole vanilla now.
     # gid 77 (FallingSnow rooms) reverted to FORCE_VANILLA_WGIDS
@@ -531,7 +537,11 @@ SLOT_LOCKED_GIDS: dict = {
    101: {3},        # Above the Clouds day room_00: lock Spark@3 only.
                     # Slot 0 (Spearhead), slot 1 (Bird), slot 2 (Futamogu
                     # walkable-protected) all randomize normally.
-   104: {0},        # Above The Clouds: Bird@1 + Barrel@3 spawn; 0/2 deco
+   104: {0, 3},     # Above The Clouds (wgid 0x83): Spearhead@0 deco,
+                    # Bird@1 randomizes, Futamogu@2 walkable-protected,
+                    # Barrel@3 used as a PLATFORM (walkable, like the
+                    # gid 65 barrel-platform in Grasslands wRoom 0x0A) —
+                    # must stay vanilla. User confirmed 2026-08-03.
    105: {0, 1},     # Above The Clouds: BeamBot@3 spawn; 0/1/2 deco
    116: {0, 1},     # Beneath The Waves: Teruteru@3 spawn; 0/1/2 deco
     65: {3},        # Grasslands wRoom 0x0A (wgid 0x50): slot 3 (Barrel) used as
