@@ -53,7 +53,7 @@ from .options import (WL3Options, MusicBoxShuffle, KeyShuffle, CombinedItems, Bo
                       OverworldBGPaletteShuffle,
                       WarioPaletteShuffle, WarioColors,
                       DifficultyOptions, MinorGlitches,
-                      RudyHitPoints)
+                      RudyHitPoints, EntranceShuffle)
 from .regions import create_regions
 from .rom import WL3ProcedurePatch, write_tokens, KEY_COLOR_PALS, OBPAL_TREASURE_PURPLE
 from .rules import MUSIC_BOXES, set_rules
@@ -204,6 +204,7 @@ class WL3WebWorld(WebWorld):
         OptionGroup("Cosmetics", [MusicShuffle, OverworldBGPaletteShuffle,
                                   LevelBGPaletteShuffle, EnemyPaletteShuffle,
                                   WarioPaletteShuffle, WarioColors]),
+        OptionGroup("Entrance Rando (experimental)", [EntranceShuffle]),
     ]
 
 

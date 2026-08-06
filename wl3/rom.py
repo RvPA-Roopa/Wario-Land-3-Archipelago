@@ -28,15 +28,16 @@ CHEST_TABLE_OFFSET = 0x001B38   # LevelTreasureIDs_WithoutTemple (100 bytes)
 KEYSANITY_MODE_OFFSET = 0x001B9C   # KeysanityMode (1 byte: 0=vanilla, 1=simple, 2=full)
 KEY_TABLE_OFFSET = 0x001B9D   # LevelKeyPool (100 bytes; ITEM_KEY_BASE + index = vanilla)
 CHEST_KEY_PAL_OFFSET = 0x001C01   # ChestKeyPalettes (100 bytes; $FF=not key, 4-7=palette)
-KEY_PAL_OVERRIDE_OFFSET = 0x001C65   # KeyPaletteOverrides (100 bytes; $FF=default, else OBPAL)
-CHEST_KEYRING_OFFSET = 0x001CC9   # ChestKeyringTargets (100 bytes; $FF=not keyring, 1-25=target owlevel)
-KEY_KEYRING_OFFSET = 0x001D2D   # KeyKeyringTargets   (100 bytes; same format, but for key slots)
-INITIAL_TREASURES_OFFSET = 0x001D91   # InitialTreasuresBits (13 bytes; OR'd into wTreasuresCollected at new-game init)
-INITIAL_KEYS_OFFSET = 0x001D9E   # InitialKeysBits      (25 bytes; OR'd into wKeyInventory      at new-game init)
-INITIAL_TRANSFORM_UNLOCKS_OFFSET = 0x001DB7   # InitialTransformUnlocks  (1 byte; OR'd into wTransformUnlocks  at new-game init)
-INITIAL_TRANSFORM_UNLOCKS2_OFFSET = 0x001DB8   # InitialTransformUnlocks2 (1 byte; OR'd into wTransformUnlocks2 at new-game init)
-TRAP_CHEST_TABLE_OFFSET = 0x001DB9   # TrapChestTable (100 bytes; 0=no trap, 1-5=TRAP_* — offline trap dispatch from chests)
-TRAP_KEY_TABLE_OFFSET = 0x001E1D   # TrapKeyTable   (100 bytes; same encoding — offline trap dispatch from key slots)
+LEVEL_ENTRANCE_MAP_OFFSET = 0x001C65   # LevelEntranceMap (26 bytes; entries 0-24 are regular positions, entry 25 is the Temple slot; identity default)
+KEY_PAL_OVERRIDE_OFFSET = 0x001C7F   # KeyPaletteOverrides (100 bytes; $FF=default, else OBPAL) — shifted +26 by LevelEntranceMap
+CHEST_KEYRING_OFFSET = 0x001CE3   # ChestKeyringTargets (100 bytes; $FF=not keyring, 1-25=target owlevel) — shifted +26
+KEY_KEYRING_OFFSET = 0x001D47   # KeyKeyringTargets   (100 bytes; same format, but for key slots) — shifted +26
+INITIAL_TREASURES_OFFSET = 0x001DAB   # InitialTreasuresBits (13 bytes; OR'd into wTreasuresCollected at new-game init) — shifted +26
+INITIAL_KEYS_OFFSET = 0x001DB8   # InitialKeysBits      (25 bytes; OR'd into wKeyInventory      at new-game init) — shifted +26
+INITIAL_TRANSFORM_UNLOCKS_OFFSET = 0x001DD1   # InitialTransformUnlocks  (1 byte; OR'd into wTransformUnlocks  at new-game init) — shifted +26
+INITIAL_TRANSFORM_UNLOCKS2_OFFSET = 0x001DD2   # InitialTransformUnlocks2 (1 byte; OR'd into wTransformUnlocks2 at new-game init) — shifted +26
+TRAP_CHEST_TABLE_OFFSET = 0x001DD3   # TrapChestTable (100 bytes; 0=no trap, 1-5=TRAP_* — offline trap dispatch from chests) — shifted +26
+TRAP_KEY_TABLE_OFFSET = 0x001E37   # TrapKeyTable   (100 bytes; same encoding — offline trap dispatch from key slots) — shifted +26
 LEVEL_COIN_ITEMS_OFFSET          = 0x05836C   # LevelCoinItems       (200 bytes; bank $16 — display treasure ID per coin slot, $FF=plain)
 COIN_PAL_OVERRIDE_OFFSET         = 0x058434   # CoinPaletteOverrides (200 bytes; bank $16 — OBPAL per coin, $FF=default)
 TRAP_COIN_TABLE_OFFSET           = 0x0584FC   # TrapCoinTable        (200 bytes; bank $16 — 0=no trap, 1-5=TRAP_* — offline trap dispatch from coins)
@@ -905,6 +906,31 @@ def write_tokens(world: "WL3World", patch: WL3ProcedurePatch) -> None:
     music_boxes_required = int(world.options.music_boxes_required)
     patch.write_token(APTokenTypes.WRITE, MUSIC_BOXES_REQUIRED_OFFSET,
                       bytes([music_boxes_required]))
+
+    # -----------------------------------------------------------------
+    # Entrance Shuffle (EXPERIMENTAL — Phase A: ROM plumbing only).
+    #
+    # LevelEntranceMap is a 26-byte table in the home bank. Entries
+    # 0-24 correspond to overworld positions 1-25 (regular levels);
+    # entry 25 is the Temple slot (wOWLevel = 0). Each byte holds the
+    # target owlevel index:
+    #     0-24 → run the regular level with that 0-indexed owlevel
+    #     25   → route to the Temple (SelectLevel jumps to .the_temple)
+    #
+    # Default (option off) leaves the identity map already built into
+    # the ROM: entry[i] = i. Options "on" and "with_temple" replace it
+    # with a random permutation. Rules.py is NOT yet aware of the
+    # shuffle — this seed will likely not be beatable when the option
+    # is on. Phase B will thread the shuffle through rules.
+    entrance_shuffle_opt = int(world.options.entrance_shuffle)
+    if entrance_shuffle_opt != 0:
+        # Temple stays fixed for now — shuffle only the 25 regular positions.
+        # (Attempts to include the Temple broke QMark rendering; deferred
+        # until we can add it without side effects on the display path.)
+        indices = list(range(25))
+        world.random.shuffle(indices)
+        patch.write_token(APTokenTypes.WRITE, LEVEL_ENTRANCE_MAP_OFFSET,
+                          bytes(indices))
 
     # Rudy (Hidden Figure) hit points — patch the immediate byte in
     # HiddenFigureFunc's initializer so a player-chosen 1-10 controls

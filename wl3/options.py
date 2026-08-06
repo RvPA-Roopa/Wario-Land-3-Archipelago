@@ -257,6 +257,33 @@ class KeyringCount(Range):
     default     = 0
 
 
+class EntranceShuffle(Choice):
+    """EXPERIMENTAL — Shuffles which level is loaded when entering each
+    overworld position. Position N1 might load Grasslands, S1 might
+    load Out of the Woods, etc. Once you enter a position for the first
+    time, the overworld hover-name reveals the actual destination —
+    until then it shows "?????" so other levels aren't spoiled.
+
+    Off:        Vanilla behaviour, no shuffle.
+    On:         Shuffles the 25 regular levels among themselves. The
+                Temple stays at its dedicated overworld spot.
+    With Temple: Adds the Temple to the shuffle pool (26 positions).
+                The Rudy fight can end up at ANY overworld position —
+                you might walk into a random level and find yourself
+                facing the final boss. Deeply chaotic; use knowingly.
+
+    WARNING: The AP access logic doesn't yet route through the entrance
+    shuffle, so seeds generated with any non-Off value may not be
+    beatable (items may end up behind entrances they gate). Use for
+    exploration/testing only until logic support ships.
+    """
+    display_name = "Entrance Shuffle"
+    option_off         = 0
+    option_on          = 1
+    option_with_temple = 2
+    default = 0
+
+
 # ---------------------------------------------------------------------------
 # Quality of Life
 # ---------------------------------------------------------------------------
@@ -455,4 +482,6 @@ class WL3Options(PerGameCommonOptions):
     enemy_palette_shuffle:        EnemyPaletteShuffle
     wario_palette_shuffle:        WarioPaletteShuffle
     wario_colors:                 WarioColors
+    # Entrance Rando (experimental)
+    entrance_shuffle:             EntranceShuffle
 
