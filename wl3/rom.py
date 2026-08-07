@@ -262,6 +262,7 @@ KEY_PORTRAIT_TILES = _build_key_portrait()
 LEVEL_MUSIC_OFFSET               = 0x03FE40   # LevelMusic table (25 levels × 16 bytes = 400 bytes)
 MUSIC_BOXES_REQUIRED_OFFSET      = 0x080F23   # MusicBoxesRequired byte in Bank 20
 START_WITH_AXE_OFFSET            = 0x080F24   # StartWithAxeOpt byte in Bank 20
+ENTRANCE_SHUFFLE_OPT_OFFSET      = 0x080F26   # EntranceShuffleOpt byte in Bank 20 (0 = off, non-zero = on; gates the "?????" reveal system)
 START_WITH_MAG_GLASS_OFFSET      = 0x080F25   # StartWithMagnifyingGlassOpt byte in Bank 20
 HIDDEN_PASSAGES_REVEALED_OFFSET = 0x00F844  # HiddenPassagesRevealedOpt byte in Bank 1
 GOLF_PRICE_OPT_OFFSET            = 0x003A00   # GolfPriceOpt byte in Home bank
@@ -924,13 +925,26 @@ def write_tokens(world: "WL3World", patch: WL3ProcedurePatch) -> None:
     # is on. Phase B will thread the shuffle through rules.
     entrance_shuffle_opt = int(world.options.entrance_shuffle)
     if entrance_shuffle_opt != 0:
-        # Temple stays fixed for now — shuffle only the 25 regular positions.
-        # (Attempts to include the Temple broke QMark rendering; deferred
-        # until we can add it without side effects on the display path.)
-        indices = list(range(25))
+        include_temple = (entrance_shuffle_opt == 2)
+        # "on"          → pool_size 25, temple stays at N-Temple slot (identity)
+        # "with_temple" → pool_size 26, Temple mixed into the shuffle;
+        #                 any position might load the Rudy fight and any level
+        #                 might land at N-Temple.
+        pool_size = 26 if include_temple else 25
+        indices = list(range(pool_size))
         world.random.shuffle(indices)
+        # Start from identity 0..25 so unshuffled slots stay in place.
+        # In "on" mode this leaves entry[25] = 25 → temple stays put.
+        entrance_map = list(range(26))
+        for pos, target in enumerate(indices):
+            entrance_map[pos] = target
         patch.write_token(APTokenTypes.WRITE, LEVEL_ENTRANCE_MAP_OFFSET,
-                          bytes(indices))
+                          bytes(entrance_map))
+        # Flip the ROM's EntranceShuffleOpt flag so LoadLevelNameIfValid
+        # activates the "?????" reveal system. When the option is off,
+        # the flag stays 0 (default) and level labels render vanilla.
+        patch.write_token(APTokenTypes.WRITE, ENTRANCE_SHUFFLE_OPT_OFFSET,
+                          bytes([entrance_shuffle_opt]))
 
     # Rudy (Hidden Figure) hit points — patch the immediate byte in
     # HiddenFigureFunc's initializer so a player-chosen 1-10 controls
