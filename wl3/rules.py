@@ -1245,20 +1245,33 @@ def set_rules(world: "WL3World") -> None:
         if difficulty >= knowledge_checks and glitches >= easy_glitches:
             add_tf(key_logic["The Vast Plain"], red, _has("Puffy Form"), _c(_has("Spiked Helmet"),_has("Flat Form")), _has("Roll Form")) 
         
-    # Override multi-item unlock predicates when combined mode is on
-    level_rules = dict(LEVEL_RULES)
+    # Builds position-indexed predicate list, then route each level's rule
+    # through the entrance-shuffle map. LEVEL_RULES is already ordered by
+    # vanilla owlevel (0..24) so `list(LEVEL_RULES.values())[pos]` is the
+    # predicate for position. Append None at index 25 for the
+    # Temple slot (unlocked from the start).
+
+    position_predicates = list(LEVEL_RULES.values()) + [None]
     if combined:
-        level_rules.update({
-            "Desert Ruins":        unlock_w1c,
-            "The Volcano's Base":  unlock_w2c,
-            "The West Crater":     unlock_w6_e4c,
-            "The Colossal Hole":   unlock_w6_e4c,
-            "The Grasslands":      unlock_s1c,
-            "Tower of Revival":    unlock_s3c,
-            "The Steep Canyon":    unlock_s4c,
-            "The Frigid Sea":      unlock_e2c,
-            "Castle of Illusions": unlock_e3c,
-        })
+        # Combined-mode overrides apply POSITION-first
+        for pos_idx, combined_pred in (
+            (6, unlock_w1c), (7, unlock_w2c),
+            (11, unlock_w6_e4c), (12, unlock_s1c),
+            (14, unlock_s3c), (15, unlock_s4c),
+            (19, unlock_e2c), (20, unlock_e3c),
+            (21, unlock_w6_e4c),
+        ):
+            position_predicates[pos_idx] = combined_pred
+
+    # For each level (by its vanilla owlevel index), find the position
+    # that shuffles TO it and inherit that position's predicate. Identity
+    # entrance_map (when shuffle is off) reproduces vanilla LEVEL_RULES.
+    level_names = list(LEVEL_RULES.keys())
+    entrance_map = getattr(world, "entrance_map", list(range(26)))
+    level_rules = {}
+    for target_idx, level_name in enumerate(level_names):
+        pos = entrance_map.index(target_idx)
+        level_rules[level_name] = position_predicates[pos]
 
     ks = world.options.key_shuffle
     keysanity = (ks != KeyShuffle.option_vanilla)

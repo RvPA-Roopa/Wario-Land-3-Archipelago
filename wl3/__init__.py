@@ -295,6 +295,23 @@ class WL3World(World):
         if self.options.enemizer:
             self.options.transformation_shuffle.value = 1
 
+        # Entrance Shuffle — precompute the permutation here so set_rules
+        # can route each level's access requirement through the shuffled
+        # positions. Stored on self so both write_tokens (rom.py) and
+        # set_rules (rules.py) read the same map without re-shuffling.
+        #   entrance_map[pos] = target_owlevel_idx
+        #   - pos 0..24 = regular overworld positions
+        #   - pos 25    = Temple slot (only mixed into pool under with_temple)
+        #   - target 0..24 = load that regular level; target 25 = load Temple
+        self.entrance_map = list(range(26))
+        opt = int(self.options.entrance_shuffle)
+        if opt != 0:
+            pool_size = 26 if opt == 2 else 25   # with_temple mixes Temple
+            indices = list(range(pool_size))
+            self.random.shuffle(indices)
+            for pos, target in enumerate(indices):
+                self.entrance_map[pos] = target
+
 
     def create_items(self) -> None:
         items: List[WL3Item] = []

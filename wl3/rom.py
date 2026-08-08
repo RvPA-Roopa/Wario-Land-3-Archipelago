@@ -923,23 +923,14 @@ def write_tokens(world: "WL3World", patch: WL3ProcedurePatch) -> None:
     # with a random permutation. Rules.py is NOT yet aware of the
     # shuffle — this seed will likely not be beatable when the option
     # is on. Phase B will thread the shuffle through rules.
+    # Entrance Shuffle — read the permutation generated in generate_early
+    # (world.entrance_map) so rules.py and the ROM patch are in perfect
+    # sync. Both the LevelEntranceMap bytes and the option flag get
+    # patched only when the option is non-off.
     entrance_shuffle_opt = int(world.options.entrance_shuffle)
     if entrance_shuffle_opt != 0:
-        include_temple = (entrance_shuffle_opt == 2)
-        # "on"          → pool_size 25, temple stays at N-Temple slot (identity)
-        # "with_temple" → pool_size 26, Temple mixed into the shuffle;
-        #                 any position might load the Rudy fight and any level
-        #                 might land at N-Temple.
-        pool_size = 26 if include_temple else 25
-        indices = list(range(pool_size))
-        world.random.shuffle(indices)
-        # Start from identity 0..25 so unshuffled slots stay in place.
-        # In "on" mode this leaves entry[25] = 25 → temple stays put.
-        entrance_map = list(range(26))
-        for pos, target in enumerate(indices):
-            entrance_map[pos] = target
         patch.write_token(APTokenTypes.WRITE, LEVEL_ENTRANCE_MAP_OFFSET,
-                          bytes(entrance_map))
+                          bytes(world.entrance_map))
         # Flip the ROM's EntranceShuffleOpt flag so LoadLevelNameIfValid
         # activates the "?????" reveal system. When the option is off,
         # the flag stays 0 (default) and level labels render vanilla.
