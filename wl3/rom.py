@@ -1115,7 +1115,7 @@ def write_tokens(world: "WL3World", patch: WL3ProcedurePatch) -> None:
         # smashed the treasure requirements table for owlevels 22-25
         # (Colossal Hole, Warped Void, East Crater, Forest of Fear),
         # forcing every high-level variant to fail its treasure check.
-        TITLE_PALETTE_OFFSETS = [0x51ba, 0x51fa, 0x523a, 0x527a]
+        TITLE_PALETTE_OFFSETS = [0x5209, 0x5249, 0x5289, 0x52c9]
         for offset in TITLE_PALETTE_OFFSETS:
             palette_params["overworld_bg"].append({
                 "offset": offset,
