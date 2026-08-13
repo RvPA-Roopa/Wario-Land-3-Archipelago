@@ -24,20 +24,20 @@ from worlds.Files import APProcedurePatch, APPatchExtension, APTokenMixin, APTok
 if TYPE_CHECKING:
     from . import WL3World
 
-CHEST_TABLE_OFFSET = 0x001B38   # LevelTreasureIDs_WithoutTemple (100 bytes)
-KEYSANITY_MODE_OFFSET = 0x001B9C   # KeysanityMode (1 byte: 0=vanilla, 1=simple, 2=full)
-KEY_TABLE_OFFSET = 0x001B9D   # LevelKeyPool (100 bytes; ITEM_KEY_BASE + index = vanilla)
-CHEST_KEY_PAL_OFFSET = 0x001C01   # ChestKeyPalettes (100 bytes; $FF=not key, 4-7=palette)
-LEVEL_ENTRANCE_MAP_OFFSET = 0x001C65   # LevelEntranceMap (26 bytes; entries 0-24 are regular positions, entry 25 is the Temple slot; identity default)
-KEY_PAL_OVERRIDE_OFFSET = 0x001C7F   # KeyPaletteOverrides (100 bytes; $FF=default, else OBPAL) — shifted +26 by LevelEntranceMap
-CHEST_KEYRING_OFFSET = 0x001CE3   # ChestKeyringTargets (100 bytes; $FF=not keyring, 1-25=target owlevel) — shifted +26
-KEY_KEYRING_OFFSET = 0x001D47   # KeyKeyringTargets   (100 bytes; same format, but for key slots) — shifted +26
-INITIAL_TREASURES_OFFSET = 0x001DAB   # InitialTreasuresBits (13 bytes; OR'd into wTreasuresCollected at new-game init) — shifted +26
-INITIAL_KEYS_OFFSET = 0x001DB8   # InitialKeysBits      (25 bytes; OR'd into wKeyInventory      at new-game init) — shifted +26
-INITIAL_TRANSFORM_UNLOCKS_OFFSET = 0x001DD1   # InitialTransformUnlocks  (1 byte; OR'd into wTransformUnlocks  at new-game init) — shifted +26
-INITIAL_TRANSFORM_UNLOCKS2_OFFSET = 0x001DD2   # InitialTransformUnlocks2 (1 byte; OR'd into wTransformUnlocks2 at new-game init) — shifted +26
-TRAP_CHEST_TABLE_OFFSET = 0x001DD3   # TrapChestTable (100 bytes; 0=no trap, 1-5=TRAP_* — offline trap dispatch from chests) — shifted +26
-TRAP_KEY_TABLE_OFFSET = 0x001E37   # TrapKeyTable   (100 bytes; same encoding — offline trap dispatch from key slots) — shifted +26
+CHEST_TABLE_OFFSET = 0x001B16   # LevelTreasureIDs_WithoutTemple (100 bytes)
+KEYSANITY_MODE_OFFSET = 0x001B7A   # KeysanityMode (1 byte: 0=vanilla, 1=simple, 2=full)
+KEY_TABLE_OFFSET = 0x001B7B   # LevelKeyPool (100 bytes; ITEM_KEY_BASE + index = vanilla)
+CHEST_KEY_PAL_OFFSET = 0x001BDF   # ChestKeyPalettes (100 bytes; $FF=not key, 4-7=palette)
+LEVEL_ENTRANCE_MAP_OFFSET = 0x001C43   # LevelEntranceMap (26 bytes; entries 0-24 are regular positions, entry 25 is the Temple slot; identity default)
+KEY_PAL_OVERRIDE_OFFSET = 0x001C5D   # KeyPaletteOverrides (100 bytes; $FF=default, else OBPAL) — shifted +26 by LevelEntranceMap
+CHEST_KEYRING_OFFSET = 0x001CC1   # ChestKeyringTargets (100 bytes; $FF=not keyring, 1-25=target owlevel) — shifted +26
+KEY_KEYRING_OFFSET = 0x001D25   # KeyKeyringTargets   (100 bytes; same format, but for key slots) — shifted +26
+INITIAL_TREASURES_OFFSET = 0x001D89   # InitialTreasuresBits (13 bytes; OR'd into wTreasuresCollected at new-game init) — shifted +26
+INITIAL_KEYS_OFFSET = 0x001D96   # InitialKeysBits      (25 bytes; OR'd into wKeyInventory      at new-game init) — shifted +26
+INITIAL_TRANSFORM_UNLOCKS_OFFSET = 0x001DAF   # InitialTransformUnlocks  (1 byte; OR'd into wTransformUnlocks  at new-game init) — shifted +26
+INITIAL_TRANSFORM_UNLOCKS2_OFFSET = 0x001DB0   # InitialTransformUnlocks2 (1 byte; OR'd into wTransformUnlocks2 at new-game init) — shifted +26
+TRAP_CHEST_TABLE_OFFSET = 0x001DB1   # TrapChestTable (100 bytes; 0=no trap, 1-5=TRAP_* — offline trap dispatch from chests) — shifted +26
+TRAP_KEY_TABLE_OFFSET = 0x001E15   # TrapKeyTable   (100 bytes; same encoding — offline trap dispatch from key slots) — shifted +26
 LEVEL_COIN_ITEMS_OFFSET          = 0x05836C   # LevelCoinItems       (200 bytes; bank $16 — display treasure ID per coin slot, $FF=plain)
 COIN_PAL_OVERRIDE_OFFSET         = 0x058434   # CoinPaletteOverrides (200 bytes; bank $16 — OBPAL per coin, $FF=default)
 TRAP_COIN_TABLE_OFFSET           = 0x0584FC   # TrapCoinTable        (200 bytes; bank $16 — 0=no trap, 1-5=TRAP_* — offline trap dispatch from coins)
