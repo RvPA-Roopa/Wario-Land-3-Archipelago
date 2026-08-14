@@ -139,6 +139,8 @@ ADDR_BOSS_DEFEATED_FLAGS_WRAM = 0x14D3  # wBossDefeatedFlags (bank 1 0xD4D3) —
                                         # 10 bits (0-9) for the 10 boss-defeat checks.
 ADDR_ITEM_POPUP_TIMER_WRAM = 0x14D5     # wItemPopupTimer     (bank 1 0xD4D5) — 1 byte.
 ADDR_ITEM_POPUP_TILE_ID_WRAM = 0x14D6   # wItemPopupTileID    (bank 1 0xD4D6) — 1 byte.
+ADDR_SHOP_SLOTS_BOUGHT_WRAM = 0x14DE    # wShopSlotsBought    (bank 1 0xD4DE) — 2 bytes,
+                                        # 10 bits (0-9) for the 10 shop slot checks.
                                         # Client writes TileID FIRST, then Timer, so ROM
                                         # never observes stale (id, timer) mid-write.
 BOSS_DEFEAT_POPUP_FRAMES = 180          # ~3 seconds at 60fps
@@ -178,6 +180,8 @@ KEY_BASE_LOC_ID  = 7_770_400        # AP location ID = KEY_BASE_LOC_ID + (owleve
 COIN_BASE_LOC_ID = 7_770_500        # AP location ID = COIN_BASE_LOC_ID + (owlevel-1)*8 + coin_idx
 BOSS_DEFEAT_BASE_LOC_ID = 7_770_700  # AP loc ID = BOSS_DEFEAT_BASE_LOC_ID + boss_index (0-9)
 NUM_BOSSES = 10                     # matches ROM wBossDefeatedFlags bit count
+SHOP_BASE_LOC_ID = 7_770_800        # AP loc ID = SHOP_BASE_LOC_ID + shop_slot_index (0-9)
+NUM_SHOP_SLOTS = 10                 # matches ROM wShopSlotsBought bit count
 KEY_BASE_ITEM_ID = BASE_ITEM_ID + 300  # 7_770_300
 KEYRING_BASE_ITEM_ID = BASE_ITEM_ID + 700  # 7_770_700 (one per level, owlevel-1 offset)
 
@@ -264,6 +268,7 @@ class WL3Client(BizHawkClient):
         self._prev_coin_flags:  bytes = bytes(25)
         self._prev_boss_defeated_flags: bytes = bytes(2)
         self._prev_opened_chests: bytes = bytes(13)
+        self._prev_shop_slots_bought: bytes = bytes(2)
         self._checked_locs:     set   = set()
         # Timestamps (time.time()) of when each loc_id was locally
         # detected as checked (chest/key/boss). Used by the
@@ -702,6 +707,34 @@ class WL3Client(BizHawkClient):
             except RequestFailedError:
                 pass
 
+        # ---- Detect shop purchases: new bits set in wShopSlotsBought ----
+        # 2 bytes, 10 bits (0-9) for the 10 shop AP location checks. ROM shop
+        # UI sets the bit when the player confirms a purchase; idempotent per
+        # bit. Gated on slot_data["shopsanity"] so old seeds without the
+        # option don't send unknown-location checks.
+        if bool((ctx.slot_data or {}).get("shopsanity", False)):
+            try:
+                ss_raw = (await read(ctx.bizhawk_ctx, [(ADDR_SHOP_SLOTS_BOUGHT_WRAM, 2, "WRAM")]))[0]
+                for byte_idx in range(2):
+                    new_bits = (~self._prev_shop_slots_bought[byte_idx]) & ss_raw[byte_idx]
+                    if new_bits == 0:
+                        continue
+                    for bit in range(8):
+                        if new_bits & (1 << bit):
+                            slot_idx = byte_idx * 8 + bit
+                            if slot_idx >= NUM_SHOP_SLOTS:
+                                continue
+                            loc_id = SHOP_BASE_LOC_ID + slot_idx
+                            if loc_id not in self._checked_locs:
+                                self._checked_locs.add(loc_id)
+                                self._recent_check_times[loc_id] = time.time()
+                                logger.debug(f"[WL3] Shop purchase — slot {slot_idx+1} -> AP loc {loc_id}")
+                                await self._show_sent_msg(ctx, loc_id)
+                                await self._trigger_item_popup(ctx, loc_id)
+                self._prev_shop_slots_bought = bytes(ss_raw)
+            except RequestFailedError:
+                pass
+
         # ---- Detect chest pickups via wOpenedChests (non-stop mode fallback) ----
         # In non-stop mode wLevelEndScreen is cleared same-frame, so the rising-edge
         # check above may miss it. Also detect newly set bits in wOpenedChests.
@@ -797,6 +830,12 @@ class WL3Client(BizHawkClient):
                         if bd_raw[boss_idx >> 3] & (1 << (boss_idx & 7)):
                             self._checked_locs.add(BOSS_DEFEAT_BASE_LOC_ID + boss_idx)
                     self._prev_boss_defeated_flags = bytes(bd_raw)
+                if bool((ctx.slot_data or {}).get("shopsanity", False)):
+                    ss_raw = (await read(ctx.bizhawk_ctx, [(ADDR_SHOP_SLOTS_BOUGHT_WRAM, 2, "WRAM")]))[0]
+                    for slot_idx in range(NUM_SHOP_SLOTS):
+                        if ss_raw[slot_idx >> 3] & (1 << (slot_idx & 7)):
+                            self._checked_locs.add(SHOP_BASE_LOC_ID + slot_idx)
+                    self._prev_shop_slots_bought = bytes(ss_raw)
                 self._seeded_from_wram = True
                 logger.debug(f"[WL3] Seeded {len(self._checked_locs)} offline checks from wOpenedChests + wCoinFlags")
                 self._levels_shown = False  # trigger auto-print after items are processed

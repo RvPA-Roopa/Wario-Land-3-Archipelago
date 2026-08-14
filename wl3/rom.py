@@ -260,10 +260,11 @@ def _build_key_portrait() -> bytes:
 
 KEY_PORTRAIT_TILES = _build_key_portrait()
 LEVEL_MUSIC_OFFSET               = 0x03FE40   # LevelMusic table (25 levels × 16 bytes = 400 bytes)
-MUSIC_BOXES_REQUIRED_OFFSET      = 0x080F23   # MusicBoxesRequired byte in Bank 20
-START_WITH_AXE_OFFSET            = 0x080F24   # StartWithAxeOpt byte in Bank 20
-ENTRANCE_SHUFFLE_OPT_OFFSET      = 0x080F26   # EntranceShuffleOpt byte in Bank 20 (0 = off, non-zero = on; gates the "?????" reveal system)
-START_WITH_MAG_GLASS_OFFSET      = 0x080F25   # StartWithMagnifyingGlassOpt byte in Bank 20
+MUSIC_BOXES_REQUIRED_OFFSET      = 0x080F5C   # MusicBoxesRequired byte in Bank 20
+START_WITH_AXE_OFFSET            = 0x080F5D   # StartWithAxeOpt byte in Bank 20
+ENTRANCE_SHUFFLE_OPT_OFFSET      = 0x080F5F   # EntranceShuffleOpt byte in Bank 20 (0 = off, non-zero = on; gates the "?????" reveal system)
+SHOP_PRICES_OFFSET               = 0x080F60   # ShopPrices table in Bank 20 (10 slots × 2 bytes BCD = 20 bytes)
+START_WITH_MAG_GLASS_OFFSET      = 0x080F5E   # StartWithMagnifyingGlassOpt byte in Bank 20
 HIDDEN_PASSAGES_REVEALED_OFFSET = 0x00F844  # HiddenPassagesRevealedOpt byte in Bank 1
 GOLF_PRICE_OPT_OFFSET            = 0x003A00   # GolfPriceOpt byte in Home bank
 GOLF_BUILDING_OPT_OFFSET         = 0x003A01   # GolfBuildingOpt byte in Home bank
@@ -936,6 +937,38 @@ def write_tokens(world: "WL3World", patch: WL3ProcedurePatch) -> None:
         # the flag stays 0 (default) and level labels render vanilla.
         patch.write_token(APTokenTypes.WRITE, ENTRANCE_SHUFFLE_OPT_OFFSET,
                           bytes([entrance_shuffle_opt]))
+
+    # -----------------------------------------------------------------
+    # Shopsanity — 10 slot prices, 2 bytes each (2-byte BCD, big-endian
+    # matching wNumCoins layout). All ladders cap at 500 coins so the
+    # player always has spending headroom under the 999-coin wallet cap
+    # (MAX_NUM_COINS = $999). A price at the wallet cap would mean the
+    # player can never buy AND save for the next slot at the same time.
+    #   cheap:     20, 40, ..., 200          (20×N — affordable early)
+    #   normal:    50, 100, ..., 500         (50×N — default)
+    #   expensive: 100, 150, ..., 500, 500   (steep front-load, top-slot
+    #              flat at cap so it feels like a splurge)
+    def _to_bcd_2byte(v: int) -> tuple[int, int]:
+        v = max(0, min(999, int(v)))
+        hi = v // 100                          # 0-9
+        mid = (v // 10) % 10                   # 0-9
+        lo = v % 10                            # 0-9
+        return hi, (mid << 4) | lo             # matches wNumCoins big-endian BCD
+
+    shop_tier = int(world.options.shop_price_tier)
+    if shop_tier == 0:   # cheap
+        price_ladder = [20 * (i + 1) for i in range(10)]
+    elif shop_tier == 2: # expensive
+        price_ladder = [100, 150, 200, 250, 300, 350, 400, 450, 500, 500]
+    else:                # normal (default)
+        price_ladder = [50 * (i + 1) for i in range(10)]
+
+    price_bytes = bytearray()
+    for coins in price_ladder:
+        hi, lo = _to_bcd_2byte(coins)
+        price_bytes.append(hi)
+        price_bytes.append(lo)
+    patch.write_token(APTokenTypes.WRITE, SHOP_PRICES_OFFSET, bytes(price_bytes))
 
     # Rudy (Hidden Figure) hit points — patch the immediate byte in
     # HiddenFigureFunc's initializer so a player-chosen 1-10 controls

@@ -212,3 +212,38 @@ def _build_boss_defeat_location_table() -> Dict[str, WL3BossDefeatLocationData]:
 BOSS_DEFEAT_LOCATION_TABLE: Dict[str, WL3BossDefeatLocationData] = _build_boss_defeat_location_table()
 assert len(BOSS_DEFEAT_LOCATION_TABLE) == 10, \
     f"Expected 10 boss defeat locations, got {len(BOSS_DEFEAT_LOCATION_TABLE)}"
+
+
+# --------------------- Shopsanity ---------------------
+# 10 shop AP locations. Player purchases each slot with in-game coins at the
+# old-man shop NPC (new OW tile east of the hidden temple). ROM sets bit N
+# in wShopSlotsBought on purchase; client detects the rising edge.
+SHOP_BASE_LOC_ID = 7_770_800
+NUM_SHOP_SLOTS = 10
+
+
+class WL3ShopLocationData(NamedTuple):
+    ap_id: int
+    slot_index: int        # 0-9, matches wShopSlotsBought bit index
+    region: str
+
+
+def _build_shop_location_table() -> Dict[str, WL3ShopLocationData]:
+    table: Dict[str, WL3ShopLocationData] = {}
+    for slot_index in range(NUM_SHOP_SLOTS):
+        loc_name = f"Shop Slot {slot_index + 1}"
+        table[loc_name] = WL3ShopLocationData(
+            ap_id=SHOP_BASE_LOC_ID + slot_index,
+            slot_index=slot_index,
+            # Grouped under NORTH region because the shop NPC tile lives on
+            # the OW North map (east of the Hidden Temple). All OW compass
+            # regions are unconditionally reachable, so this only affects
+            # hint/spoiler grouping.
+            region="North",
+        )
+    return table
+
+
+SHOP_LOCATION_TABLE: Dict[str, WL3ShopLocationData] = _build_shop_location_table()
+assert len(SHOP_LOCATION_TABLE) == NUM_SHOP_SLOTS, \
+    f"Expected {NUM_SHOP_SLOTS} shop locations, got {len(SHOP_LOCATION_TABLE)}"

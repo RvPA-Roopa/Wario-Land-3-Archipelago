@@ -42,7 +42,7 @@ from .items import (
     TREASURE_TABLE,
     WL3ItemData,
 )
-from .locations import BASE_LOC_ID, BOSS_DEFEAT_LOCATION_TABLE, COIN_LOCATION_TABLE, KEY_LOCATION_TABLE, LOCATION_TABLE, WL3LocationData
+from .locations import BASE_LOC_ID, BOSS_DEFEAT_LOCATION_TABLE, COIN_LOCATION_TABLE, KEY_LOCATION_TABLE, LOCATION_TABLE, SHOP_LOCATION_TABLE, WL3LocationData
 from Options import OptionGroup
 from .options import (WL3Options, MusicBoxShuffle, KeyShuffle, CombinedItems, BossDefeats,
                       GolfPrice, GolfBuilding, IHateGolf,
@@ -53,7 +53,8 @@ from .options import (WL3Options, MusicBoxShuffle, KeyShuffle, CombinedItems, Bo
                       OverworldBGPaletteShuffle,
                       WarioPaletteShuffle, WarioColors,
                       DifficultyOptions, MinorGlitches,
-                      RudyHitPoints, EntranceShuffle)
+                      RudyHitPoints, EntranceShuffle,
+                      Shopsanity, ShopPriceTier)
 from .regions import create_regions
 from .rom import WL3ProcedurePatch, write_tokens, KEY_COLOR_PALS, OBPAL_TREASURE_PURPLE
 from .rules import MUSIC_BOXES, set_rules
@@ -205,6 +206,7 @@ class WL3WebWorld(WebWorld):
                                   LevelBGPaletteShuffle, EnemyPaletteShuffle,
                                   WarioPaletteShuffle, WarioColors]),
         OptionGroup("Entrance Rando (experimental)", [EntranceShuffle]),
+        OptionGroup("Shopsanity", [Shopsanity, ShopPriceTier]),
     ]
 
 
@@ -245,6 +247,9 @@ class WL3World(World):
         # 10 boss-defeat locations, added to the multiworld only when the
         # boss_defeats option is enabled (see create_regions).
         **{name: data.ap_id for name, data in BOSS_DEFEAT_LOCATION_TABLE.items()},
+        # 10 shopsanity locations, added to the multiworld only when the
+        # shopsanity option is enabled (see create_regions).
+        **{name: data.ap_id for name, data in SHOP_LOCATION_TABLE.items()},
     }
 
     item_name_groups = {
@@ -428,6 +433,13 @@ class WL3World(World):
         # Same pattern as bigcoinsanity — random filler, trap candidates
         # downstream.
         if self.options.boss_defeats:
+            for _ in range(10):
+                items.append(self.create_item(self.random.choice(filler_items)))
+
+        # Shopsanity: 10 new shop-slot locations need 10 new filler items.
+        # Same pattern as boss_defeats — random filler, trap candidates
+        # downstream. Players buy each slot with in-game coins.
+        if self.options.shopsanity:
             for _ in range(10):
                 items.append(self.create_item(self.random.choice(filler_items)))
 
@@ -1040,6 +1052,8 @@ class WL3World(World):
             all_locs = {**all_locs, **COIN_LOCATION_TABLE}
         if self.options.boss_defeats:
             all_locs = {**all_locs, **BOSS_DEFEAT_LOCATION_TABLE}
+        if self.options.shopsanity:
+            all_locs = {**all_locs, **SHOP_LOCATION_TABLE}
         for loc_name, loc_data in all_locs.items():
             loc = self.multiworld.get_location(loc_name, self.player)
             if loc.item is not None:
@@ -1072,6 +1086,8 @@ class WL3World(World):
             "golf_par_hint_frequency": int(self.options.golf_par_hint_frequency),
             "in_game_messages":        int(self.options.in_game_messages),
             "boss_defeats":            bool(self.options.boss_defeats),
+            "shopsanity":              bool(self.options.shopsanity),
+            "shop_price_tier":         int(self.options.shop_price_tier),
             "progression_item_names":  progression_names,
             "loc_items":               loc_items,
         }

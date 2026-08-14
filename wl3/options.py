@@ -316,6 +316,30 @@ class BossDefeats(Toggle):
     default = 0
 
 
+class Shopsanity(Toggle):
+    """Adds 10 shop locations to the pool, purchasable with in-game coins from
+    the old-man shopkeeper (new overworld tile east of the hidden temple).
+    Gives coins a purpose beyond golf. Prices scale with slot number and the
+    shop_price_tier option."""
+    display_name = "Shopsanity"
+    default = 0
+
+
+class ShopPriceTier(Choice):
+    """Sets the price ladder for the 10 shop slots. Ignored when shopsanity is off.
+    All tiers cap at 500 coins per slot so you always have spending headroom under
+    the 999-coin wallet limit.
+
+    cheap:     20, 40, ..., 200 coins across slots 1-10 (affordable early).
+    normal:    50, 100, 150, ..., 500 coins (default).
+    expensive: 100, 150, ..., 500 with top slot flat at 500 (steep front-load)."""
+    display_name = "Shop Price Tier"
+    option_cheap = 0
+    option_normal = 1
+    option_expensive = 2
+    default = 1
+
+
 class Enemizer(Choice):
     """This setting should be stable. If you do run into a crash, 
     use the command "/vanillaenemies" and it'll change the room your in
@@ -468,6 +492,8 @@ class WL3Options(PerGameCommonOptions):
     in_game_messages:             InGameMessages
     bigcoinsanity:                BigCoinsanity
     boss_defeats:                 BossDefeats
+    shopsanity:                   Shopsanity
+    shop_price_tier:              ShopPriceTier
     enemizer:                     Enemizer
     hidden_passages_revealed:     HiddenPassagesRevealed
     trap_fill:                    TrapFill

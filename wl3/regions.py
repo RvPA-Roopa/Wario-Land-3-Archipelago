@@ -10,7 +10,7 @@ from typing import TYPE_CHECKING, Dict
 
 from BaseClasses import Location, Region
 
-from .locations import BOSS_DEFEAT_LOCATION_TABLE, COIN_LOCATION_TABLE, KEY_LOCATION_TABLE, LOCATION_TABLE
+from .locations import BOSS_DEFEAT_LOCATION_TABLE, COIN_LOCATION_TABLE, KEY_LOCATION_TABLE, LOCATION_TABLE, SHOP_LOCATION_TABLE
 
 if TYPE_CHECKING:
     from . import WL3World
@@ -69,6 +69,15 @@ def create_regions(world: "WL3World") -> Dict[str, Region]:
     # (rules.py sets identical access to the boss-chest location).
     if world.options.boss_defeats:
         for loc_name, loc_data in BOSS_DEFEAT_LOCATION_TABLE.items():
+            region = all_regions[loc_data.region]
+            loc = Location(player, loc_name, loc_data.ap_id, region)
+            region.locations.append(loc)
+
+    # Shopsanity: 10 shop-slot locations, gated by the shopsanity option.
+    # Always reachable — old-man shop tile lives on OW North (east of the
+    # Hidden Temple), no unlock item required. Player pays with in-game coins.
+    if world.options.shopsanity:
+        for loc_name, loc_data in SHOP_LOCATION_TABLE.items():
             region = all_regions[loc_data.region]
             loc = Location(player, loc_name, loc_data.ap_id, region)
             region.locations.append(loc)
