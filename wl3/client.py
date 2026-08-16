@@ -150,7 +150,21 @@ ADDR_COIN_FLAGS_WRAM = 0x14A2  # wCoinFlags (bank 1 0xD4A2) — 25 bytes,
                                        # set on coinsanity pickup.
 ADDR_STATE_WRAM = 0x009B  # wState (WRAM0 0xC09B) — main state machine
                                        # value; 0x0C = ST_GAME_OVER (DeathLink trigger).
+ADDR_NUM_COINS_WRAM = 0x0456  # wNumCoins (WRAM0 0xC456) — 2 bytes, big-endian BCD
+                              # (hi = hundreds, lo = tens|ones). Max $9 $99 = 999.
 COINS_PER_LEVEL = 8
+
+# Crest treasure ID → coin count to grant when the AP client delivers one.
+# The ROM's chest/coin/boss grant path (GrantTreasureByID) already handles
+# offline crest pickups, but server-delivered crests (!getitem, precollected,
+# foreign-player sends, hint rewards) never touch that path — client must
+# grant the coins itself. Values match src/engine/clear/treasure_clear.asm.
+CREST_COIN_GRANTS = {
+    0x51:  1,   # CLUBS_CREST     — 1 coin
+    0x52: 50,   # SPADES_CREST    — 50 coins
+    0x53: 20,   # HEART_CREST     — 20 coins
+    0x54:  5,   # DIAMONDS_CREST  — 5 coins
+}
 
 # AP item ID → ROM trap ID (TRAP_* constants in wario_constants.asm).
 # Single source of truth lives in items.TRAP_AP_IDS (also used by
@@ -956,6 +970,19 @@ class WL3Client(BizHawkClient):
                            and net_item.location > 0)
             await self._grant_item(ctx, ap_id,
                                    silent=is_catch_up or is_own_trap)
+
+            # Crest coin grant. ROM's GrantTreasureByID already granted coins
+            # if this crest came from a real check I opened locally (chest,
+            # coin, or boss). For any OTHER source — foreign player sent it,
+            # !getitem, precollected start, hint reward — the ROM path never
+            # ran, so client must grant. Same "own real check" guard as the
+            # skip_msg / trap-dedup logic below.
+            crest_tid = ap_id - BASE_ITEM_ID
+            if crest_tid in CREST_COIN_GRANTS:
+                own_real_check = (net_item.player == ctx.slot
+                                  and getattr(net_item, "location", 0) > 0)
+                if not own_real_check:
+                    await self._add_coins(ctx, CREST_COIN_GRANTS[crest_tid])
             try:
                 # Apply the in-game-messages filter for incoming items.
                 # Mode 0 (Everything): always show.
@@ -2167,6 +2194,34 @@ class WL3Client(BizHawkClient):
         """Set wTreasuresCollected bit. The ROM derives all ability vars from
         wTreasuresCollected every frame via UpdateAbilitiesFromTreasures."""
         await self._set_treasure_bit(ctx, tid)
+
+    async def _add_coins(self, ctx: "BizHawkClientContext", amount: int) -> None:
+        """Add `amount` to wNumCoins (BCD, big-endian, capped at 999).
+
+        Mirrors GiveCoins in treasure_transition.asm — used for AP-delivered
+        crests where the ROM's chest/coin/boss grant path never runs.
+        """
+        try:
+            data = (await read(ctx.bizhawk_ctx,
+                               [(ADDR_NUM_COINS_WRAM, 2, "WRAM")]))[0]
+            hi, lo = data[0], data[1]
+            # Decode BCD → integer (hi = hundreds; lo = tens|ones nibbles).
+            cur = ((hi >> 4) * 1000 + (hi & 0xF) * 100
+                   + (lo >> 4) * 10 + (lo & 0xF))
+            new = min(cur + amount, 999)
+            # Encode integer → BCD (2-byte, big-endian). Only hi's low nibble
+            # is used in practice since we cap at 999.
+            hundreds = new // 100
+            rem      = new % 100
+            tens     = rem // 10
+            ones     = rem % 10
+            new_hi = hundreds & 0x0F           # single digit
+            new_lo = ((tens & 0xF) << 4) | (ones & 0xF)
+            await write(ctx.bizhawk_ctx,
+                        [(ADDR_NUM_COINS_WRAM, bytes([new_hi, new_lo]), "WRAM")])
+            logger.debug(f"[WL3] +{amount} coins → wNumCoins {cur}→{new}")
+        except RequestFailedError as e:
+            logger.warning(f"[WL3] Failed to add {amount} coins: {e}")
 
     async def _set_key_bit(self, ctx: "BizHawkClientContext", owlevel_minus1: int, color: int) -> None:
         """Set a key bit in wKeyInventory (WRAMX bank 2) — key item received from AP."""

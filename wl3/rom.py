@@ -260,11 +260,12 @@ def _build_key_portrait() -> bytes:
 
 KEY_PORTRAIT_TILES = _build_key_portrait()
 LEVEL_MUSIC_OFFSET               = 0x03FE40   # LevelMusic table (25 levels × 16 bytes = 400 bytes)
-MUSIC_BOXES_REQUIRED_OFFSET      = 0x080F5C   # MusicBoxesRequired byte in Bank 20
-START_WITH_AXE_OFFSET            = 0x080F5D   # StartWithAxeOpt byte in Bank 20
-ENTRANCE_SHUFFLE_OPT_OFFSET      = 0x080F5F   # EntranceShuffleOpt byte in Bank 20 (0 = off, non-zero = on; gates the "?????" reveal system)
-SHOP_PRICES_OFFSET               = 0x080F60   # ShopPrices table in Bank 20 (10 slots × 2 bytes BCD = 20 bytes)
-START_WITH_MAG_GLASS_OFFSET      = 0x080F5E   # StartWithMagnifyingGlassOpt byte in Bank 20
+MUSIC_BOXES_REQUIRED_OFFSET      = 0x080F62   # MusicBoxesRequired byte in Bank 20
+START_WITH_AXE_OFFSET            = 0x080F63   # StartWithAxeOpt byte in Bank 20
+START_WITH_MAG_GLASS_OFFSET      = 0x080F64   # StartWithMagnifyingGlassOpt byte in Bank 20
+ENTRANCE_SHUFFLE_OPT_OFFSET      = 0x080F65   # EntranceShuffleOpt byte in Bank 20 (0 = off, non-zero = on; gates the "?????" reveal system)
+SHOP_PRICES_OFFSET               = 0x080F66   # ShopPrices table in Bank 20 (10 slots × 2 bytes BCD = 20 bytes)
+SHOPSANITY_MODE_OFFSET           = 0x080F7A   # ShopsanityModeOpt byte in Bank 20 (0 = off → shop tile hidden; 1 = on)
 HIDDEN_PASSAGES_REVEALED_OFFSET = 0x00F844  # HiddenPassagesRevealedOpt byte in Bank 1
 GOLF_PRICE_OPT_OFFSET            = 0x003A00   # GolfPriceOpt byte in Home bank
 GOLF_BUILDING_OPT_OFFSET         = 0x003A01   # GolfBuildingOpt byte in Home bank
@@ -969,6 +970,14 @@ def write_tokens(world: "WL3World", patch: WL3ProcedurePatch) -> None:
         price_bytes.append(hi)
         price_bytes.append(lo)
     patch.write_token(APTokenTypes.WRITE, SHOP_PRICES_OFFSET, bytes(price_bytes))
+
+    # Shopsanity mode flag. Off → InitNorthMapSide skips the shop tile +
+    # traversal arrows so the tile is invisible AND unwalkable, and
+    # .shop_entry silently no-ops as defense. On → shop is drawn and
+    # A-press launches the shop scene.
+    shopsanity_on = 1 if bool(world.options.shopsanity) else 0
+    patch.write_token(APTokenTypes.WRITE, SHOPSANITY_MODE_OFFSET,
+                      bytes([shopsanity_on]))
 
     # Rudy (Hidden Figure) hit points — patch the immediate byte in
     # HiddenFigureFunc's initializer so a player-chosen 1-10 controls
