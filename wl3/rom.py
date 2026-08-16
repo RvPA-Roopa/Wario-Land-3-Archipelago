@@ -101,9 +101,9 @@ FORM_ICON_FLIPPED_EXTRACTIONS = (
     # motion trail is on the right (matches rolling right visually).
     ("sprite_raw", 0x025000, 2048, 112, 32, TREASURE_ROLL_TILE_OFFSET),
 )
-TREASURE_DUMMY_PAL_OFFSET        = 0x09B065   # TreasureOBPals[$65] — 1 byte (palette index)
+TREASURE_DUMMY_PAL_OFFSET        = 0x09B462   # TreasureOBPals[$65] — 1 byte (palette index)
 TREASURE_GFX_BASE                = 0x098000   # TreasureGfx[0] — each entry 64 bytes
-TREASURE_PAL_BASE                = 0x09B000   # TreasureOBPals[0] — each entry 1 byte
+TREASURE_PAL_BASE                = 0x09B3FD   # TreasureOBPals[0] — each entry 1 byte
 KEY_COLOR_PALS = [0x08, 0x05, 0x06, 0x07]    # OBPAL: grey, red, green, blue
 OBPAL_TREASURE_PURPLE = 0x09                  # Combined unlock items
 
@@ -260,13 +260,15 @@ def _build_key_portrait() -> bytes:
 
 KEY_PORTRAIT_TILES = _build_key_portrait()
 LEVEL_MUSIC_OFFSET               = 0x03FE40   # LevelMusic table (25 levels × 16 bytes = 400 bytes)
-MUSIC_BOXES_REQUIRED_OFFSET      = 0x080F62   # MusicBoxesRequired byte in Bank 20
-START_WITH_AXE_OFFSET            = 0x080F63   # StartWithAxeOpt byte in Bank 20
-START_WITH_MAG_GLASS_OFFSET      = 0x080F64   # StartWithMagnifyingGlassOpt byte in Bank 20
-ENTRANCE_SHUFFLE_OPT_OFFSET      = 0x080F65   # EntranceShuffleOpt byte in Bank 20 (0 = off, non-zero = on; gates the "?????" reveal system)
-SHOP_PRICES_OFFSET               = 0x080F66   # ShopPrices table in Bank 20 (10 slots × 2 bytes BCD = 20 bytes)
-SHOPSANITY_MODE_OFFSET           = 0x080F7A   # ShopsanityModeOpt byte in Bank 20 (0 = off → shop tile hidden; 1 = on)
-HIDDEN_PASSAGES_REVEALED_OFFSET = 0x00F844  # HiddenPassagesRevealedOpt byte in Bank 1
+MUSIC_BOXES_REQUIRED_OFFSET      = 0x080F81   # MusicBoxesRequired byte in Bank 20
+START_WITH_AXE_OFFSET            = 0x080F82   # StartWithAxeOpt byte in Bank 20
+START_WITH_MAG_GLASS_OFFSET      = 0x080F83   # StartWithMagnifyingGlassOpt byte in Bank 20
+ENTRANCE_SHUFFLE_OPT_OFFSET      = 0x080F84   # EntranceShuffleOpt byte in Bank 20 (0 = off, non-zero = on; gates the "?????" reveal system)
+SHOP_PRICES_OFFSET               = 0x080F85   # ShopPrices table in Bank 20 (10 slots × 2 bytes BCD = 20 bytes)
+SHOPSANITY_MODE_OFFSET           = 0x080F99   # ShopsanityModeOpt byte in Bank 20 (0 = off → shop tile hidden; 1 = on)
+SHOP_SLOT_ITEMS_OFFSET           = 0x080F9A   # ShopSlotItems table in Bank 20 (10 bytes = treasure ID per shop slot)
+SHOP_SLOT_NAMES_OFFSET           = 0x080FA4   # ShopSlotNamesTable in Bank 20 (10 slots × 20 bytes = 200 bytes, msg-font encoded)
+HIDDEN_PASSAGES_REVEALED_OFFSET = 0x00FF80  # HiddenPassagesRevealedOpt byte in Bank 3
 GOLF_PRICE_OPT_OFFSET            = 0x003A00   # GolfPriceOpt byte in Home bank
 GOLF_BUILDING_OPT_OFFSET         = 0x003A01   # GolfBuildingOpt byte in Home bank
 DISABLE_PAL_CYCLE_OFFSET         = 0x003A02   # DisablePalCycleOpt byte in Home bank
@@ -283,7 +285,7 @@ GOLF_PAR_HINT_FREQ_OFFSET        = 0x003A6E   # GolfParHintFrequencyOpt byte in 
 # Vanilla source is `$04`; the AP option lets the player pick 1-10 without
 # touching the ROM layout. Re-audit if hidden_figure.asm changes above line 15.
 RUDY_HIT_POINTS_OFFSET           = 0x04CC94
-TREASURE_OB_PALS_OFFSET          = 0x09B000   # TreasureOBPals table (indexed by treasure ID)
+TREASURE_OB_PALS_OFFSET          = 0x09B3FD   # TreasureOBPals table (indexed by treasure ID)
 
 # Combined-item companion chains: collecting key → also grant value (chained).
 # Tusk Set: $24→$25→$26 (two hops).
@@ -978,6 +980,177 @@ def write_tokens(world: "WL3World", patch: WL3ProcedurePatch) -> None:
     shopsanity_on = 1 if bool(world.options.shopsanity) else 0
     patch.write_token(APTokenTypes.WRITE, SHOPSANITY_MODE_OFFSET,
                       bytes([shopsanity_on]))
+
+    # Shopsanity per-slot treasure IDs — 10 bytes, one per shop slot.
+    # ROM reads this at shop init to render a treasure icon per window.
+    # Mirrors _build_chest_assignments: own placement → real treasure id;
+    # foreign item → gem placeholder ($4E-$50) based on classification;
+    # anything else (key, keyring, form, trap) → sensible fallback icon.
+    # Default $65 (TREASURE_DUMMY) when shopsanity is off or the location
+    # somehow has no item.
+    from BaseClasses import ItemClassification
+    from .locations import SHOP_LOCATION_TABLE, NUM_SHOP_SLOTS
+    from .items import ITEM_TABLE, KEY_ITEM_TABLE
+
+    # msg-font charmap (matches src/data/msg_names.asm): A..Z = 0..25,
+    # 0..9 = 26..35, space = 36, dash = 37, ampersand = 38, period = 39.
+    # Encode a plain ASCII string as msg-font bytes for the shop name
+    # cache. Anything not in this map falls back to space so we never
+    # write a byte that would decode as garbage in the sprite tile.
+    def _encode_msgfont(text: str) -> bytes:
+        out = bytearray()
+        for ch in text.upper():
+            if 'A' <= ch <= 'Z':
+                out.append(ord(ch) - ord('A'))
+            elif '0' <= ch <= '9':
+                out.append(0x1A + (ord(ch) - ord('0')))
+            elif ch == ' ':
+                out.append(0x24)
+            elif ch == '-':
+                out.append(0x25)
+            elif ch == '&':
+                out.append(0x26)
+            elif ch == '.':
+                out.append(0x27)
+            else:
+                out.append(0x24)   # unknown → blank
+        return bytes(out)
+
+    # Compact per-item shop labels. Anything not listed here uses its
+    # AP item name, uppercased and truncated to 10 chars.
+    _SHOP_SHORT = {
+        "Yellow Music Box":  "YEL M. BOX",
+        "Blue Music Box":    "BLU M. BOX",
+        "Green Music Box":   "GRN M. BOX",
+        "Red Music Box":     "RED M. BOX",
+        "Gold Music Box":    "GLD M. BOX",
+        "Progressive Flippers": "FLIPPERS",
+        "Progressive Grab":  "GRAB",
+        "Progressive Overalls": "OVERALLS",
+        "High Jump Boots":   "BOOTS",
+        "Spiked Helmet":     "HELMET",
+        "Magical Flame":     "FLAME",
+        "Warp Compact":      "COMPACT",
+        "Treasure Map":      "MAP",
+        "Yellow Book":       "Y. BOOK",
+        "Blue Tablet":       "B. TABLET",
+        "Green Tablet":      "G. TABLET",
+        "Ornamental Fan":    "FAN",
+        "Top Half of Scroll": "HALFSCROLL",
+        "Bottom Half of Scroll": "HALFSCROLL",
+        "Green Flower":      "FLOWER",
+        "Blue Chemical":     "CHEMICAL",
+        "Red Chemical":      "CHEMICAL",
+        "Sapling of Growth": "SAPLING",
+        "Night Vision Scope": "NIGHTSCOPE",
+        "Electric Fan Propeller": "PROPELLER",
+        "Explosive Plunger Box": "PLUNGER",
+        "Castle Brick":      "BRICK",
+        "Warp Removal Apparatus": "W. REMOVAL",
+        "Red Key Card":      "KEY CARD",
+        "Blue Key Card":     "KEY CARD",
+        "Mystery Handle":    "HANDLE",
+        "Demon's Blood":     "DMON BLOOD",
+        "Fighter Mannequin": "MANNEQUIN",
+        "Truck Wheel":       "WHEEL",
+        "Foot of Stone":     "STONE FOOT",
+        "Golden Right Eye":  "GOLDEN EYE",
+        "Golden Left Eye":   "GOLDEN EYE",
+        "Right Glass Eye":   "GLASS EYE",
+        "Left Glass Eye":    "GLASS EYE",
+        "Sun Medallion Top": "MEDALLION",
+        "Sun Medallion Bottom": "MEDALLION",
+        "Eye of the Storm":  "STORM EYE",
+        "Magic Seeds":       "MAGIC SEED",
+        "Full Moon Gong":    "GONG",
+        "Day or Night Spell": "DAY SPELL",
+        "Earthen Figure":    "FIGURE",
+        "Magnifying Glass":  "MAGNIFIER",
+        "Fire Drencher":     "DRENCHER",
+        "Red Crayon":        "CRAYON",
+        "Brown Crayon":      "CRAYON",
+        "Yellow Crayon":     "CRAYON",
+        "Green Crayon":      "CRAYON",
+        "Cyan Crayon":       "CRAYON",
+        "Blue Crayon":       "CRAYON",
+        "Pink Crayon":       "CRAYON",
+    }
+
+    # Map owlevel index (1-25) → 2-char abbreviation for shop labels
+    # (level_id + 1..6/7 within its map side, matches the LevelAbbrevs
+    # table used by the in-level KEYRING message).
+    _OW_ABBREV = (
+        ["N1", "N2", "N3", "N4", "N5", "N6"] +
+        ["W1", "W2", "W3", "W4", "W5", "W6"] +
+        ["S1", "S2", "S3", "S4", "S5", "S6"] +
+        ["E1", "E2", "E3", "E4", "E5", "E6", "E7"]
+    )
+    _COLOR_ABBREV = ["GRY", "RED", "GRN", "BLU"]  # color_index 0..3
+
+    def _shop_label_for(item) -> str:
+        """Return the ≤10-char label to display in the shop for `item`
+        (from the same player). Falls back to the item name uppercased +
+        truncated when we don't have a canonical short form."""
+        # Level keys aren't in ITEM_TABLE — format as "N1 GRY KEY".
+        key_data = KEY_ITEM_TABLE.get(item.name)
+        if key_data is not None:
+            ow = _OW_ABBREV[key_data.owlevel - 1]
+            col = _COLOR_ABBREV[key_data.color_index]
+            return f"{ow} {col} KEY"
+        short = _SHOP_SHORT.get(item.name)
+        if short is not None:
+            return short
+        # Anything else: uppercase + truncate. Better than a blank slot.
+        return item.name.upper()[:10]
+
+    def _center_pad(label: str) -> bytes:
+        """Encode label to msg-font, then centre-pad to 20 bytes with
+        msg-font spaces. Matches how TreasureMsgNames entries are laid
+        out so the ROM's draw code can share code paths."""
+        label = label[:20]
+        enc = _encode_msgfont(label)
+        pad = 20 - len(enc)
+        lead = pad // 2
+        trail = pad - lead
+        return b'\x24' * lead + enc + b'\x24' * trail
+
+    shop_slot_items = bytearray([0x65] * NUM_SHOP_SLOTS)
+    shop_slot_names = bytearray(b'\x24' * (NUM_SHOP_SLOTS * 20))
+    if shopsanity_on:
+        for loc_name, loc_data in SHOP_LOCATION_TABLE.items():
+            try:
+                location = world.multiworld.get_location(loc_name, world.player)
+            except KeyError:
+                continue
+            item = location.item
+            if item is None:
+                continue
+            slot = loc_data.slot_index
+            if item.player != world.player:
+                cls = item.classification
+                if cls in (ItemClassification.progression,
+                           ItemClassification.progression_skip_balancing):
+                    shop_slot_items[slot] = 0x4E  # Red Gem
+                elif cls == ItemClassification.useful:
+                    shop_slot_items[slot] = 0x50  # Blue Gem
+                else:
+                    shop_slot_items[slot] = 0x4F  # Green Gem
+                shop_slot_names[slot*20:slot*20+20] = _center_pad("AP ITEM")
+                continue
+            # Same-player item — pick tile ID + short label.
+            item_data = ITEM_TABLE.get(item.name)
+            if item_data is not None:
+                tid = item_data.tier_ids[0]
+                shop_slot_items[slot] = tid if 0 < tid < 0x65 else 0x65
+            else:
+                # Not in ITEM_TABLE — likely a level key. $65 = DUMMY
+                # renders the key portrait art.
+                shop_slot_items[slot] = 0x65
+            shop_slot_names[slot*20:slot*20+20] = _center_pad(_shop_label_for(item))
+    patch.write_token(APTokenTypes.WRITE, SHOP_SLOT_ITEMS_OFFSET,
+                      bytes(shop_slot_items))
+    patch.write_token(APTokenTypes.WRITE, SHOP_SLOT_NAMES_OFFSET,
+                      bytes(shop_slot_names))
 
     # Rudy (Hidden Figure) hit points — patch the immediate byte in
     # HiddenFigureFunc's initializer so a player-chosen 1-10 controls

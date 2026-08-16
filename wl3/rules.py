@@ -1368,6 +1368,19 @@ def set_rules(world: "WL3World") -> None:
                 mw.get_location(loc_name, player).access_rule = \
                     lambda state, r=boss_rule: r(state, player)
 
+    # Shop item filter — reject crests
+    if world.options.shopsanity:
+        from .locations import SHOP_LOCATION_TABLE
+        _CREST_NAMES = {
+            "Clubs Crest (1 Coin)",
+            "Spades Crest (50 Coins)",
+            "Heart Crest (20 Coins)",
+            "Diamonds Crest (5 Coins)",
+        }
+        for loc_name in SHOP_LOCATION_TABLE:
+            mw.get_location(loc_name, player).item_rule = \
+                lambda item, crests=_CREST_NAMES: item.name not in crests
+
     # Victory condition — collect required music boxes then beat the final boss.
     # Progressive Overalls x1 and Progressive Grab x2 are always required for the temple fight.
     required = int(world.options.music_boxes_required)
