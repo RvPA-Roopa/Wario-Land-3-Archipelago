@@ -1019,6 +1019,23 @@ def write_tokens(world: "WL3World", patch: WL3ProcedurePatch) -> None:
     # Compact per-item shop labels. Anything not listed here uses its
     # AP item name, uppercased and truncated to 10 chars.
     _SHOP_SHORT = {
+        # Combined items (when combined_items option is on, the AP pool
+        # uses the combined name — NOT the component names below).
+        "Lantern & Magical Flame": "LTRN+FLAME",
+        "Gears":                   "GEARS",
+        "Blue Book & Magic Wand":  "BOOK+WAND",
+        "Trident & Yellow Book":   "TRD+BOOK",
+        "Skull Ring":              "SKULL RING",
+        "Tablets":                 "TABLETS",
+        "Scroll":                  "SCROLL",
+        "Tusk Set":                "TUSK SET",
+        "Storm Pouch":             "STRM POUCH",
+        "Chemicals":               "CHEMICALS",
+        "Glass Eyes":              "GLASS EYES",
+        "Golden Eyes":             "GOLDEN EYE",
+        "Sun Medallion":           "MEDALLION",
+        "Key Cards":               "KEY CARDS",
+        # Uncombined (one component per AP item)
         "Yellow Music Box":  "YEL M. BOX",
         "Blue Music Box":    "BLU M. BOX",
         "Green Music Box":   "GRN M. BOX",
