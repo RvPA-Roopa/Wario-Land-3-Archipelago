@@ -107,6 +107,18 @@ TREASURE_PAL_BASE                = 0x09B3FD   # TreasureOBPals[0] — each entry
 KEY_COLOR_PALS = [0x08, 0x05, 0x06, 0x07]    # OBPAL: grey, red, green, blue
 OBPAL_TREASURE_PURPLE = 0x09                  # Combined unlock items
 
+# Coin-bundle items (repurposed crest treasure IDs $51-$54). Each gets its
+# own OBPAL_TREASURE_* so wherever the coin bundle lands (chest / key /
+# coin slot) the ROM's palette override system renders the sprite in the
+# denomination's intended color instead of whatever the slot's default
+# palette holds (usually the slot color = grey/red/green/blue).
+COIN_BUNDLE_PALS = {
+    "1 Coin":    0x04,   # OBPAL_TREASURE_YELLOW
+    "10 Coins":  0x05,   # OBPAL_TREASURE_RED
+    "25 Coins":  0x06,   # OBPAL_TREASURE_GREEN
+    "50 Coins":  0x08,   # OBPAL_TREASURE_GREY (silver)
+}
+
 def _wl3_rle_decompress(src: bytes) -> bytes:
     """WL3 run-length encoding. Command byte: high bit set = copy N literal
     bytes; clear = repeat next byte N times. Terminates on end of input."""
@@ -765,6 +777,10 @@ def write_tokens(world: "WL3World", patch: WL3ProcedurePatch) -> None:
         # but explicit override ensures non-stop chest pop-up renders correctly).
         elif item.name in KEYRING_ITEM_TABLE:
             pal_overrides[idx] = OBPAL_TREASURE_YELLOW
+        # Coin bundles → force the denomination's own palette so the sprite
+        # renders in its intended color regardless of which slot it lands at.
+        elif item.name in COIN_BUNDLE_PALS:
+            pal_overrides[idx] = COIN_BUNDLE_PALS[item.name]
     patch.write_token(APTokenTypes.WRITE, CHEST_KEY_PAL_OFFSET, bytes(pal_overrides))
 
     # Per-key palette overrides: in full keysanity, combined items at key
@@ -783,6 +799,9 @@ def write_tokens(world: "WL3World", patch: WL3ProcedurePatch) -> None:
             if item.name in COMBINED_ITEMS:
                 idx = (loc_data.owlevel - 1) * 4 + loc_data.color_index
                 key_pal_overrides[idx] = OBPAL_TREASURE_PURPLE
+            elif item.name in COIN_BUNDLE_PALS:
+                idx = (loc_data.owlevel - 1) * 4 + loc_data.color_index
+                key_pal_overrides[idx] = COIN_BUNDLE_PALS[item.name]
     patch.write_token(APTokenTypes.WRITE, KEY_PAL_OVERRIDE_OFFSET, bytes(key_pal_overrides))
 
     # --- chest + key slot keyring targets ---
@@ -1091,6 +1110,11 @@ def write_tokens(world: "WL3World", patch: WL3ProcedurePatch) -> None:
         "Cyan Crayon":       "CRAYON",
         "Blue Crayon":       "CRAYON",
         "Pink Crayon":       "CRAYON",
+        # Coin bundles (repurposed crest slots)
+        "1 Coin":    "1 COIN",
+        "10 Coins":  "10 COINS",
+        "25 Coins":  "25 COINS",
+        "50 Coins":  "50 COINS",
     }
 
     # Map owlevel index (1-25) → 2-char abbreviation for shop labels

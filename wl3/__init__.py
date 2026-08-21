@@ -321,7 +321,7 @@ class WL3World(World):
     def create_items(self) -> None:
         items: List[WL3Item] = []
         skip_items = set()
-        filler_items = ["Clubs Crest (1 Coin)"] * 15 + ["Diamonds Crest (5 Coins)"] * 10 + ["Heart Crest (20 Coins)"] * 5 + ["Spades Crest (50 Coins)"]
+        filler_items = ["1 Coin"] * 15 + ["50 Coins"] * 10 + ["25 Coins"] * 5 + ["10 Coins"]
 
         if self.options.start_with_axe:
             skip_items.add("Axe")
@@ -386,8 +386,8 @@ class WL3World(World):
                 for _ in range(count):
                     items.append(self.create_item(name))
 
-        # Fill remaining slots to reach 100 using crests. Use the existing crest
-        # distribution tables as the starting point, then top up with Clubs Crests.
+        # Fill remaining slots to reach 100 using coin bundles. Use the existing
+        # bundle distribution tables as the starting point, then top up with 1-coin fillers.
         if combine_overworld:
             base_counts = dict(CREST_EXTRA_COUNTS)
         else:
@@ -952,6 +952,12 @@ class WL3World(World):
                     coin_items[idx] = self.random.choice(TRAP_DISGUISE_POOL)
                 else:
                     coin_items[idx] = item_data.tier_ids[0]
+                    # Coin bundle → force denomination palette so the sprite
+                    # renders in yellow/red/green/silver regardless of the
+                    # coin slot's default palette.
+                    from .rom import COIN_BUNDLE_PALS
+                    if item.name in COIN_BUNDLE_PALS:
+                        coin_pals[idx] = COIN_BUNDLE_PALS[item.name]
 
         return list(coin_items), list(coin_pals)
 

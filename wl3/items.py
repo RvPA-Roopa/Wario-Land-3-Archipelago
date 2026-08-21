@@ -269,11 +269,14 @@ _REGULAR: List[tuple] = [
     (0x4b, ItemClassification.filler,      "Telephone"),
     (0x4c, ItemClassification.filler,      "Crown"),
     (0x4d, ItemClassification.useful,      "Day or Night Spell"),
-    # Crests: ROM grants coins when collected (SetTreasureTransitionParam)
-    (0x51, ItemClassification.filler,      "Clubs Crest (1 Coin)"),
-    (0x52, ItemClassification.filler,      "Spades Crest (50 Coins)"),
-    (0x53, ItemClassification.filler,      "Heart Crest (20 Coins)"),
-    (0x54, ItemClassification.filler,      "Diamonds Crest (5 Coins)"),
+    # Crest slots repurposed as coin bundles. Each of the 4 ex-crest
+    # treasure IDs grants a fixed coin amount when collected — the
+    # sprite is the vanilla regular coin, tinted per denomination via
+    # TreasureOBPals ($51 yellow, $52 red, $53 green, $54 silver/grey).
+    (0x51, ItemClassification.filler,      "1 Coin"),
+    (0x52, ItemClassification.filler,      "10 Coins"),
+    (0x53, ItemClassification.filler,      "25 Coins"),
+    (0x54, ItemClassification.filler,      "50 Coins"),
     (0x55, ItemClassification.filler,      "Earthen Figure"),
     (0x56, ItemClassification.filler,      "Saber"),
     (0x57, ItemClassification.filler,      "Goblet"),
@@ -455,22 +458,22 @@ PROGRESSIVE_COUNTS: Dict[str, int] = {
     name: len(data.tier_ids) for name, data in PROGRESSIVE_ITEMS.items()
 }
 
-# Extra crest copies for default mode to fill the 3 slots freed by removing gems.
-# TREASURE_TABLE already has 1 copy of each crest; these are additional copies.
+# Extra coin-bundle copies for default mode to fill the 3 slots freed by removing gems.
+# TREASURE_TABLE already has 1 copy of each; these are additional copies.
 CREST_DEFAULT_EXTRA_COUNTS: Dict[str, int] = {
-    "Clubs Crest (1 Coin)":     1,  # 1+1 = 2 total
-    "Heart Crest (20 Coins)":   1,  # 1+1 = 2 total
-    "Diamonds Crest (5 Coins)": 1,  # 1+1 = 2 total
+    "1 Coin":     1,  # 1+1 = 2 total
+    "25 Coins":   1,  # 1+1 = 2 total
+    "50 Coins":   1,  # 1+1 = 2 total
 }
 
-# Extra crest copies added when CombinedLevelUnlocks is on, to fill the 12 freed slots.
-# TREASURE_TABLE already has 1 copy of each crest; these are additional copies.
-# ROM grants coins for crest treasure IDs via SetTreasureTransitionParam.
+# Extra coin-bundle copies added when CombinedLevelUnlocks is on, to fill the 12 freed slots.
+# TREASURE_TABLE already has 1 copy of each; these are additional copies.
+# ROM grants coins for these treasure IDs via GrantTreasureByID's crest branches.
 CREST_EXTRA_COUNTS: Dict[str, int] = {
-    "Clubs Crest (1 Coin)":     6,  # 1+6 = 7 total
-    "Spades Crest (50 Coins)":  1,  # 1+1 = 2 total
-    "Heart Crest (20 Coins)":   2,  # 1+2 = 3 total
-    "Diamonds Crest (5 Coins)": 3,  # 1+3 = 4 total
+    "1 Coin":     6,  # 1+6 = 7 total
+    "10 Coins":   1,  # 1+1 = 2 total
+    "25 Coins":   2,  # 1+2 = 3 total
+    "50 Coins":   3,  # 1+3 = 4 total
 }
 
 # Pool sizes:
