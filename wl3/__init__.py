@@ -44,7 +44,7 @@ from .items import (
 )
 from .locations import BASE_LOC_ID, BOSS_DEFEAT_LOCATION_TABLE, COIN_LOCATION_TABLE, KEY_LOCATION_TABLE, LOCATION_TABLE, SHOP_LOCATION_TABLE, WL3LocationData
 from Options import OptionGroup
-from .options import (WL3Options, MusicBoxShuffle, KeyShuffle, CombinedItems, BossDefeats,
+from .options import (WL3Options, KeyShuffle, CombinedItems, BossDefeats,
                       GolfPrice, GolfBuilding, IHateGolf,
                       GolfParHints, GolfParHintFrequency,
                       StartWithMagnifyingGlass, ReduceFlashing, NonStopChests, InGameMessages,
@@ -205,7 +205,7 @@ class WL3WebWorld(WebWorld):
         OptionGroup("Cosmetics", [MusicShuffle, OverworldBGPaletteShuffle,
                                   LevelBGPaletteShuffle, EnemyPaletteShuffle,
                                   WarioPaletteShuffle, WarioColors]),
-        OptionGroup("Entrance Rando (experimental)", [EntranceShuffle]),
+        # OptionGroup("Entrance Rando (experimental)", [EntranceShuffle]),
         OptionGroup("Shopsanity", [Shopsanity, ShopPriceTier]),
     ]
 
@@ -308,14 +308,17 @@ class WL3World(World):
         #   - pos 0..24 = regular overworld positions
         #   - pos 25    = Temple slot (only mixed into pool under with_temple)
         #   - target 0..24 = load that regular level; target 25 = load Temple
+        # Entrance shuffle temporarily disabled — always identity map.
+        # Re-enable by restoring the block below and re-adding
+        # entrance_shuffle to WL3Options in options.py.
         self.entrance_map = list(range(26))
-        opt = int(self.options.entrance_shuffle)
-        if opt != 0:
-            pool_size = 26 if opt == 2 else 25   # with_temple mixes Temple
-            indices = list(range(pool_size))
-            self.random.shuffle(indices)
-            for pos, target in enumerate(indices):
-                self.entrance_map[pos] = target
+        # opt = int(self.options.entrance_shuffle)
+        # if opt != 0:
+        #     pool_size = 26 if opt == 2 else 25   # with_temple mixes Temple
+        #     indices = list(range(pool_size))
+        #     self.random.shuffle(indices)
+        #     for pos, target in enumerate(indices):
+        #         self.entrance_map[pos] = target
 
 
     def create_items(self) -> None:
@@ -542,29 +545,9 @@ class WL3World(World):
             self.multiworld.itempool += self._local_filler_items
             self._local_filler_items = []
 
-        mode = self.options.music_box_shuffle
-        if mode == MusicBoxShuffle.option_any_boss:
-            if self.options.boss_defeats:
-                allowed = BOSS_DEFEAT_LOCATIONS
-            else:
-                allowed = BOSS_CHEST_LOCATIONS
-
-            pool = self.multiworld.itempool
-            music_box_items = [item for item in pool
-                               if item.player == self.player and item.name in MUSIC_BOXES]
-            for item in music_box_items:
-                pool.remove(item)
-
-            target_locs = [self.multiworld.get_location(name, self.player) for name in allowed]
-
-            fill_restrictive(
-                self.multiworld,
-                self.multiworld.get_all_state(use_cache=False),
-                target_locs,
-                music_box_items,
-                single_player_placement=True,
-                lock=True,
-            )
+        # (MusicBoxShuffle option removed — music boxes now always shuffle
+        # anywhere in the multiworld. If per-boss placement is needed later
+        # it can be re-added as a sub-option.)
 
         # Bootstrap only runs when starting access is tight. The chain places
         # 5 specific items at 5 specific grey chests, which makes early-game

@@ -74,26 +74,28 @@ class RudyHitPoints(Range):
     default     = 4
 
 
+class VictoryCondition(Choice):
+    """Which condition unlocks the Rudy fight.
+    Music Boxes: collect enough music boxes (see Music Boxes Required).
+    Bosses: defeat enough bosses (see Bosses Required).
+    Only the selected condition is active — the other's required count
+    is ignored.
+    """
+    display_name = "Victory Condition"
+    option_music_boxes = 0
+    option_bosses      = 1
+    default = 0
+
+
 class MusicBoxesRequired(Range):
-    """How many of the 5 music boxes Wario must collect before
-    the Temple opens and the final boss becomes accessible.
-    Set to 0 to make the Temple always open.
+    """How many of the 5 music boxes Wario must collect before the
+    Temple opens and Rudy becomes accessible. Only active when Victory
+    Condition = Music Boxes. Set to 0 to make Temple always open.
     """
     display_name = "Music Boxes Required"
     range_start = 0
     range_end   = 5
     default     = 5
-
-
-class MusicBoxShuffle(Choice):
-    """Controls where the 5 music boxes can be placed.
-    Any Boss: music boxes can be placed at any of the 10 boss chest locations.
-    Anywhere: music boxes can be placed anywhere in the multiworld (default).
-    """
-    display_name = "Music Box Shuffle"
-    option_any_boss = 0
-    option_anywhere = 1
-    default = 1
 
 
 class GolfPrice(Choice):
@@ -257,6 +259,17 @@ class KeyringCount(Range):
     default     = 0
 
 
+class BossesRequired(Range):
+    """Number of Bosses needed to access the Rudy fight. 
+    Bossess include: Wormwould, Shoot, Scowler, Jamano, Anonster, 
+    Wolfenboss, Pesce, Muddee, Doll Boy, and Yellow Belly.
+    """
+    display_name = "Bosses Required"
+    range_start = 0
+    range_end   = 10
+    default     = 0
+
+
 class EntranceShuffle(Choice):
     """EXPERIMENTAL — Shuffles which level is loaded when entering each
     overworld position. Position N1 might load Grasslands, S1 might
@@ -309,8 +322,9 @@ class BigCoinsanity(Toggle):
 
 
 class BossDefeats(Toggle):
-    """Adds 10 boss-defeat locations to the pool (one check per boss
-    the first time it's defeated). Bosses: Wormwould, Shoot, Scowler, Jamano,
+    """Adds 10 boss-defeat locations to the pool. This option can be used
+     with "Bosses_Required" as well 
+     Bosses include: Wormwould, Shoot, Scowler, Jamano,
     Anonster, Wolfenboss, Pesce, Muddee, Doll Boy, Yellow Belly."""
     display_name = "Boss Defeats"
     default = 0
@@ -467,6 +481,11 @@ class InGameMessages(Choice):
 
 @dataclass
 class WL3Options(PerGameCommonOptions):
+    # Victory condition — chose the wincon type first, then set its
+    # threshold in the matching *_required option.
+    victory_condition:            VictoryCondition
+    music_boxes_required:         MusicBoxesRequired
+    bosses_required:              BossesRequired
     # Logic Options
     difficulty:                   DifficultyOptions
     minor_glitches:               MinorGlitches
@@ -477,8 +496,6 @@ class WL3Options(PerGameCommonOptions):
     key_shuffle:                  KeyShuffle
     keyring_count:                KeyringCount
     transformation_shuffle:       TransformationShuffle
-    music_boxes_required:         MusicBoxesRequired
-    music_box_shuffle:            MusicBoxShuffle
     rudy_hit_points:              RudyHitPoints
     # QoL
     golf_price:                   GolfPrice
@@ -508,6 +525,9 @@ class WL3Options(PerGameCommonOptions):
     enemy_palette_shuffle:        EnemyPaletteShuffle
     wario_palette_shuffle:        WarioPaletteShuffle
     wario_colors:                 WarioColors
-    # Entrance Rando (experimental)
-    entrance_shuffle:             EntranceShuffle
+    # NOTE: entrance_shuffle option is intentionally NOT wired here —
+    # temporarily disabled while its access-logic gap is worked on. The
+    # EntranceShuffle class + all ROM-side shuffle code stay intact so
+    # this can be re-enabled by adding the line back.
+    # entrance_shuffle:             EntranceShuffle
 

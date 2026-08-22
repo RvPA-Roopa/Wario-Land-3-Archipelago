@@ -1382,11 +1382,25 @@ def set_rules(world: "WL3World") -> None:
             mw.get_location(loc_name, player).item_rule = \
                 lambda item, coins=_COIN_NAMES: item.name not in coins
 
-    # Victory condition — collect required music boxes then beat the final boss.
-    # Progressive Overalls x1 and Progressive Grab x2 are always required for the temple fight.
-    required = int(world.options.music_boxes_required)
-    mw.completion_condition[player] = \
-        lambda state, n=required: (
-            sum(state.has(mb, player) for mb in MUSIC_BOXES) >= n
-            and able_to_beat_rudy(state,player)
-        )
+    # Victory condition — either the music-box threshold OR the bosses
+    # threshold (per VictoryCondition option). Rudy fight always requires
+    # Progressive Overalls x1 and Progressive Grab x2 on top of the wincon.
+    from .options import VictoryCondition
+    victory = int(world.options.victory_condition)
+    if victory == VictoryCondition.option_bosses:
+        # Bosses wincon — require N bosses defeated. Uses the 10 BOSS
+        # CHEST locations for reachability
+        from . import BOSS_CHEST_LOCATIONS
+        bosses_needed = int(world.options.bosses_required)
+        mw.completion_condition[player] = \
+            lambda state, n=bosses_needed, names=BOSS_CHEST_LOCATIONS: (
+                sum(state.can_reach_location(name, player) for name in names) >= n
+                and able_to_beat_rudy(state, player)
+            )
+    else:
+        required = int(world.options.music_boxes_required)
+        mw.completion_condition[player] = \
+            lambda state, n=required: (
+                sum(state.has(mb, player) for mb in MUSIC_BOXES) >= n
+                and able_to_beat_rudy(state, player)
+            )

@@ -273,6 +273,8 @@ def _build_key_portrait() -> bytes:
 KEY_PORTRAIT_TILES = _build_key_portrait()
 LEVEL_MUSIC_OFFSET               = 0x03FE40   # LevelMusic table (25 levels × 16 bytes = 400 bytes)
 MUSIC_BOXES_REQUIRED_OFFSET      = 0x080F81   # MusicBoxesRequired byte in Bank 20
+BOSSES_REQUIRED_OFFSET           = 0x08106C   # BossesRequired byte in Bank 20 (0 = boss wincon disabled)
+VICTORY_CONDITION_OPT_OFFSET     = 0x08106D   # VictoryConditionOpt byte in Bank 20 (0=music_boxes, 1=bosses)
 START_WITH_AXE_OFFSET            = 0x080F82   # StartWithAxeOpt byte in Bank 20
 START_WITH_MAG_GLASS_OFFSET      = 0x080F83   # StartWithMagnifyingGlassOpt byte in Bank 20
 ENTRANCE_SHUFFLE_OPT_OFFSET      = 0x080F84   # EntranceShuffleOpt byte in Bank 20 (0 = off, non-zero = on; gates the "?????" reveal system)
@@ -931,6 +933,14 @@ def write_tokens(world: "WL3World", patch: WL3ProcedurePatch) -> None:
     patch.write_token(APTokenTypes.WRITE, MUSIC_BOXES_REQUIRED_OFFSET,
                       bytes([music_boxes_required]))
 
+    bosses_required = int(world.options.bosses_required)
+    patch.write_token(APTokenTypes.WRITE, BOSSES_REQUIRED_OFFSET,
+                      bytes([bosses_required]))
+
+    victory_condition = int(world.options.victory_condition)
+    patch.write_token(APTokenTypes.WRITE, VICTORY_CONDITION_OPT_OFFSET,
+                      bytes([victory_condition]))
+
     # -----------------------------------------------------------------
     # Entrance Shuffle (EXPERIMENTAL — Phase A: ROM plumbing only).
     #
@@ -950,15 +960,18 @@ def write_tokens(world: "WL3World", patch: WL3ProcedurePatch) -> None:
     # (world.entrance_map) so rules.py and the ROM patch are in perfect
     # sync. Both the LevelEntranceMap bytes and the option flag get
     # patched only when the option is non-off.
-    entrance_shuffle_opt = int(world.options.entrance_shuffle)
-    if entrance_shuffle_opt != 0:
-        patch.write_token(APTokenTypes.WRITE, LEVEL_ENTRANCE_MAP_OFFSET,
-                          bytes(world.entrance_map))
-        # Flip the ROM's EntranceShuffleOpt flag so LoadLevelNameIfValid
-        # activates the "?????" reveal system. When the option is off,
-        # the flag stays 0 (default) and level labels render vanilla.
-        patch.write_token(APTokenTypes.WRITE, ENTRANCE_SHUFFLE_OPT_OFFSET,
-                          bytes([entrance_shuffle_opt]))
+    # Entrance shuffle is temporarily disabled — the option isn't wired
+    # into WL3Options right now so world.options.entrance_shuffle doesn't
+    # exist. Skip the patch writes entirely; the ROM defaults
+    # (LevelEntranceMap = identity, EntranceShuffleOpt = 0) are already
+    # correct for vanilla behaviour. Re-enable by restoring the block
+    # below and re-adding entrance_shuffle to WL3Options.
+    # entrance_shuffle_opt = int(world.options.entrance_shuffle)
+    # if entrance_shuffle_opt != 0:
+    #     patch.write_token(APTokenTypes.WRITE, LEVEL_ENTRANCE_MAP_OFFSET,
+    #                       bytes(world.entrance_map))
+    #     patch.write_token(APTokenTypes.WRITE, ENTRANCE_SHUFFLE_OPT_OFFSET,
+    #                       bytes([entrance_shuffle_opt]))
 
     # -----------------------------------------------------------------
     # Shopsanity — 10 slot prices, 2 bytes each (2-byte BCD, big-endian
