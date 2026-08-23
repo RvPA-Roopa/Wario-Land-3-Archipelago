@@ -147,6 +147,7 @@ ADDR_SHOP_MODE_WRAM = 0x14E0            # wShopMode (bank 1 0xD4E0) — 1 byte, 
                                         # the shop scene is active. Client watches for the
                                         # transition-into-$A5 to auto-hint all 10 shop slots.
 SHOP_MODE_MAGIC = 0xA5
+
 BOSS_DEFEAT_POPUP_FRAMES = 180          # ~3 seconds at 60fps
 ADDR_COIN_FLAGS_WRAM = 0x14A2  # wCoinFlags (bank 1 0xD4A2) — 25 bytes,
                                        # 1 bit per musical coin per level
