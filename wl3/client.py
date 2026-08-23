@@ -143,6 +143,10 @@ ADDR_SHOP_SLOTS_BOUGHT_WRAM = 0x14DE    # wShopSlotsBought    (bank 1 0xD4DE) �
                                         # 10 bits (0-9) for the 10 shop slot checks.
                                         # Client writes TileID FIRST, then Timer, so ROM
                                         # never observes stale (id, timer) mid-write.
+ADDR_SHOP_MODE_WRAM = 0x14E0            # wShopMode (bank 1 0xD4E0) — 1 byte, $A5 while
+                                        # the shop scene is active. Client watches for the
+                                        # transition-into-$A5 to auto-hint all 10 shop slots.
+SHOP_MODE_MAGIC = 0xA5
 BOSS_DEFEAT_POPUP_FRAMES = 180          # ~3 seconds at 60fps
 ADDR_COIN_FLAGS_WRAM = 0x14A2  # wCoinFlags (bank 1 0xD4A2) — 25 bytes,
                                        # 1 bit per musical coin per level
@@ -283,6 +287,8 @@ class WL3Client(BizHawkClient):
         self._prev_boss_defeated_flags: bytes = bytes(2)
         self._prev_opened_chests: bytes = bytes(13)
         self._prev_shop_slots_bought: bytes = bytes(2)
+        self._prev_shop_mode: int = 0        # last-seen wShopMode; rising edge to $A5 triggers hints
+        self._shop_slots_hinted: bool = False # once-per-session guard so re-entering doesn't spam
         self._checked_locs:     set   = set()
         # Timestamps (time.time()) of when each loc_id was locally
         # detected as checked (chest/key/boss). Used by the
@@ -746,6 +752,22 @@ class WL3Client(BizHawkClient):
                                 await self._show_sent_msg(ctx, loc_id)
                                 await self._trigger_item_popup(ctx, loc_id)
                 self._prev_shop_slots_bought = bytes(ss_raw)
+            except RequestFailedError:
+                pass
+
+            # ---- Auto-hint all shop slots on shop entry (once per session) ----
+            # ROM sets wShopMode = $A5 for the whole time the shop UI is up.
+            # First rising-edge scouts (create_as_hint=2) every not-yet-checked
+            # slot so the player sees each slot's item + coin price surfaced in
+            # the AP chat / in-game hint stream while they browse.
+            try:
+                sm_raw = (await read(ctx.bizhawk_ctx, [(ADDR_SHOP_MODE_WRAM, 1, "WRAM")]))[0]
+                sm = sm_raw[0]
+                if sm == SHOP_MODE_MAGIC and self._prev_shop_mode != SHOP_MODE_MAGIC \
+                        and not self._shop_slots_hinted:
+                    await self._auto_hint_shop_slots(ctx)
+                    self._shop_slots_hinted = True
+                self._prev_shop_mode = sm
             except RequestFailedError:
                 pass
 
@@ -2417,6 +2439,31 @@ class WL3Client(BizHawkClient):
         except Exception as e:
             logger.warning(f"[WL3] Par-hint LocationScouts send failed: {e}")
         logger.info(f"[WL3] Par hint requested: {item_name} at {loc_name or f'loc {loc_id}'}")
+
+    async def _auto_hint_shop_slots(self, ctx: "BizHawkClientContext") -> None:
+        """Called on the first shop-entry of the session. Scouts every
+        not-yet-bought shop slot with create_as_hint=2 so the server
+        creates a hint (free of hint-point cost) for each. Resulting
+        PrintJSON Hint packets flow through _handle_hint_packet, which
+        appends the coin price to the location text for shop-slot hints
+        (using slot_data["shop_prices"] — same list rom.py patches into
+        the ROM). No separate summary needed."""
+        if not bool((ctx.slot_data or {}).get("shopsanity", False)):
+            return
+        scout_locs = [
+            SHOP_BASE_LOC_ID + i for i in range(NUM_SHOP_SLOTS)
+            if (SHOP_BASE_LOC_ID + i) not in self._checked_locs
+        ]
+        if not scout_locs:
+            return
+        try:
+            await ctx.send_msgs([{
+                "cmd": "LocationScouts",
+                "locations": scout_locs,
+                "create_as_hint": 2,
+            }])
+        except Exception as e:
+            logger.warning(f"[WL3] Shop auto-hint LocationScouts failed: {e}")
 
     def _gather_par_hint_candidates(self, ctx: "BizHawkClientContext", mode: int) -> set:
         """Return the set of AP location IDs that match the category,

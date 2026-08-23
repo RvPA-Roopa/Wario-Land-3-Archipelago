@@ -312,6 +312,29 @@ class WL3World(World):
         # Re-enable by restoring the block below and re-adding
         # entrance_shuffle to WL3Options in options.py.
         self.entrance_map = list(range(26))
+
+        # Shopsanity — pick the 10 randomized slot prices ONCE here so
+        # both write_tokens (rom.py, patches ROM) and fill_slot_data
+        # (surfaces prices to the client for shop-entry hints) read the
+        # same list. Bands per tier: 2 slots near min (bottom 15%), 2 near
+        # max (top 15%), 6 randomly in the middle. Slot order shuffled.
+        def _pick_prices(rng, lo: int, hi: int) -> list:
+            span = hi - lo
+            low_edge = lo + span * 15 // 100
+            high_edge = hi - span * 15 // 100
+            prices = []
+            prices += [rng.randint(lo, low_edge)                for _ in range(2)]
+            prices += [rng.randint(high_edge, hi)               for _ in range(2)]
+            prices += [rng.randint(low_edge + 1, high_edge - 1) for _ in range(6)]
+            rng.shuffle(prices)
+            return prices
+
+        tier = int(self.options.shop_price_tier)
+        if   tier == 0: self.shop_prices = _pick_prices(self.random, 1, 50)
+        elif tier == 2: self.shop_prices = _pick_prices(self.random, 50, 500)
+        else:           self.shop_prices = _pick_prices(self.random, 25, 200)
+        # Sort ascending so slot 1 is always cheapest, slot 10 most expensive.
+        self.shop_prices.sort()
         # opt = int(self.options.entrance_shuffle)
         # if opt != 0:
         #     pool_size = 26 if opt == 2 else 25   # with_temple mixes Temple
@@ -1077,6 +1100,7 @@ class WL3World(World):
             "boss_defeats":            bool(self.options.boss_defeats),
             "shopsanity":              bool(self.options.shopsanity),
             "shop_price_tier":         int(self.options.shop_price_tier),
+            "shop_prices":             list(self.shop_prices),
             "progression_item_names":  progression_names,
             "loc_items":               loc_items,
         }

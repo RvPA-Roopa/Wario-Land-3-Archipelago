@@ -282,6 +282,7 @@ SHOP_PRICES_OFFSET               = 0x080F85   # ShopPrices table in Bank 20 (10 
 SHOPSANITY_MODE_OFFSET           = 0x080F99   # ShopsanityModeOpt byte in Bank 20 (0 = off → shop tile hidden; 1 = on)
 SHOP_SLOT_ITEMS_OFFSET           = 0x080F9A   # ShopSlotItems table in Bank 20 (10 bytes = treasure ID per shop slot)
 SHOP_SLOT_NAMES_OFFSET           = 0x080FA4   # ShopSlotNamesTable in Bank 20 (10 slots × 20 bytes = 200 bytes, msg-font encoded)
+SHOP_SLOT_KEY_COLORS_OFFSET      = 0x08106E   # ShopSlotKeyColors table in Bank 20 (10 bytes, $FF = not a key, 0-3 = grey/red/green/blue)
 HIDDEN_PASSAGES_REVEALED_OFFSET = 0x00FF80  # HiddenPassagesRevealedOpt byte in Bank 3
 GOLF_PRICE_OPT_OFFSET            = 0x003A00   # GolfPriceOpt byte in Home bank
 GOLF_BUILDING_OPT_OFFSET         = 0x003A01   # GolfBuildingOpt byte in Home bank
@@ -975,14 +976,13 @@ def write_tokens(world: "WL3World", patch: WL3ProcedurePatch) -> None:
 
     # -----------------------------------------------------------------
     # Shopsanity — 10 slot prices, 2 bytes each (2-byte BCD, big-endian
-    # matching wNumCoins layout). All ladders cap at 500 coins so the
-    # player always has spending headroom under the 999-coin wallet cap
-    # (MAX_NUM_COINS = $999). A price at the wallet cap would mean the
-    # player can never buy AND save for the next slot at the same time.
-    #   cheap:     20, 40, ..., 200          (20×N — affordable early)
-    #   normal:    50, 100, ..., 500         (50×N — default)
-    #   expensive: 100, 150, ..., 500, 500   (steep front-load, top-slot
-    #              flat at cap so it feels like a splurge)
+    # matching wNumCoins layout). All tiers randomize prices per-seed:
+    #   cheap:     1-50   (very affordable)
+    #   normal:    25-200 (default)
+    #   expensive: 50-500 (steep — 500 is the wallet-cap ceiling)
+    # Distribution within each tier: 2 slots in the bottom 15% of the
+    # range, 2 slots in the top 15%, 6 slots randomly in the middle 70%.
+    # Slot order is shuffled so price doesn't correlate with slot index.
     def _to_bcd_2byte(v: int) -> tuple[int, int]:
         v = max(0, min(999, int(v)))
         hi = v // 100                          # 0-9
@@ -990,13 +990,10 @@ def write_tokens(world: "WL3World", patch: WL3ProcedurePatch) -> None:
         lo = v % 10                            # 0-9
         return hi, (mid << 4) | lo             # matches wNumCoins big-endian BCD
 
-    shop_tier = int(world.options.shop_price_tier)
-    if shop_tier == 0:   # cheap
-        price_ladder = [20 * (i + 1) for i in range(10)]
-    elif shop_tier == 2: # expensive
-        price_ladder = [100, 150, 200, 250, 300, 350, 400, 450, 500, 500]
-    else:                # normal (default)
-        price_ladder = [50 * (i + 1) for i in range(10)]
+    # Prices are picked once in generate_early (world.shop_prices) so both
+    # this ROM patch and fill_slot_data agree — the client uses the same
+    # list to show a coin-amount hint when the player enters the shop.
+    price_ladder = world.shop_prices
 
     price_bytes = bytearray()
     for coins in price_ladder:
@@ -1168,8 +1165,10 @@ def write_tokens(world: "WL3World", patch: WL3ProcedurePatch) -> None:
         trail = pad - lead
         return b'\x24' * lead + enc + b'\x24' * trail
 
+    from .items import KEY_ITEM_TABLE
     shop_slot_items = bytearray([0x65] * NUM_SHOP_SLOTS)
     shop_slot_names = bytearray(b'\x24' * (NUM_SHOP_SLOTS * 20))
+    shop_slot_key_colors = bytearray([0xFF] * NUM_SHOP_SLOTS)  # FF = not a key
     if shopsanity_on:
         for loc_name, loc_data in SHOP_LOCATION_TABLE.items():
             try:
@@ -1198,13 +1197,20 @@ def write_tokens(world: "WL3World", patch: WL3ProcedurePatch) -> None:
                 shop_slot_items[slot] = tid if 0 < tid < 0x65 else 0x65
             else:
                 # Not in ITEM_TABLE — likely a level key. $65 = DUMMY
-                # renders the key portrait art.
+                # renders the key portrait art. Tag the slot's colour
+                # so ConvertShopSlotIdsToOBPals renders the sprite in
+                # the actual key hue rather than falling back to grey.
                 shop_slot_items[slot] = 0x65
+                key_data = KEY_ITEM_TABLE.get(item.name)
+                if key_data is not None:
+                    shop_slot_key_colors[slot] = key_data.color_index
             shop_slot_names[slot*20:slot*20+20] = _center_pad(_shop_label_for(item))
     patch.write_token(APTokenTypes.WRITE, SHOP_SLOT_ITEMS_OFFSET,
                       bytes(shop_slot_items))
     patch.write_token(APTokenTypes.WRITE, SHOP_SLOT_NAMES_OFFSET,
                       bytes(shop_slot_names))
+    patch.write_token(APTokenTypes.WRITE, SHOP_SLOT_KEY_COLORS_OFFSET,
+                      bytes(shop_slot_key_colors))
 
     # Rudy (Hidden Figure) hit points — patch the immediate byte in
     # HiddenFigureFunc's initializer so a player-chosen 1-10 controls
