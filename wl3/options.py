@@ -376,10 +376,19 @@ class Enemizer(Choice):
     default = 0
 
 
-class HiddenPassagesRevealed(Toggle):
-    """Hidden passages are revealed with their corresponding cracked/non-cracked blocks
-    Currently, hidden throw/fire/yarn blocks aren't included in this"""
+class HiddenPassagesRevealed(Choice):
+    """Reveal hidden blocks in-game, and optionally tint the guaranteed-color-coin
+    blocks so you can tell them apart from throttled/random regular cracked blocks.
+
+    - vanilla: nothing revealed or recolored (default WL3 behavior).
+    - hidden_blocks: hidden passages are revealed with their corresponding cracked/
+      non-cracked blocks. Hidden throw/fire/yarn blocks aren't included.
+    - hidden_blocks_and_color_coins: same as hidden_blocks, plus blocks that
+    guarantee color coin drops."""
     display_name = "Hidden Passages Revealed"
+    option_vanilla = 0
+    option_hidden_blocks = 1
+    option_hidden_blocks_and_color_coins = 2
     default = 0
 
 

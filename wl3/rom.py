@@ -283,7 +283,7 @@ SHOPSANITY_MODE_OFFSET           = 0x080F99   # ShopsanityModeOpt byte in Bank 2
 SHOP_SLOT_ITEMS_OFFSET           = 0x080F9A   # ShopSlotItems table in Bank 20 (10 bytes = treasure ID per shop slot)
 SHOP_SLOT_NAMES_OFFSET           = 0x080FA4   # ShopSlotNamesTable in Bank 20 (10 slots × 20 bytes = 200 bytes, msg-font encoded)
 SHOP_SLOT_KEY_COLORS_OFFSET      = 0x08106E   # ShopSlotKeyColors table in Bank 20 (10 bytes, $FF = not a key, 0-3 = grey/red/green/blue)
-HIDDEN_PASSAGES_REVEALED_OFFSET = 0x00FF80  # HiddenPassagesRevealedOpt byte in Bank 3
+HIDDEN_PASSAGES_REVEALED_OFFSET = 0x01FDF6  # HiddenPassagesRevealedOpt byte in Bank 07 (moved from Bank 3 during reveal-hidden-blocks refactor)
 GOLF_PRICE_OPT_OFFSET            = 0x003A00   # GolfPriceOpt byte in Home bank
 GOLF_BUILDING_OPT_OFFSET         = 0x003A01   # GolfBuildingOpt byte in Home bank
 DISABLE_PAL_CYCLE_OFFSET         = 0x003A02   # DisablePalCycleOpt byte in Home bank
@@ -1488,8 +1488,9 @@ def write_tokens(world: "WL3World", patch: WL3ProcedurePatch) -> None:
     # RevealHiddenBlocksInRoom routine runs at room load and overlays
     # cracked-block tile indices onto hidden block slots in
     # wRoomBlockTiles. Behavior/IDs unchanged, only the rendered tiles.
+    # 0 = vanilla, 1 = reveal hidden blocks, 2 = reveal + tint always-colour-coin blocks
     patch.write_token(APTokenTypes.WRITE, HIDDEN_PASSAGES_REVEALED_OFFSET,
-                      bytes([1 if world.options.hidden_passages_revealed else 0]))
+                      bytes([int(world.options.hidden_passages_revealed)]))
 
     # --- Random dialog text variants ---
     # tools/build_text_variants.py bundles all compiled RLE blobs from
