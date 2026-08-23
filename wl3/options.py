@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from Options import Toggle, Choice, Range, OptionDict, PerGameCommonOptions
+from Options import Toggle, Choice, Range, OptionDict, OptionSet, PerGameCommonOptions
 
 
 # class StartingArea(Choice):
@@ -46,18 +46,23 @@ class MinorGlitches(Choice):
     default = 0
 
 
-class StartWithAxe(Toggle):
-    """Start with the Axe, immediately unlocking The Peaceful Village and The Vast Plain."""
-    display_name = "Start with Axe"
-    default = 1
+class StartWith(Choice):
+    """Items Wario will start with. Starting with axe or more than two random 
+    level starts is suggested so that early items aren't forcibly placed early.
+    axe: Unlocks The Peaceful Village and The Vast Plain from the start.
+    magnifying_glass: shows what you've collected in a level (hold B on the overworld).
+    both: start with both.
+    nothing: start with neither."""
+    display_name = "Start With"
+    option_nothing           = 0
+    option_axe               = 1
+    option_magnifying_glass  = 2
+    option_both              = 3
+    default = 3
 
 
 class RandomLevelStarts(Range):
-    """Start with this many additional randomly chosen level unlock items beyond Out of the Woods.
-    0: off (default)
-    1-8: that many random level unlock groups are granted at the start.
-    Stacks with Start with Axe (Axe is never included in the random pool).
-    """
+    """Extra random level-unlock items pre-collected (0 = off, 1-8 = that many)."""
     display_name = "Random Level Starts"
     range_start = 0
     range_end   = 8
@@ -133,29 +138,33 @@ class IHateGolf(Toggle):
 
 class GolfParHints(Choice):
     """Hint an AP item when you clear a Golf Building hole or course at par or better.
-    Nothing:          Vanilla, no hints are given.
-    Music Boxes:      Hints a Music Box location.
-    Progression:      Hints any item AP classifies as progression (keys, music
-                      boxes, progression treasures, forms, abilities, etc.).
-    Anything:         Hints any unhinted, unchecked AP item.
+    Nothing:                       Vanilla, no hints are given.
+    Music Boxes (per hole/course): Hint a Music Box location — either every hole
+                                   cleared at par or only after clearing all 5 holes of a course at par.
+    Progression (per hole/course): Hint any item AP classifies as progression (keys, music boxes,
+                                   progression treasures, forms, abilities, etc.).
+    Anything    (per hole/course): Hint any unhinted, unchecked AP item.
     If the chosen category has no unhinted matches left, falls back to Anything."""
     display_name = "Golf Par Hints"
-    option_nothing     = 0
-    option_music_boxes = 1
-    option_progression = 2
-    option_anything    = 3
+    option_nothing                = 0
+    option_music_boxes_per_hole   = 1
+    option_music_boxes_per_course = 2
+    option_progression_per_hole   = 3
+    option_progression_per_course = 4
+    option_anything_per_hole      = 5
+    option_anything_per_course    = 6
     default = 0
 
 
-class GolfParHintFrequency(Choice):
-    """Choose whether clearing a hole or course at par-or-better fires a hint.
-    Per Hole:   Each hole cleared at par-or-better fires a hint.
-    Per Course: Only the 5th hole fires, and only if all 5 holes of the course
-                were cleared at par-or-better."""
-    display_name = "Golf Par Hint Frequency"
-    option_per_hole   = 0
-    option_per_course = 1
-    default = 0
+def golf_par_hints_split(combined: int) -> tuple[int, int]:
+    """Split the combined GolfParHints choice into the (category, frequency)
+    pair the ROM patch byte + client dispatch expect.
+      category: 0=nothing, 1=music_boxes, 2=progression, 3=anything
+      frequency: 0=per_hole, 1=per_course
+    Odd values (1/3/5) → per_hole; even non-zero (2/4/6) → per_course."""
+    if combined == 0:
+        return 0, 0
+    return (combined + 1) // 2, 0 if (combined & 1) else 1
 
 
 class MusicShuffle(Choice):
@@ -260,8 +269,8 @@ class KeyringCount(Range):
 
 
 class BossesRequired(Range):
-    """Number of Bosses needed to access the Rudy fight. 
-    Bossess include: Wormwould, Shoot, Scowler, Jamano, Anonster, 
+    """Number of Bosses needed to access the Rudy fight.
+    Bossess include: Wormwould, Shoot, Scowler, Jamano, Anonster,
     Wolfenboss, Pesce, Muddee, Doll Boy, and Yellow Belly.
     """
     display_name = "Bosses Required"
@@ -300,13 +309,6 @@ class EntranceShuffle(Choice):
 # ---------------------------------------------------------------------------
 # Quality of Life
 # ---------------------------------------------------------------------------
-
-class StartWithMagnifyingGlass(Toggle):
-    """Start with the Magnifying Glass, which shows what treasures/chests have been collected
-    in the overworld map (Press B while hovering a level)."""
-    display_name = "Start with Magnifying Glass"
-    default = 1
-
 
 class NonStopChests(Toggle):
     """Stay in the level after opening a treasure chest instead of exiting to
@@ -353,9 +355,9 @@ class ShopPriceTier(Choice):
 
 
 class Enemizer(Choice):
-    """This setting should be stable. If you do run into a crash, 
-    use the command "/vanillaenemies" and it'll change the room your in
-    (or previous room if you're in the overworld) back to vanilla enemies. 
+    """This setting is mostly stable, but isn't guaranteed to be crash-free.
+    If you do run into a crash, use the command "/vanillaenemies" to revert the current room 
+    (or previous room if in the overworld) back to vanilla enemies."
 
     off:    Enemies stay vanilla.
     full:   Enemies are fully randomized with limited restrictions.
@@ -377,8 +379,7 @@ class Enemizer(Choice):
 
 
 class HiddenPassagesRevealed(Choice):
-    """Reveal hidden blocks in-game, and optionally tint the guaranteed-color-coin
-    blocks so you can tell them apart from throttled/random regular cracked blocks.
+    """Reveal hidden blocks and blocks that always contain color coins in-game.
 
     - vanilla: nothing revealed or recolored (default WL3 behavior).
     - hidden_blocks: hidden passages are revealed with their corresponding cracked/
@@ -449,8 +450,7 @@ class DeathLink(Toggle):
 
 class DeathMode(Choice):
     """Controls what locally counts as a death. 
-    None: deaths are never triggered locally; you can still receive deaths
-    from other players if Death Link is on.
+    None: deaths are never triggered, unless death link is on and is from other players.
     Grabs: enemy grabs that teleport you  (e.g. RoboMouse, Scowler, Rudy) 
     instead trigger a Game Over death.
     Grabs and Golf: same as Grabs, plus failing a golf hole par triggers a death
@@ -488,16 +488,16 @@ class InGameMessages(Choice):
 
 @dataclass
 class WL3Options(PerGameCommonOptions):
+    # Logic Options — put first so they read as the top-of-yaml difficulty knobs.
+    difficulty:                   DifficultyOptions
+    minor_glitches:               MinorGlitches
     # Victory condition — chose the wincon type first, then set its
     # threshold in the matching *_required option.
     victory_condition:            VictoryCondition
     music_boxes_required:         MusicBoxesRequired
     bosses_required:              BossesRequired
-    # Logic Options
-    difficulty:                   DifficultyOptions
-    minor_glitches:               MinorGlitches
     # starting_area:              StartingArea
-    start_with_axe:               StartWithAxe
+    start_with:                   StartWith
     random_level_starts:          RandomLevelStarts
     combined_items:               CombinedItems
     key_shuffle:                  KeyShuffle
@@ -509,8 +509,6 @@ class WL3Options(PerGameCommonOptions):
     golf_building:                GolfBuilding
     i_hate_golf:                  IHateGolf
     golf_par_hints:               GolfParHints
-    golf_par_hint_frequency:      GolfParHintFrequency
-    start_with_magnifying_glass:  StartWithMagnifyingGlass
     reduce_flashing:              ReduceFlashing
     non_stop_chests:              NonStopChests
     in_game_messages:             InGameMessages

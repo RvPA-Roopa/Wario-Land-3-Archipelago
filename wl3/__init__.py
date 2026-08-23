@@ -46,8 +46,8 @@ from .locations import BASE_LOC_ID, BOSS_DEFEAT_LOCATION_TABLE, COIN_LOCATION_TA
 from Options import OptionGroup
 from .options import (WL3Options, KeyShuffle, CombinedItems, BossDefeats,
                       GolfPrice, GolfBuilding, IHateGolf,
-                      GolfParHints, GolfParHintFrequency,
-                      StartWithMagnifyingGlass, ReduceFlashing, NonStopChests, InGameMessages,
+                      GolfParHints, golf_par_hints_split,
+                      StartWith, ReduceFlashing, NonStopChests, InGameMessages,
                       TrapFill, TrapWeights, LocalFillPercent,
                       MusicShuffle, EnemyPaletteShuffle, LevelBGPaletteShuffle,
                       OverworldBGPaletteShuffle,
@@ -196,9 +196,10 @@ class WL3WebWorld(WebWorld):
         )
     ]
     option_groups = [
+        OptionGroup("Shopsanity", [Shopsanity, ShopPriceTier]),
         OptionGroup("Golf", [GolfPrice, GolfBuilding, IHateGolf,
-                             GolfParHints, GolfParHintFrequency]),
-        OptionGroup("Quality of Life", [StartWithMagnifyingGlass, ReduceFlashing,
+                             GolfParHints]),
+        OptionGroup("Quality of Life", [ReduceFlashing,
                                        NonStopChests, InGameMessages,
                                        TrapFill, TrapWeights, LocalFillPercent,
                                        RudyHitPoints]),
@@ -206,7 +207,6 @@ class WL3WebWorld(WebWorld):
                                   LevelBGPaletteShuffle, EnemyPaletteShuffle,
                                   WarioPaletteShuffle, WarioColors]),
         # OptionGroup("Entrance Rando (experimental)", [EntranceShuffle]),
-        OptionGroup("Shopsanity", [Shopsanity, ShopPriceTier]),
     ]
 
 
@@ -349,11 +349,12 @@ class WL3World(World):
         skip_items = set()
         filler_items = ["1 Coin"] * 15 + ["50 Coins"] * 10 + ["25 Coins"] * 5 + ["10 Coins"]
 
-        if self.options.start_with_axe:
+        sw = int(self.options.start_with)   # 0=nothing / 1=axe / 2=magnifying_glass / 3=both
+        if sw in (StartWith.option_axe, StartWith.option_both):
             skip_items.add("Axe")
             self.multiworld.push_precollected(self.create_item("Axe"))
-            
-        if self.options.start_with_magnifying_glass:
+
+        if sw in (StartWith.option_magnifying_glass, StartWith.option_both):
             skip_items.add("Magnifying Glass")
             self.multiworld.push_precollected(self.create_item("Magnifying Glass"))
 
@@ -576,11 +577,12 @@ class WL3World(World):
         # 5 specific items at 5 specific grey chests, which makes early-game
         # uniform across seeds — only pay that variety cost when needed.
         #
-        # Skip when: start_with_axe is on (Axe alone unlocks Peaceful Village +
+        # Skip when: start_with grants Axe (Axe alone unlocks Peaceful Village +
         #            Vast Plain → 3 levels accessible at start)
         #         OR random_level_starts >= 3 (3+ random level groups precollected)
-        # Run otherwise (axe off AND rls <= 2).
-        swa = bool(self.options.start_with_axe)
+        # Run otherwise (no axe AND rls <= 2).
+        sw = int(self.options.start_with)
+        swa = sw in (StartWith.option_axe, StartWith.option_both)
         rls = int(self.options.random_level_starts)
         if swa or rls >= 3:
             return
@@ -1094,8 +1096,11 @@ class WL3World(World):
             "death_link":              bool(self.options.death_link),
             "death_mode":              int(self.options.death_mode),
             "combined_items":          int(self.options.combined_items),
-            "golf_par_hints":          int(self.options.golf_par_hints),
-            "golf_par_hint_frequency": int(self.options.golf_par_hint_frequency),
+            # golf_par_hints is a single combined choice (7 values). Split into
+            # legacy (category, frequency) pair so the client's dispatch code
+            # keeps working unchanged.
+            "golf_par_hints":          golf_par_hints_split(int(self.options.golf_par_hints))[0],
+            "golf_par_hint_frequency": golf_par_hints_split(int(self.options.golf_par_hints))[1],
             "in_game_messages":        int(self.options.in_game_messages),
             "boss_defeats":            bool(self.options.boss_defeats),
             "shopsanity":              bool(self.options.shopsanity),

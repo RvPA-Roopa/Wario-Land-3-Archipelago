@@ -1219,13 +1219,14 @@ def write_tokens(world: "WL3World", patch: WL3ProcedurePatch) -> None:
     patch.write_token(APTokenTypes.WRITE, RUDY_HIT_POINTS_OFFSET,
                       bytes([rudy_hit_points]))
 
-    start_with_axe = int(world.options.start_with_axe)
+    # `start_with` is a 4-value choice (nothing / axe / magnifying_glass / both);
+    # split into the two ROM bytes the engine reads.
+    from .options import StartWith as _SW
+    sw = int(world.options.start_with)
     patch.write_token(APTokenTypes.WRITE, START_WITH_AXE_OFFSET,
-                      bytes([start_with_axe]))
-
-    start_with_mag_glass = int(world.options.start_with_magnifying_glass)
+                      bytes([1 if sw in (_SW.option_axe, _SW.option_both) else 0]))
     patch.write_token(APTokenTypes.WRITE, START_WITH_MAG_GLASS_OFFSET,
-                      bytes([start_with_mag_glass]))
+                      bytes([1 if sw in (_SW.option_magnifying_glass, _SW.option_both) else 0]))
 
     golf_price = int(world.options.golf_price)
     patch.write_token(APTokenTypes.WRITE, GOLF_PRICE_OPT_OFFSET,
@@ -1264,7 +1265,10 @@ def write_tokens(world: "WL3World", patch: WL3ProcedurePatch) -> None:
     # Controls when the ROM sets wParHintRequest in GolfHoleState_Cleared.
     # The hint MODE (nothing / music_boxes / progressive / anything) is
     # client-side only, dispatched from the GolfParHints option.
-    golf_par_hint_freq = int(world.options.golf_par_hint_frequency)
+    # Both category and frequency come from the single combined GolfParHints
+    # choice — this pulls the frequency half via golf_par_hints_split.
+    from .options import golf_par_hints_split
+    _, golf_par_hint_freq = golf_par_hints_split(int(world.options.golf_par_hints))
     patch.write_token(APTokenTypes.WRITE, GOLF_PAR_HINT_FREQ_OFFSET,
                       bytes([golf_par_hint_freq]))
 
