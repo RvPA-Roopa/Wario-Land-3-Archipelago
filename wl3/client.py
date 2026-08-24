@@ -90,6 +90,7 @@ COMBINED_LEVEL_UNLOCK_ITEMS: dict[int, list[int]] = {
 # WRAM0 addresses — always accessible via System Bus (0xC000–0xCFFF)
 ADDR_LEVEL = 0xC458   # wLevel:         (owlevel-1)*8 + state
 ADDR_ROOM         = 0xC0C9   # wRoom (room ID, the last byte of room_data)
+ADDR_WARIO_POS    = 0xC4B5   # wWarioYPos (2 bytes) + wWarioXPos (2 bytes) — /where readout
 ADDR_OBJECT_GROUP = 0xC0C8   # wObjectGroup (vanilla wgid 0x00-0x91 or enemizer 0x92+)
 ADDR_END_SCREEN     = 0xCED4   # wLevelEndScreen: 0=idle, 0x81–0x84=chest collecting
 ADDR_GAME_MODE = 0xC491   # wGameModeFlags:  bit 0 = MODE_GAME_CLEARED (final boss defeated)
@@ -834,6 +835,7 @@ class WL3Client(BizHawkClient):
             # ctx.command_processor.commands["testenemy"] = lambda *args: self._testenemy_command(
             #     tuple(a for a in args if isinstance(a, str)))
             ctx.command_processor.commands["vanillaenemies"] = lambda *_: self._vanillaenemies_command()
+            ctx.command_processor.commands["where"] = lambda *_: self._where_command(ctx)
             # ctx.command_processor.commands["dbgtreasures"] = lambda *args: self._dbgtreasures_command(
             #     ctx, tuple(a for a in args if isinstance(a, str)))
             # ctx.command_processor.commands["setwlevel"] = lambda *args: self._setwlevel_command(
@@ -1785,6 +1787,35 @@ class WL3Client(BizHawkClient):
         logger.info(f"[WL3] /testenemy queued: {arg} → {mode}. Next tick "
                     f"will patch current wgid; leave + re-enter the room "
                     f"to see it.")
+
+    def _where_command(self, ctx: "BizHawkClientContext") -> None:
+        """/where — print the current level / variant / room / wario coords
+        so we can identify a spot the user is standing in. Pure client — no
+        ROM change; reads wLevel (0xC458), wRoom (0xC0C9), wWarioYPos /
+        wWarioXPos (0xC4B5, 4 bytes). Use to name boss rooms, wave rooms,
+        etc. when triaging bugs."""
+        async def _do():
+            try:
+                results = await read(ctx.bizhawk_ctx, [
+                    (ADDR_LEVEL,      1, "System Bus"),
+                    (ADDR_ROOM,       1, "System Bus"),
+                    (ADDR_WARIO_POS,  4, "System Bus"),
+                ])
+                w_level = results[0][0]
+                w_room  = results[1][0]
+                pos     = results[2]
+                y = pos[0] | (pos[1] << 8)
+                x = pos[2] | (pos[3] << 8)
+                owlevel = (w_level >> 3) + 1
+                variant = w_level & 0x07
+                name    = LEVEL_NAMES.get(owlevel, "(unknown)")
+                logger.info(f"[WL3] where: {name} — wLevel=${w_level:02x} "
+                            f"(owlevel={owlevel}, variant={variant}) "
+                            f"room=${w_room:02x} x=${x:04x} y=${y:04x}")
+            except Exception as e:
+                logger.warning(f"[WL3] /where read failed: {e}")
+        import asyncio
+        asyncio.create_task(_do())
 
     def _vanillaenemies_command(self) -> None:
         """/vanillaenemies — restore the LAST room's wgid to vanilla
