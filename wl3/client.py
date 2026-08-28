@@ -112,6 +112,7 @@ ADDR_MSG_TIMER_WRAM = 0x121B # wMsgTimer (bank 1, 0xD21B) 1 byte, unused in scro
 ADDR_MSG_READY_WRAM = 0x121C # wMsgReady (bank 1, 0xD21C) 1 byte, set to 1 to trigger
 ADDR_MSG_ACTIVE_WRAM = 0x121D # wMsgActive (bank 1, 0xD21D) 1 byte, ROM sets to 1 while msg scrolling
 ADDR_MSG_ROWS_WRAM = 0x121E # wMsgRows (bank 1, 0xD21E) 1 byte; scrolling marquee = char count 0..40
+ADDR_MSG_SHOWN_INDEX_SRAM = 0x006D # sMsgShownIndex (SRAM bank 0 $A06D, 2 bytes u16 LE) — persistent "already-shown item index" counter used to suppress catch-up msg banners after reconnect
 
 # Layout of the OAM-sprite message renderer.
 # - MSG_OAM_MAX_COLS chars per row × MSG_OAM_MAX_ROWS rows.
@@ -300,6 +301,13 @@ class WL3Client(BizHawkClient):
         self._recent_check_times: dict = {}
         self._items_handled:    int  = 0
         self._caught_up:        bool = False    # False until items already in items_received at first connect have been silently re-applied
+        # Persistent "highest item index already shown as msg" — stored in
+        # SRAM (sMsgShownIndex at SRAM bank 0 offset $006D, 2 bytes u16 LE).
+        # Loaded lazily on first tick; used to suppress msg banners for items
+        # the player already saw in a prior session. Bits/traps/coins still
+        # apply (idempotent); ONLY the msg banner is skipped. Root fix for
+        # the /skip workaround. `None` until first SRAM read completes.
+        self._msg_shown_baseline: "int | None" = None
         self._cached_received:  set  = set()   # AP IDs received; kept between disconnects
         self._prog_counts:      dict = {}       # ap_id → count received (for progressive tiers)
         self._combined_unlocks: bool = False
@@ -456,6 +464,15 @@ class WL3Client(BizHawkClient):
         if key in self._shown_hints:
             return
         self._shown_hints.add(key)
+
+        # 2026-08-27 — suppress in-game scroll for shop-slot hints.
+        # _auto_hint_shop_slots fires a batch of 10 scouts on shop entry,
+        # which would flood the in-game msg queue with HINT lines. The
+        # client console + external tracker still get the hint via the
+        # AP PrintJSON packet — we just don't want it in the game window.
+        if (is_for_us
+                and SHOP_BASE_LOC_ID <= location_id < SHOP_BASE_LOC_ID + NUM_SHOP_SLOTS):
+            return
 
         try:
             item_name = ctx.item_names.lookup_in_slot(item_id, receiving) if ctx.item_names else f"ITEM {item_id}"
@@ -965,12 +982,27 @@ class WL3Client(BizHawkClient):
                 if net_item.item in PROGRESSIVE_ITEMS or net_item.item == PROGRESSIVE_VAMPIRE_AP_ID:
                     self._prog_counts[net_item.item] = self._prog_counts.get(net_item.item, 0) + 1
 
+        # ---- Lazy-load the persistent "already-shown item index" from SRAM ----
+        # sMsgShownIndex (SRAM $A06D, 2 bytes u16 LE) survives client restarts
+        # via the ROM's save file. On first tick after connect, read it. Items
+        # with items_received index < baseline get their msg banner skipped
+        # (bits/traps still apply — this is msg-only). Written back below as
+        # items are processed. Reads that fail (e.g. SRAM not yet ready) leave
+        # baseline at 0 for this tick; retried next tick.
+        if self._msg_shown_baseline is None:
+            try:
+                sram = (await read(ctx.bizhawk_ctx,
+                    [(ADDR_MSG_SHOWN_INDEX_SRAM, 2, "SRAM")]))[0]
+                self._msg_shown_baseline = sram[0] | (sram[1] << 8)
+            except RequestFailedError:
+                pass
+
         # ---- Grant any newly received items ----
         # `_caught_up` is False on the first call after a (re)connect — items
         # currently in items_received are "catch-up". For those we suppress
-        # trap re-fires (the `silent` flag below) but still show the banner
-        # so the player can see what they got while away — they can /skip if
-        # the message queue gets noisy.
+        # trap re-fires (the `silent` flag below); we ALSO suppress the msg
+        # banner if this catch-up item's index is below sMsgShownIndex (i.e.,
+        # already shown in a previous session).
         catch_up_boundary = len(ctx.items_received) if not self._caught_up else self._items_handled
 
         while self._items_handled < len(ctx.items_received):
@@ -1042,6 +1074,14 @@ class WL3Client(BizHawkClient):
                     # user command.
                     skip_msg = (sender == ctx.slot
                                 and getattr(net_item, "location", 0) > 0)
+                    # 2026-08-27 — persistent already-shown gate. If this
+                    # item's index sits below sMsgShownIndex (from SRAM),
+                    # we already showed its msg in a prior session. Skip
+                    # the banner (bits/traps already handled above). Root
+                    # fix for the /skip workaround.
+                    if (self._msg_shown_baseline is not None
+                            and self._items_handled < self._msg_shown_baseline):
+                        skip_msg = True
                     if not skip_msg:
                         if sender != ctx.slot and ctx.player_names:
                             sender_name = ctx.player_names.get(sender, f"P{sender}")
@@ -1051,6 +1091,21 @@ class WL3Client(BizHawkClient):
             except Exception:
                 pass
             self._items_handled += 1
+
+        # ---- Persist high-water mark to SRAM so future reconnects skip
+        # ---- the msg banner for items we've already shown this session.
+        if (self._msg_shown_baseline is not None
+                and self._items_handled > self._msg_shown_baseline):
+            self._msg_shown_baseline = self._items_handled
+            try:
+                await write(ctx.bizhawk_ctx, [(
+                    ADDR_MSG_SHOWN_INDEX_SRAM,
+                    bytes([self._items_handled & 0xFF,
+                           (self._items_handled >> 8) & 0xFF]),
+                    "SRAM",
+                )])
+            except RequestFailedError:
+                pass
 
         if not self._caught_up:
             self._caught_up = True
