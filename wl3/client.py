@@ -168,9 +168,9 @@ COINS_PER_LEVEL = 8
 # grant the coins itself. Values match src/engine/clear/treasure_clear.asm.
 CREST_COIN_GRANTS = {
     0x51:  1,   # CLUBS_CREST     — 1 coin
-    0x52: 50,   # SPADES_CREST    — 50 coins
-    0x53: 20,   # HEART_CREST     — 20 coins
-    0x54:  5,   # DIAMONDS_CREST  — 5 coins
+    0x52: 10,   # SPADES_CREST    — 10 coins
+    0x53: 25,   # HEART_CREST     — 25 coins
+    0x54: 50,   # DIAMONDS_CREST  — 50 coins
 }
 
 # AP item ID → ROM trap ID (TRAP_* constants in wario_constants.asm).
