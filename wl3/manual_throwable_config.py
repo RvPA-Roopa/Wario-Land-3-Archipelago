@@ -40,6 +40,7 @@ MANUAL_TB_WGID_SLOTS: dict = {
     0x28: {0, 2},
     0x53: {1, 3},
     0x86: {0, 1},
+    0x87: {0, 2},
 }
 
 # Kept as empty for backwards compat — multi-slot cases now
@@ -73,6 +74,7 @@ MANUAL_MARKED_WGIDS: set = {
     0x7a,
     0x80,
     0x86,
+    0x87,
     0x89,
     0x8f,
 }
