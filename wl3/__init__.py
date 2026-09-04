@@ -106,7 +106,7 @@ def _launch_patch(*args):
 components.append(Component(
     "Wario Land 3 Patcher",
     func=_launch_patch,
-    component_type=Type.CLIENT,
+    component_type=Type.HIDDEN,
     file_identifier=SuffixIdentifier(".apwl3"),
 ))
 
