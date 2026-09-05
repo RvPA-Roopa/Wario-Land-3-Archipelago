@@ -495,6 +495,33 @@ TRANSFORM_UNLOCK_PROGRESSIVE_COUNTS: Dict[str, int] = {
     "Progressive Vampire": 2,
 }
 
+# Shop-sprite mapping for transform-unlock items. TRANSFORM_UNLOCK_ITEMS
+# tier_ids are (bank, bit) pairs into wTransformUnlocks — NOT real
+# treasure IDs — so rom.py can't derive a sprite from tier_ids[0]. This
+# dict maps each transform name to the corresponding TREASURE_*_FORM ID
+# ($67-$72) so the shop can render the actual form icon instead of the
+# 0x65 DUMMY (key portrait) fallback. Icons live in TreasureGfx at
+# id * 64 and get populated at generation time from the user's vanilla
+# ROM (see bank26.asm's placeholder ds 64, $ff blocks).
+TRANSFORM_UNLOCK_TREASURE_ID: Dict[str, int] = {
+    "Zombie Form":         0x67,  # TREASURE_ZOMBIE_FORM
+    "Progressive Vampire": 0x69,  # TREASURE_BAT_FORM (tier 2; no vanilla vampire tile)
+    "Puffy Form":          0x71,  # TREASURE_PUFFY_FORM
+    "Flat Form":           0x70,  # TREASURE_FLAT_FORM
+    "Invisible Form":      0x6a,  # TREASURE_INVISIBLE_FORM
+    "Fat Form":            0x6b,  # TREASURE_FAT_FORM
+    "Ice Skatin' Form":    0x6f,  # TREASURE_ICE_SKATIN_FORM
+    "Bouncy Form":         0x6d,  # TREASURE_BOUNCY_FORM
+    "Yarn Form":           0x6e,  # TREASURE_YARN_FORM
+    "Snowman Form":        0x6c,  # TREASURE_SNOWMAN_FORM
+    "Fire Form":           0x68,  # TREASURE_FIRE_FORM
+    "Roll Form":           0x72,  # TREASURE_ROLL_FORM
+}
+
+# Keyring items also aren't in ITEM_TABLE and don't have a natural treasure ID.
+# TREASURE_KEYRING = $66 renders the keyring bundle sprite.
+KEYRING_TREASURE_ID = 0x66
+
 TRANSFORM_UNLOCK_AP_IDS_SET: set = {item.ap_id for item in TRANSFORM_UNLOCK_ITEMS.values()}
 
 # Treasures removed from the pool when Transformation Shuffle is ON.

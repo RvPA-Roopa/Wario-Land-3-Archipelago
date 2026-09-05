@@ -272,17 +272,17 @@ def _build_key_portrait() -> bytes:
 
 KEY_PORTRAIT_TILES = _build_key_portrait()
 LEVEL_MUSIC_OFFSET               = 0x03FE40   # LevelMusic table (25 levels × 16 bytes = 400 bytes)
-MUSIC_BOXES_REQUIRED_OFFSET      = 0x080F81   # MusicBoxesRequired byte in Bank 20
-BOSSES_REQUIRED_OFFSET           = 0x08106C   # BossesRequired byte in Bank 20 (0 = boss wincon disabled)
-VICTORY_CONDITION_OPT_OFFSET     = 0x08106D   # VictoryConditionOpt byte in Bank 20 (0=music_boxes, 1=bosses)
-START_WITH_AXE_OFFSET            = 0x080F82   # StartWithAxeOpt byte in Bank 20
-START_WITH_MAG_GLASS_OFFSET      = 0x080F83   # StartWithMagnifyingGlassOpt byte in Bank 20
-ENTRANCE_SHUFFLE_OPT_OFFSET      = 0x080F84   # EntranceShuffleOpt byte in Bank 20 (0 = off, non-zero = on; gates the "?????" reveal system)
-SHOP_PRICES_OFFSET               = 0x080F85   # ShopPrices table in Bank 20 (10 slots × 2 bytes BCD = 20 bytes)
-SHOPSANITY_MODE_OFFSET           = 0x080F99   # ShopsanityModeOpt byte in Bank 20 (0 = off → shop tile hidden; 1 = on)
-SHOP_SLOT_ITEMS_OFFSET           = 0x080F9A   # ShopSlotItems table in Bank 20 (10 bytes = treasure ID per shop slot)
-SHOP_SLOT_NAMES_OFFSET           = 0x080FA4   # ShopSlotNamesTable in Bank 20 (10 slots × 20 bytes = 200 bytes, msg-font encoded)
-SHOP_SLOT_KEY_COLORS_OFFSET      = 0x08106E   # ShopSlotKeyColors table in Bank 20 (10 bytes, $FF = not a key, 0-3 = grey/red/green/blue)
+MUSIC_BOXES_REQUIRED_OFFSET      = 0x080F85   # MusicBoxesRequired byte in Bank 20
+BOSSES_REQUIRED_OFFSET           = 0x081070   # BossesRequired byte in Bank 20 (0 = boss wincon disabled)
+VICTORY_CONDITION_OPT_OFFSET     = 0x081071   # VictoryConditionOpt byte in Bank 20 (0=music_boxes, 1=bosses)
+START_WITH_AXE_OFFSET            = 0x080F86   # StartWithAxeOpt byte in Bank 20
+START_WITH_MAG_GLASS_OFFSET      = 0x080F87   # StartWithMagnifyingGlassOpt byte in Bank 20
+ENTRANCE_SHUFFLE_OPT_OFFSET      = 0x080F88   # EntranceShuffleOpt byte in Bank 20 (0 = off, non-zero = on; gates the "?????" reveal system)
+SHOP_PRICES_OFFSET               = 0x080F89   # ShopPrices table in Bank 20 (10 slots × 2 bytes BCD = 20 bytes)
+SHOPSANITY_MODE_OFFSET           = 0x080F9D   # ShopsanityModeOpt byte in Bank 20 (0 = off → shop tile hidden; 1 = on)
+SHOP_SLOT_ITEMS_OFFSET           = 0x080F9E   # ShopSlotItems table in Bank 20 (10 bytes = treasure ID per shop slot)
+SHOP_SLOT_NAMES_OFFSET           = 0x080FA8   # ShopSlotNamesTable in Bank 20 (10 slots × 20 bytes = 200 bytes, msg-font encoded)
+SHOP_SLOT_KEY_COLORS_OFFSET      = 0x081072   # ShopSlotKeyColors table in Bank 20 (10 bytes, $FF = not a key, 0-3 = grey/red/green/blue)
 HIDDEN_PASSAGES_REVEALED_OFFSET = 0x01FDF6  # HiddenPassagesRevealedOpt byte in Bank 07 (moved from Bank 3 during reveal-hidden-blocks refactor)
 GOLF_PRICE_OPT_OFFSET            = 0x003A00   # GolfPriceOpt byte in Home bank
 GOLF_BUILDING_OPT_OFFSET         = 0x003A01   # GolfBuildingOpt byte in Home bank
@@ -1127,6 +1127,21 @@ def write_tokens(world: "WL3World", patch: WL3ProcedurePatch) -> None:
         "10 Coins":  "10 COINS",
         "25 Coins":  "25 COINS",
         "50 Coins":  "50 COINS",
+        # Transformation-unlock items — drop the " Form" suffix so the
+        # short label doesn't truncate to "X FOR". Progressive Vampire
+        # keeps its own short.
+        "Zombie Form":         "ZOMBIE",
+        "Fire Form":           "FIRE",
+        "Invisible Form":      "INVISIBLE",
+        "Fat Form":            "FAT",
+        "Snowman Form":        "SNOWMAN",
+        "Bouncy Form":         "BOUNCY",
+        "Yarn Form":           "YARN",
+        "Ice Skatin' Form":    "ICE SKATE",
+        "Flat Form":           "FLAT",
+        "Puffy Form":          "PUFFY",
+        "Roll Form":           "ROLL",
+        "Progressive Vampire": "VAMPIRE",
     }
 
     # Map owlevel index (1-25) → 2-char abbreviation for shop labels
@@ -1166,6 +1181,13 @@ def write_tokens(world: "WL3World", patch: WL3ProcedurePatch) -> None:
             ow = _OW_ABBREV[key_data.owlevel - 1]
             col = _COLOR_ABBREV[key_data.color_index]
             return f"{ow} {col}"
+        # Keyrings — format as "N1 KEYRING" (level abbrev + KEYRING).
+        # Full item name is "{level_name} Keyring" which would truncate
+        # to garbage. 10 chars exact fits the shop slot.
+        keyring_data = KEYRING_ITEM_TABLE.get(item.name)
+        if keyring_data is not None:
+            ow = _OW_ABBREV[keyring_data.owlevel - 1]
+            return f"{ow} KEYRING"
         short = _SHOP_SHORT.get(item.name)
         if short is not None:
             return short
@@ -1183,7 +1205,11 @@ def write_tokens(world: "WL3World", patch: WL3ProcedurePatch) -> None:
         trail = pad - lead
         return b'\x24' * lead + enc + b'\x24' * trail
 
-    from .items import KEY_ITEM_TABLE
+    from .items import (
+        KEY_ITEM_TABLE, KEYRING_ITEM_TABLE,
+        TRANSFORM_UNLOCK_ITEMS, TRANSFORM_UNLOCK_TREASURE_ID,
+        KEYRING_TREASURE_ID,
+    )
     shop_slot_items = bytearray([0x65] * NUM_SHOP_SLOTS)
     shop_slot_names = bytearray(b'\x24' * (NUM_SHOP_SLOTS * 20))
     shop_slot_key_colors = bytearray([0xFF] * NUM_SHOP_SLOTS)  # FF = not a key
@@ -1221,19 +1247,37 @@ def write_tokens(world: "WL3World", patch: WL3ProcedurePatch) -> None:
                     continue
                 # Empty pool → fall through to the normal (revealing) path.
             # Same-player item — pick tile ID + short label.
-            item_data = ITEM_TABLE.get(item.name)
-            if item_data is not None:
-                tid = item_data.tier_ids[0]
-                shop_slot_items[slot] = tid if 0 < tid < 0x65 else 0x65
+            # Transform-unlock items (forms) have tier_ids of (bank,bit)
+            # for wTransformUnlocks — not treasure IDs — so map them
+            # explicitly to the corresponding TREASURE_*_FORM sprite
+            # ($67-$72). Without this they'd fall through to the
+            # 0x65 DUMMY key portrait.
+            if item.name in TRANSFORM_UNLOCK_ITEMS:
+                shop_slot_items[slot] = TRANSFORM_UNLOCK_TREASURE_ID.get(item.name, 0x65)
+            elif item.name in KEYRING_ITEM_TABLE:
+                # Keyrings aren't in ITEM_TABLE; use the keyring sprite.
+                shop_slot_items[slot] = KEYRING_TREASURE_ID
             else:
-                # Not in ITEM_TABLE — likely a level key. $65 = DUMMY
-                # renders the key portrait art. Tag the slot's colour
-                # so ConvertShopSlotIdsToOBPals renders the sprite in
-                # the actual key hue rather than falling back to grey.
-                shop_slot_items[slot] = 0x65
-                key_data = KEY_ITEM_TABLE.get(item.name)
-                if key_data is not None:
-                    shop_slot_key_colors[slot] = key_data.color_index
+                item_data = ITEM_TABLE.get(item.name)
+                if item_data is not None:
+                    tid = item_data.tier_ids[0]
+                    # Allow real treasure IDs 1-$64 plus keyring/form
+                    # range $66-$72 through untouched; clamp everything
+                    # else (trap constants, transform (bank,bit), etc.)
+                    # to $65 DUMMY.
+                    if 0 < tid < 0x65 or 0x66 <= tid <= 0x72:
+                        shop_slot_items[slot] = tid
+                    else:
+                        shop_slot_items[slot] = 0x65
+                else:
+                    # Not in ITEM_TABLE — likely a level key. $65 = DUMMY
+                    # renders the key portrait art. Tag the slot's colour
+                    # so ConvertShopSlotIdsToOBPals renders the sprite in
+                    # the actual key hue rather than falling back to grey.
+                    shop_slot_items[slot] = 0x65
+                    key_data = KEY_ITEM_TABLE.get(item.name)
+                    if key_data is not None:
+                        shop_slot_key_colors[slot] = key_data.color_index
             shop_slot_names[slot*20:slot*20+20] = _center_pad(_shop_label_for(item))
     patch.write_token(APTokenTypes.WRITE, SHOP_SLOT_ITEMS_OFFSET,
                       bytes(shop_slot_items))
