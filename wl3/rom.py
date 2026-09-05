@@ -1082,30 +1082,32 @@ def write_tokens(world: "WL3World", patch: WL3ProcedurePatch) -> None:
         "Blue Tablet":       "B. TABLET",
         "Green Tablet":      "G. TABLET",
         "Ornamental Fan":    "FAN",
-        "Top Half of Scroll": "HALFSCROLL",
-        "Bottom Half of Scroll": "HALFSCROLL",
+        "Skull Ring Blue":   "BLU SKLRNG",
+        "Skull Ring Red":    "RED SKLRNG",
+        "Top Half of Scroll":    "TOP SCROLL",
+        "Bottom Half of Scroll": "BOT SCROLL",
         "Green Flower":      "FLOWER",
-        "Blue Chemical":     "CHEMICAL",
-        "Red Chemical":      "CHEMICAL",
+        "Blue Chemical":     "BLU CHEMCL",
+        "Red Chemical":      "RED CHEMCL",
         "Sapling of Growth": "SAPLING",
         "Night Vision Scope": "NIGHTSCOPE",
         "Electric Fan Propeller": "PROPELLER",
         "Explosive Plunger Box": "PLUNGER",
         "Castle Brick":      "BRICK",
         "Warp Removal Apparatus": "W. REMOVAL",
-        "Red Key Card":      "KEY CARD",
-        "Blue Key Card":     "KEY CARD",
+        "Key Card Red":      "RED KEYCRD",
+        "Key Card Blue":     "BLU KEYCRD",
         "Mystery Handle":    "HANDLE",
         "Demon's Blood":     "DMON BLOOD",
         "Fighter Mannequin": "MANNEQUIN",
         "Truck Wheel":       "WHEEL",
         "Foot of Stone":     "STONE FOOT",
-        "Golden Right Eye":  "GOLDEN EYE",
-        "Golden Left Eye":   "GOLDEN EYE",
-        "Right Glass Eye":   "GLASS EYE",
-        "Left Glass Eye":    "GLASS EYE",
-        "Sun Medallion Top": "MEDALLION",
-        "Sun Medallion Bottom": "MEDALLION",
+        "Golden Right Eye":  "GLD R EYE",
+        "Golden Left Eye":   "GLD L EYE",
+        "Right Glass Eye":   "GLS R EYE",
+        "Left Glass Eye":    "GLS L EYE",
+        "Sun Medallion Top":    "MEDAL TOP",
+        "Sun Medallion Bottom": "MEDAL BOT",
         "Eye of the Storm":  "STORM EYE",
         "Magic Seeds":       "MAGIC SEED",
         "Full Moon Gong":    "GONG",
@@ -1113,13 +1115,13 @@ def write_tokens(world: "WL3World", patch: WL3ProcedurePatch) -> None:
         "Earthen Figure":    "FIGURE",
         "Magnifying Glass":  "MAGNIFIER",
         "Fire Drencher":     "DRENCHER",
-        "Red Crayon":        "CRAYON",
-        "Brown Crayon":      "CRAYON",
-        "Yellow Crayon":     "CRAYON",
-        "Green Crayon":      "CRAYON",
-        "Cyan Crayon":       "CRAYON",
-        "Blue Crayon":       "CRAYON",
-        "Pink Crayon":       "CRAYON",
+        "Red Crayon":        "RED CRAYON",
+        "Brown Crayon":      "BRN CRAYON",
+        "Yellow Crayon":     "YEL CRAYON",
+        "Green Crayon":      "GRN CRAYON",
+        "Cyan Crayon":       "CYN CRAYON",
+        "Blue Crayon":       "BLU CRAYON",
+        "Pink Crayon":       "PNK CRAYON",
         # Coin bundles (repurposed crest slots)
         "1 Coin":    "1 COIN",
         "10 Coins":  "10 COINS",
@@ -1136,18 +1138,34 @@ def write_tokens(world: "WL3World", patch: WL3ProcedurePatch) -> None:
         ["S1", "S2", "S3", "S4", "S5", "S6"] +
         ["E1", "E2", "E3", "E4", "E5", "E6", "E7"]
     )
-    _COLOR_ABBREV = ["GRY", "RED", "GRN", "BLU"]  # color_index 0..3
+    # Full color names for key shop labels (e.g. "N1 GREY", "E7 GREEN").
+    # Longest label "E7 GREEN" is 8 chars — fits in the 10-char shop UI.
+    _COLOR_ABBREV = ["GREY", "RED", "GREEN", "BLUE"]  # color_index 0..3
+
+    from .items import TRAP_SHOP_DISGUISE_POOL, TRAP_ITEMS
+
+    def _pick_trap_disguise():
+        """Roll one (label, sprite_tid) tuple from the shared pool for a
+        trap in a shop slot. Deterministic per seed via world.random."""
+        if not TRAP_SHOP_DISGUISE_POOL:
+            return None
+        return world.random.choice(TRAP_SHOP_DISGUISE_POOL)
 
     def _shop_label_for(item) -> str:
         """Return the ≤10-char label to display in the shop for `item`
         (from the same player). Falls back to the item name uppercased +
-        truncated when we don't have a canonical short form."""
-        # Level keys aren't in ITEM_TABLE — format as "N1 GRY KEY".
+        truncated when we don't have a canonical short form.
+
+        NOTE: for TRAPS the label is handled inline in the shop-slot
+        builder below (paired with sprite_tid from the same roll), NOT
+        here — this function is called for non-trap same-player items."""
+        # Level keys aren't in ITEM_TABLE — format as "N1 GREY" (dropped
+        # the trailing " KEY" so the color name can be spelled out).
         key_data = KEY_ITEM_TABLE.get(item.name)
         if key_data is not None:
             ow = _OW_ABBREV[key_data.owlevel - 1]
             col = _COLOR_ABBREV[key_data.color_index]
-            return f"{ow} {col} KEY"
+            return f"{ow} {col}"
         short = _SHOP_SHORT.get(item.name)
         if short is not None:
             return short
@@ -1190,6 +1208,18 @@ def write_tokens(world: "WL3World", patch: WL3ProcedurePatch) -> None:
                     shop_slot_items[slot] = 0x4F  # Green Gem
                 shop_slot_names[slot*20:slot*20+20] = _center_pad("AP ITEM")
                 continue
+            # Traps get a disguised sprite + matching label rolled from
+            # the shared pool so the shop doesn't visibly telegraph a
+            # trap slot. AP metadata stays honest — see items.py's
+            # TRAP_SHOP_DISGUISE_POOL comment.
+            if item.name in TRAP_ITEMS:
+                disguise = _pick_trap_disguise()
+                if disguise is not None:
+                    label, sprite_tid = disguise
+                    shop_slot_items[slot] = sprite_tid if 0 < sprite_tid < 0x65 else 0x65
+                    shop_slot_names[slot*20:slot*20+20] = _center_pad(label[:10])
+                    continue
+                # Empty pool → fall through to the normal (revealing) path.
             # Same-player item — pick tile ID + short label.
             item_data = ITEM_TABLE.get(item.name)
             if item_data is not None:

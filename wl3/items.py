@@ -342,6 +342,106 @@ TRAP_ITEMS: Dict[str, WL3ItemData] = {
     ),
 }
 
+# Shop-slot trap disguise labels — when a same-player trap ends up in a
+# shop slot, the shop UI would otherwise print the raw item name (e.g.
+# "FIRE TRAP") and telegraph the trap. Instead, rom.py picks ONE entry
+# from this SHARED pool (via world.random, deterministic per seed) —
+# no per-trap-type mapping, so any trap can wear any disguise.
+#
+# NOTE: this only rewrites the IN-GAME shop label + sprite. Other players
+# scouting the location and this player's tracker/hints still see the
+# real name ("Fire Trap" etc.) so multiworld routing and progression
+# classification stay intact. Matches the OoT ice-trap pattern: deceive
+# at the render layer, keep AP metadata honest.
+#
+# Format: (label, sprite_treasure_id) tuples.
+#   - label: ≤10 chars, uppercase A-Z + digits + spaces (msg-font safe)
+#   - sprite_treasure_id: real WL3 treasure ID (0x01-0x64) whose sprite
+#     the shop should render alongside the label. Match the label's
+#     implied item so the visual + text look consistent (e.g. "GARE 1"
+#     ships with the Gear 1 sprite = 0x12).
+TRAP_SHOP_DISGUISE_POOL: List[tuple] = [
+    # Music boxes (non-real colors) → music box sprites
+    ("PURP M BOX", 0x01), ("CYAN M BOX", 0x02), ("PNK M. BOX", 0x03),
+    ("WHT M. BOX", 0x04), ("BLK M. BOX", 0x05), ("GREY M BOX", 0x01),
+    ("BRN M. BOX", 0x02), ("TEAL M BOX", 0x03),
+    # Abilities
+    ("BOTS", 0x08), ("SHOES", 0x08), ("LACES", 0x08),
+    ("GARLICK", 0x0a), ("GARLIK", 0x0a), ("ONION", 0x0a),
+    ("SUN HAT", 0x0e), ("BOWLER", 0x0e),
+    # Overworld unlock items
+    ("SHINE", 0x0f), ("LAMP", 0x0f), ("BULB", 0x0f),
+    ("HOT THING", 0x10), ("CAMPFIRE", 0x10),
+    ("BIG FLAME", 0x11), ("FLASHLIGHT", 0x11),
+    ("GARE 1", 0x12), ("GEER 1", 0x12), ("GARE 2", 0x13), ("GEER 2", 0x13),
+    ("WARPY", 0x14), ("JOR", 0x15), ("COMPASS", 0x16),
+    ("GREY BOOK", 0x17), ("EARTH KEY", 0x18), ("NOT A BOOK", 0x19),
+    ("FORK", 0x1a), ("AEX", 0x1b), ("STICK", 0x1c),
+    ("THE RING", 0x1d), ("NOT A RING", 0x1e),
+    ("A. TEBLET", 0x1f), ("Y. TEBLET", 0x20),
+    ("FAAAAAN", 0x21),
+    ("TOP SKRILL", 0x22), ("BOT SKRILL", 0x23),
+    ("TUSK GRY", 0x24), ("TUSK GRN", 0x25),
+    ("FLOWEY", 0x26),
+    # Level / variant items
+    ("GRY CHEMKL", 0x27), ("GRN CHEMKL", 0x28),
+    ("WOOOOSH", 0x29), ("EAT SAP", 0x2a),
+    ("3D GLASSES", 0x2b),
+    ("WOOSH", 0x2c), ("WD 40", 0x2d),
+    ("MICHAEL", 0x2e), ("BANG", 0x2f),
+    ("SKISSORS", 0x30), ("BRINK", 0x31),
+    ("WARP B GON", 0x32),
+    ("R CARDKEY", 0x33), ("B CARDKEY", 0x34),
+    ("JACKWRENCH", 0x35), ("PICK A AXE", 0x36),
+    ("SPACESHIP", 0x37), ("NOTPIKACHU", 0x38),
+    ("HANDEL", 0x39), ("BMON BLOOD", 0x3a),
+    ("SAPMAGIC", 0x3b), ("MANNEGWEN", 0x3c),
+    ("WEEL", 0x3d), ("TRUMPET", 0x3e),
+    ("ROCK FOOT", 0x3f),
+    ("GLD I", 0x40), ("GLD AYE", 0x41), ("GLES AYE", 0x43), ("GLES I", 0x42),
+    ("SUSCEPTER", 0x44),
+    ("BRIGHT TOP", 0x45), ("BRIGHT BOT", 0x46),
+    ("THUNDER", 0x47), ("BEANSTALK", 0x48),
+    ("PURSE", 0x49), ("CYMBAL", 0x4a),
+    ("CELL PHONE", 0x4b),
+    ("HAT 2", 0x4c), ("DAY THING", 0x4d),
+    # Coin bundles (COIN(S) → EUROS/DOLLARS/BUCKS/MONEY) — coin sprites
+    ("1 EURO", 0x51), ("1 DOLLAR", 0x51), ("1 BUCK", 0x51), ("1 MONEY", 0x51),
+    ("10 EUROS", 0x52), ("10 DOLLARS", 0x52), ("10 BUCKS", 0x52), ("10 MONEY", 0x52),
+    ("25 EUROS", 0x53), ("25 DOLLARS", 0x53), ("25 BUCKS", 0x53), ("25 MONEY", 0x53),
+    ("50 EUROS", 0x54), ("50 DOLLARS", 0x54), ("50 BUCKS", 0x54), ("50 MONEY", 0x54),
+    # Junk collectibles
+    ("DOLL", 0x55), ("SWORD", 0x56), ("GOLBET", 0x57), ("COFFEE", 0x58),
+    ("GLESS", 0x59), ("BIGCAR", 0x5b), ("TRAIN", 0x5c), ("WATER", 0x5d),
+    # Crayons (CRAYON → CROWN/CREYON/CRAN)
+    ("RED CROWN", 0x5e), ("RED CREYON", 0x5e), ("RED CRAN", 0x5e),
+    ("BRN CROWN", 0x5f), ("BRN CREYON", 0x5f), ("BRN CRAN", 0x5f),
+    ("YEL CROWN", 0x60), ("YEL CREYON", 0x60), ("YEL CRAN", 0x60),
+    ("GRN CROWN", 0x61), ("GRN CREYON", 0x61), ("GRN CRAN", 0x61),
+    ("CYN CROWN", 0x62), ("CYN CREYON", 0x62), ("CYN CRAN", 0x62),
+    ("BLU CROWN", 0x63), ("BLU CREYON", 0x63), ("BLU CRAN", 0x63),
+    ("PNK CROWN", 0x64), ("PNK CREYON", 0x64), ("PNK CRAN", 0x64),
+    # Progressives — use tier 1 sprite (Overalls / Grab Glove / Swim Flippers)
+    ("OVERALS", 0x0d), ("OVER ALL", 0x0d),
+    ("STRENGTH", 0x0b), ("GREB", 0x0b), ("GLOVE", 0x0b),
+    ("SWIM", 0x07),
+    # Keys (color → YEL/PNK/CYAN/BRN, across levels) — DUMMY sprite (portrait)
+    ("N1 YEL", 0x65), ("N2 PNK", 0x65), ("N3 CYAN", 0x65), ("N4 BRN", 0x65),
+    ("N5 YEL", 0x65), ("N6 PNK", 0x65),
+    ("W1 CYAN", 0x65), ("W2 BRN", 0x65), ("W3 YEL", 0x65), ("W4 PNK", 0x65),
+    ("W5 CYAN", 0x65), ("W6 BRN", 0x65),
+    ("S1 YEL", 0x65), ("S2 PNK", 0x65), ("S3 CYAN", 0x65), ("S4 BRN", 0x65),
+    ("S5 YEL", 0x65), ("S6 PNK", 0x65),
+    ("E1 CYAN", 0x65), ("E2 BRN", 0x65), ("E3 YEL", 0x65), ("E4 PNK", 0x65),
+    ("E5 CYAN", 0x65), ("E6 BRN", 0x65), ("E7 YEL", 0x65),
+    # Combined items — use first-component sprite
+    ("BIG FIRE", 0x0f), ("GARES", 0x12), ("DEF A BOOK", 0x17),
+    ("SKOOL RNG", 0x1d), ("TEBLETS", 0x1f), ("SKROLL", 0x22), ("TASK SAT", 0x24),
+    ("STRM PURSE", 0x49), ("CHEMKALS", 0x27),
+    ("GLESS AYES", 0x43), ("GLDN AYES", 0x41),
+    ("WEDALLION", 0x45), ("CARD KEYS", 0x33),
+]
+
 # Set of all trap AP IDs — used by _build_chest_assignments to force a
 # red-gem visual instead of grabbing tier_ids[0] (which is a TRAP_* constant,
 # not a real treasure ID).

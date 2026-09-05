@@ -145,6 +145,8 @@ ADDR_SHOP_SLOTS_BOUGHT_WRAM = 0x14DE    # wShopSlotsBought    (bank 1 0xD4DE) �
                                         # 10 bits (0-9) for the 10 shop slot checks.
                                         # Client writes TileID FIRST, then Timer, so ROM
                                         # never observes stale (id, timer) mid-write.
+ADDR_SHOP_APRESS_COUNTER_WRAM = 0x14E1  # wShopAPressCounter (bank 1 0xD4E1) — u8, ROM increments on every shop A press
+ADDR_SHOP_APRESS_SLOT_WRAM    = 0x14E2  # wShopAPressSlot    (bank 1 0xD4E2) — u8, slot idx (0-9) of that press
 ADDR_SHOP_MODE_WRAM = 0x14E0            # wShopMode (bank 1 0xD4E0) — 1 byte, $A5 while
                                         # the shop scene is active. Client watches for the
                                         # transition-into-$A5 to auto-hint all 10 shop slots.
@@ -290,8 +292,10 @@ class WL3Client(BizHawkClient):
         self._prev_boss_defeated_flags: bytes = bytes(2)
         self._prev_opened_chests: bytes = bytes(13)
         self._prev_shop_slots_bought: bytes = bytes(2)
-        self._prev_shop_mode: int = 0        # last-seen wShopMode; rising edge to $A5 triggers hints
-        self._shop_slots_hinted: bool = False # once-per-session guard so re-entering doesn't spam
+        self._prev_shop_mode: int = 0        # last-seen wShopMode
+        self._shop_slots_hinted: bool = False # legacy — kept for compat, no longer used
+        self._shop_scouted_slots: set = set() # slots already scouted this session (per-A-press hint)
+        self._prev_shop_apress_counter: int = 0  # last-seen wShopAPressCounter — delta triggers scout
         self._checked_locs:     set   = set()
         # Timestamps (time.time()) of when each loc_id was locally
         # detected as checked (chest/key/boss). Used by the
@@ -774,18 +778,47 @@ class WL3Client(BizHawkClient):
             except RequestFailedError:
                 pass
 
-            # ---- Auto-hint all shop slots on shop entry (once per session) ----
-            # ROM sets wShopMode = $A5 for the whole time the shop UI is up.
-            # First rising-edge scouts (create_as_hint=2) every not-yet-checked
-            # slot so the player sees each slot's item + coin price surfaced in
-            # the AP chat / in-game hint stream while they browse.
+            # ---- Per-slot shop hint on A-press (beacon-driven) ----
+            # ROM increments wShopAPressCounter and writes the slot idx
+            # into wShopAPressSlot on every A press inside the shop UI
+            # (building.asm's .a_btn → .shop_buy path). Client polls both:
+            # if the counter changed since last tick, we scout that slot
+            # (create_as_hint=2). This survives the polling gap that
+            # rising-edge wJoypadPressed reads miss (wJoypadPressed is
+            # set for one frame; client only polls every few frames).
+            # Cache scouted slots per-shop-visit so re-A-pressing the
+            # same slot doesn't spam the server.
             try:
-                sm_raw = (await read(ctx.bizhawk_ctx, [(ADDR_SHOP_MODE_WRAM, 1, "WRAM")]))[0]
-                sm = sm_raw[0]
-                if sm == SHOP_MODE_MAGIC and self._prev_shop_mode != SHOP_MODE_MAGIC \
-                        and not self._shop_slots_hinted:
-                    await self._auto_hint_shop_slots(ctx)
-                    self._shop_slots_hinted = True
+                r = await read(ctx.bizhawk_ctx, [
+                    (ADDR_SHOP_MODE_WRAM,            1, "WRAM"),
+                    (ADDR_SHOP_APRESS_COUNTER_WRAM,  1, "WRAM"),
+                    (ADDR_SHOP_APRESS_SLOT_WRAM,     1, "WRAM"),
+                ])
+                sm     = r[0][0]
+                cntr   = r[1][0]
+                slot   = r[2][0]
+                if sm == SHOP_MODE_MAGIC and cntr != self._prev_shop_apress_counter \
+                        and 0 <= slot < NUM_SHOP_SLOTS \
+                        and slot not in self._shop_scouted_slots:
+                    loc_id = SHOP_BASE_LOC_ID + slot
+                    if loc_id not in self._checked_locs:
+                        try:
+                            await ctx.send_msgs([{
+                                "cmd": "LocationScouts",
+                                "locations": [loc_id],
+                                "create_as_hint": 2,
+                            }])
+                            self._shop_scouted_slots.add(slot)
+                            logger.debug(f"[WL3] Shop A-press scout — slot {slot+1} -> loc {loc_id}")
+                        except Exception as e:
+                            logger.warning(f"[WL3] Shop A-press scout failed: {e}")
+                    else:
+                        self._shop_scouted_slots.add(slot)
+                self._prev_shop_apress_counter = cntr
+                # Reset scouted set on shop exit so a fresh visit next time
+                # can re-scout (in case the player forgot the earlier hint).
+                if sm != SHOP_MODE_MAGIC and self._prev_shop_mode == SHOP_MODE_MAGIC:
+                    self._shop_scouted_slots.clear()
                 self._prev_shop_mode = sm
             except RequestFailedError:
                 pass
