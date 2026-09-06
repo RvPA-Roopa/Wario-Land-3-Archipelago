@@ -1885,13 +1885,15 @@ class WL3Client(BizHawkClient):
         async def _do():
             try:
                 results = await read(ctx.bizhawk_ctx, [
-                    (ADDR_LEVEL,      1, "System Bus"),
-                    (ADDR_ROOM,       1, "System Bus"),
-                    (ADDR_WARIO_POS,  4, "System Bus"),
+                    (ADDR_LEVEL,        1, "System Bus"),
+                    (ADDR_ROOM,         1, "System Bus"),
+                    (ADDR_WARIO_POS,    4, "System Bus"),
+                    (ADDR_OBJECT_GROUP, 1, "System Bus"),
                 ])
                 w_level = results[0][0]
                 w_room  = results[1][0]
                 pos     = results[2]
+                w_wgid  = results[3][0]
                 y = pos[0] | (pos[1] << 8)
                 x = pos[2] | (pos[3] << 8)
                 owlevel = (w_level >> 3) + 1
@@ -1899,7 +1901,8 @@ class WL3Client(BizHawkClient):
                 name    = LEVEL_NAMES.get(owlevel, "(unknown)")
                 logger.info(f"[WL3] where: {name} — wLevel=${w_level:02x} "
                             f"(owlevel={owlevel}, variant={variant}) "
-                            f"room=${w_room:02x} x=${x:04x} y=${y:04x}")
+                            f"room=${w_room:02x} wgid=${w_wgid:02x} "
+                            f"x=${x:04x} y=${y:04x}")
             except Exception as e:
                 logger.warning(f"[WL3] /where read failed: {e}")
         import asyncio
