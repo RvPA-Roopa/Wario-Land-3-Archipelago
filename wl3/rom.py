@@ -24,6 +24,7 @@ from worlds.Files import APProcedurePatch, APPatchExtension, APTokenMixin, APTok
 if TYPE_CHECKING:
     from . import WL3World
 
+CROSS_LEVEL_DOOR_TABLE_OFFSET = 0x01B6A9   # CrossLevelDoorTable (bank $06, 2100 bytes reserved; 7-byte entries + $FF terminator)
 CHEST_TABLE_OFFSET = 0x001B16   # LevelTreasureIDs_WithoutTemple (100 bytes)
 KEYSANITY_MODE_OFFSET = 0x001B7A   # KeysanityMode (1 byte: 0=vanilla, 1=simple, 2=full)
 KEY_TABLE_OFFSET = 0x001B7B   # LevelKeyPool (100 bytes; ITEM_KEY_BASE + index = vanilla)
@@ -741,6 +742,67 @@ def _recolor_palette(data: bytes, rand, fixed_hue_rotate: float = None,
     return bytes(out)
 
 
+def _build_cross_level_door_table(world: "WL3World") -> bytes:
+    """Cross-Level Door Randomizer — bijective pairing of regular doors
+    across levels, encoded into the CrossLevelDoorTable ROM table.
+
+    Table format: 7 bytes per entry [src_ow, src_x, src_y, dst_ow, dst_x,
+    dst_y, dst_room], terminated by $FF as src_ow. See
+    src/engine/level/cross_level_er.asm.
+
+    Reads doors from data/door_table.json (built by tools/enumerate_doors.py
+    + tools/ship_door_table.py? — for now: hand-baked at repo checkout,
+    lives in the apworld data dir).
+
+    Cross-level only: source and destination MUST have different owlevel.
+    Skips odd-door-out gracefully — one door in an owlevel with an odd
+    total will be unshuffled (vanilla behavior for that door)."""
+    import json, pkgutil
+    raw = pkgutil.get_data(__name__, "data/door_table.json")
+    if raw is None:
+        raise FileNotFoundError("data/door_table.json missing from apworld")
+    doors_by_ow: "dict[int, list[dict]]" = {
+        int(k): v for k, v in json.loads(raw)["doors_by_owlevel"].items()
+    }
+
+    # Flat list of (owlevel, door) tuples for shuffling. Two doors from
+    # the SAME owlevel cannot be paired (defeats the point of "cross-level"),
+    # so we build a graph coloring: pair each door with one from a
+    # different owlevel.
+    all_doors = [(ow, i, d) for ow, doors in doors_by_ow.items()
+                            for i, d in enumerate(doors)]
+    world.random.shuffle(all_doors)
+
+    # Pair greedily: walk the shuffled list, for each unpaired door pick
+    # the first later door with a different owlevel. Any leftover doors
+    # from one dominant owlevel remain unpaired (fall through to vanilla).
+    unpaired: "list[int]" = list(range(len(all_doors)))
+    pairs: "list[tuple[int, int]]" = []
+    while unpaired:
+        i = unpaired.pop(0)
+        ow_i = all_doors[i][0]
+        for k, j in enumerate(unpaired):
+            if all_doors[j][0] != ow_i:
+                pairs.append((i, j))
+                unpaired.pop(k)
+                break
+
+    # Encode pairs as two table entries each (A→B and B→A).
+    entries: "list[bytes]" = []
+    for i, j in pairs:
+        ow_a, _, door_a = all_doors[i]
+        ow_b, _, door_b = all_doors[j]
+        entries.append(bytes([ow_a, door_a["x"], door_a["y"],
+                              ow_b, door_b["x"], door_b["y"], door_b["slot"]]))
+        entries.append(bytes([ow_b, door_b["x"], door_b["y"],
+                              ow_a, door_a["x"], door_a["y"], door_a["slot"]]))
+    # Terminator: single $FF as src_ow.
+    payload = b"".join(entries) + b"\xFF"
+    if len(payload) > 2100:
+        raise ValueError(f"CrossLevelDoorTable overflow: {len(payload)}b > 2100b")
+    return payload
+
+
 def write_tokens(world: "WL3World", patch: WL3ProcedurePatch) -> None:
     """Write the randomized chest table, key pool, and options into the patch.
 
@@ -748,6 +810,15 @@ def write_tokens(world: "WL3World", patch: WL3ProcedurePatch) -> None:
     shuffle) are NOT performed here — they're deferred to patch-application
     time via the apply_form_icons / apply_palette_shuffle procedure steps.
     This lets generation run without the user's vanilla ROM."""
+    # Cross-Level Door Randomizer — write the door pair table when the
+    # option is on. Off: table stays all-$FF (from `ds 2100, $FF` in
+    # cross_level_er.asm), so the hijack scan finds terminator at byte 0
+    # and returns immediately — every door plays vanilla.
+    if world.options.door_shuffle:
+        patch.write_token(APTokenTypes.WRITE,
+                          CROSS_LEVEL_DOOR_TABLE_OFFSET,
+                          _build_cross_level_door_table(world))
+
     chest_assignments = list(world._build_chest_assignments())
 
     key_assignments = world._build_key_assignments()

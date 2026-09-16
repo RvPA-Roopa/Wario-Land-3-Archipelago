@@ -136,6 +136,21 @@ class IHateGolf(Toggle):
     default = 0
 
 
+class DoorShuffle(Toggle):
+    """Cross-level door randomizer (Phase 2b — hardcoded testing table
+    currently, replaced per-seed once this option is on).
+
+    When enabled, every regular door in the game is paired bijectively
+    with another door in a DIFFERENT level. Walking into a door warps
+    Wario to its paired door in the paired level. Walking back through
+    the paired door returns him where he came from.
+
+    Off:  Doors behave vanilla.
+    On:   Doors get shuffled across levels."""
+    display_name = "Door Shuffle"
+    default = 0
+
+
 class GolfParHints(Choice):
     """Hint an AP item when you clear a Golf Building hole or course at par or better.
     Nothing:                       Vanilla, no hints are given.
@@ -504,6 +519,7 @@ class WL3Options(PerGameCommonOptions):
     keyring_count:                KeyringCount
     transformation_shuffle:       TransformationShuffle
     rudy_hit_points:              RudyHitPoints
+    door_shuffle:                 DoorShuffle
     # QoL
     golf_price:                   GolfPrice
     golf_building:                GolfBuilding
