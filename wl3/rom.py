@@ -24,7 +24,8 @@ from worlds.Files import APProcedurePatch, APPatchExtension, APTokenMixin, APTok
 if TYPE_CHECKING:
     from . import WL3World
 
-CROSS_LEVEL_DOOR_TABLE_OFFSET = 0x01B6A9   # CrossLevelDoorTable (bank $06, 2100 bytes reserved; 7-byte entries + $FF terminator)
+CROSS_LEVEL_DOOR_TABLE_OFFSET = 0x04DAD2   # CrossLevelDoorTable (bank $13, 2100 bytes reserved; 7-byte entries + $FF terminator)
+SIDE_TRANSITION_TABLE_OFFSET  = 0x04E306   # SideTransitionTable (bank $13, 1400 bytes reserved; 7-byte entries + $FF terminator — L/R scroll shuffle)
 CHEST_TABLE_OFFSET = 0x001B16   # LevelTreasureIDs_WithoutTemple (100 bytes)
 KEYSANITY_MODE_OFFSET = 0x001B7A   # KeysanityMode (1 byte: 0=vanilla, 1=simple, 2=full)
 KEY_TABLE_OFFSET = 0x001B7B   # LevelKeyPool (100 bytes; ITEM_KEY_BASE + index = vanilla)
@@ -102,9 +103,9 @@ FORM_ICON_FLIPPED_EXTRACTIONS = (
     # motion trail is on the right (matches rolling right visually).
     ("sprite_raw", 0x025000, 2048, 112, 32, TREASURE_ROLL_TILE_OFFSET),
 )
-TREASURE_DUMMY_PAL_OFFSET        = 0x09BBF6   # TreasureOBPals[$65] — 1 byte (palette index)
+TREASURE_DUMMY_PAL_OFFSET        = 0x09BC45   # TreasureOBPals[$65] — 1 byte (palette index)
 TREASURE_GFX_BASE                = 0x098000   # TreasureGfx[0] — each entry 64 bytes
-TREASURE_PAL_BASE                = 0x09BB91   # TreasureOBPals[0] — each entry 1 byte
+TREASURE_PAL_BASE                = 0x09BBE0   # TreasureOBPals[0] — each entry 1 byte
 KEY_COLOR_PALS = [0x08, 0x05, 0x06, 0x07]    # OBPAL: grey, red, green, blue
 OBPAL_TREASURE_PURPLE = 0x09                  # Combined unlock items
 
@@ -302,7 +303,7 @@ GOLF_PAR_HINT_FREQ_OFFSET        = 0x003A6E   # GolfParHintFrequencyOpt byte in 
 # Vanilla source is `$04`; the AP option lets the player pick 1-10 without
 # touching the ROM layout. Re-audit if hidden_figure.asm changes above line 15.
 RUDY_HIT_POINTS_OFFSET           = 0x04CC94
-TREASURE_OB_PALS_OFFSET          = 0x09BB91   # TreasureOBPals table (indexed by treasure ID)
+TREASURE_OB_PALS_OFFSET          = 0x09BBE0   # TreasureOBPals table (indexed by treasure ID)
 
 # Combined-item companion chains: collecting key → also grant value (chained).
 # Tusk Set: $24→$25→$26 (two hops).
@@ -742,41 +743,23 @@ def _recolor_palette(data: bytes, rand, fixed_hue_rotate: float = None,
     return bytes(out)
 
 
-def _build_cross_level_door_table(world: "WL3World") -> bytes:
-    """Cross-Level Door Randomizer — bijective pairing of regular doors
-    across levels, encoded into the CrossLevelDoorTable ROM table.
+# Owlevels where every door is underwater — needs Flippers/Frog to
+# survive. Shuffled into their own pool so Wario only lands here if he
+# came from another underwater door (i.e. already has swim ability).
+_UNDERWATER_OWLEVELS = frozenset({6, 9, 11, 20})   # N6, W3, W5, E2
 
-    Table format: 7 bytes per entry [src_ow, src_x, src_y, dst_ow, dst_x,
-    dst_y, dst_room], terminated by $FF as src_ow. See
-    src/engine/level/cross_level_er.asm.
 
-    Reads doors from data/door_table.json (built by tools/enumerate_doors.py
-    + tools/ship_door_table.py? — for now: hand-baked at repo checkout,
-    lives in the apworld data dir).
+def _pair_pool_greedy(all_doors, rng) -> "list[tuple[int, int]]":
+    """Greedy bijective cross-level pairing of a door pool.
 
-    Cross-level only: source and destination MUST have different owlevel.
-    Skips odd-door-out gracefully — one door in an owlevel with an odd
-    total will be unshuffled (vanilla behavior for that door)."""
-    import json, pkgutil
-    raw = pkgutil.get_data(__name__, "data/door_table.json")
-    if raw is None:
-        raise FileNotFoundError("data/door_table.json missing from apworld")
-    doors_by_ow: "dict[int, list[dict]]" = {
-        int(k): v for k, v in json.loads(raw)["doors_by_owlevel"].items()
-    }
+    Input: list of (owlevel, index, door_dict) tuples. Shuffles a copy,
+    then walks it: for each unpaired door, pairs it with the first
+    subsequent door from a DIFFERENT owlevel. Leftovers (a door with no
+    valid partner remaining) stay unpaired and fall through to vanilla.
 
-    # Flat list of (owlevel, door) tuples for shuffling. Two doors from
-    # the SAME owlevel cannot be paired (defeats the point of "cross-level"),
-    # so we build a graph coloring: pair each door with one from a
-    # different owlevel.
-    all_doors = [(ow, i, d) for ow, doors in doors_by_ow.items()
-                            for i, d in enumerate(doors)]
-    world.random.shuffle(all_doors)
-
-    # Pair greedily: walk the shuffled list, for each unpaired door pick
-    # the first later door with a different owlevel. Any leftover doors
-    # from one dominant owlevel remain unpaired (fall through to vanilla).
-    unpaired: "list[int]" = list(range(len(all_doors)))
+    Returns list of (i, j) index pairs into `all_doors`."""
+    rng.shuffle(all_doors)
+    unpaired = list(range(len(all_doors)))
     pairs: "list[tuple[int, int]]" = []
     while unpaired:
         i = unpaired.pop(0)
@@ -786,20 +769,230 @@ def _build_cross_level_door_table(world: "WL3World") -> bytes:
                 pairs.append((i, j))
                 unpaired.pop(k)
                 break
+    return pairs
+
+
+def _build_unified_transition_shuffle(world: "WL3World") -> "tuple[bytes, bytes]":
+    """Unified door + side-transition randomizer.
+
+    Pools ALL cross-level exits (doors AND L/R side-scrolls) together
+    and pairs them bijectively. A door can pair with a side transition
+    and vice versa. Underwater levels (owlevels 6/9/11/20) form their
+    own subpool so Wario, who must have Flippers to have reached an
+    underwater exit, always lands somewhere his transform survives.
+
+    Splits the paired output into the two ROM tables based on the
+    SOURCE type. Destination encoding uses `dst_x = $FF` sentinel for
+    "scroll-style landing" (spawn at destination room's $0F marker) —
+    the hijack ASM decodes that so the destination TYPE is independent
+    of the source table.
+
+    Returns (door_table_bytes, side_transition_table_bytes)."""
+    import json, pkgutil
+    door_raw = pkgutil.get_data(__name__, "data/door_table.json")
+    side_raw = pkgutil.get_data(__name__, "data/side_transition_table.json")
+    if door_raw is None or side_raw is None:
+        raise FileNotFoundError("data/{door,side_transition}_table.json missing")
+    doors_by_ow = {int(k): v for k, v in json.loads(door_raw)["doors_by_owlevel"].items()}
+    sides_by_ow = {int(k): v for k, v in json.loads(side_raw)["transitions_by_owlevel"].items()}
+
+    # Unified pool entries: (owlevel, kind, entry_dict).
+    # kind='door': entry has x, y, slot.
+    # kind='side': entry has slot, direction, x_edge, y_min, y_max.
+    regular: "list[tuple[int, str, dict]]" = []
+    underwater: "list[tuple[int, str, dict]]" = []
+    for ow, doors in doors_by_ow.items():
+        target = underwater if ow in _UNDERWATER_OWLEVELS else regular
+        for d in doors:
+            target.append((ow, "door", d))
+    for ow, sides in sides_by_ow.items():
+        target = underwater if ow in _UNDERWATER_OWLEVELS else regular
+        for s in sides:
+            target.append((ow, "side", s))
+
+    reg_pairs = _pair_pool_greedy(regular,    world.random)
+    uw_pairs  = _pair_pool_greedy(underwater, world.random)
+
+    def dst_bytes(dst_ow: int, dst_kind: str, dst_entry: dict) -> "tuple[int, int, int, int]":
+        """Returns (dst_ow, dst_x, dst_y, dst_room) for the paired dest.
+        For side dests, dst_x=$FF is the sentinel for "use room spawn"."""
+        if dst_kind == "door":
+            return (dst_ow, dst_entry["x"], dst_entry["y"], dst_entry["slot"])
+        return (dst_ow, 0xFF, 0x00, dst_entry["slot"])
+
+    door_entries: "list[bytes]" = []
+    side_entries: "list[bytes]" = []
+
+    for pool, pool_pairs in ((regular, reg_pairs), (underwater, uw_pairs)):
+        for i, j in pool_pairs:
+            ow_a, kind_a, e_a = pool[i]
+            ow_b, kind_b, e_b = pool[j]
+
+            # A → B
+            dst_ow, dst_x, dst_y, dst_room = dst_bytes(ow_b, kind_b, e_b)
+            if kind_a == "door":
+                door_entries.append(bytes([ow_a, e_a["x"], e_a["y"],
+                                            dst_ow, dst_x, dst_y, dst_room]))
+            else:
+                src_dir = 1 if e_a["direction"] == "right" else 0
+                side_entries.append(bytes([ow_a, e_a["slot"], src_dir,
+                                            dst_ow, dst_x, dst_y, dst_room]))
+
+            # B → A
+            dst_ow, dst_x, dst_y, dst_room = dst_bytes(ow_a, kind_a, e_a)
+            if kind_b == "door":
+                door_entries.append(bytes([ow_b, e_b["x"], e_b["y"],
+                                            dst_ow, dst_x, dst_y, dst_room]))
+            else:
+                src_dir = 1 if e_b["direction"] == "right" else 0
+                side_entries.append(bytes([ow_b, e_b["slot"], src_dir,
+                                            dst_ow, dst_x, dst_y, dst_room]))
+
+    door_payload = b"".join(door_entries) + b"\xFF"
+    side_payload = b"".join(side_entries) + b"\xFF"
+    if len(door_payload) > 2100:
+        raise ValueError(f"CrossLevelDoorTable overflow: {len(door_payload)}b > 2100b")
+    if len(side_payload) > 1400:
+        raise ValueError(f"SideTransitionTable overflow: {len(side_payload)}b > 1400b")
+    return door_payload, side_payload
+
+
+def _build_cross_level_door_table(world: "WL3World") -> bytes:
+    """Cross-Level Door Randomizer — bijective pairing of regular doors
+    across levels, encoded into the CrossLevelDoorTable ROM table.
+
+    Table format: 7 bytes per entry [src_ow, src_x, src_y, dst_ow, dst_x,
+    dst_y, dst_room], terminated by $FF as src_ow. See
+    src/engine/level/cross_level_er.asm.
+
+    Reads doors from data/door_table.json (built by tools/enumerate_doors.py).
+
+    Cross-level only: source and destination MUST have different owlevel.
+    Uses two separate pools so a door in an underwater level only pairs
+    with doors in OTHER underwater levels — that way Wario, who must
+    already have Flippers/Frog to have reached the source underwater
+    door, always lands somewhere his current transform survives.
+
+    Skips odd-door-out gracefully — one door per pool may end up
+    unpaired and fall through to vanilla."""
+    import json, pkgutil
+    raw = pkgutil.get_data(__name__, "data/door_table.json")
+    if raw is None:
+        raise FileNotFoundError("data/door_table.json missing from apworld")
+    doors_by_ow: "dict[int, list[dict]]" = {
+        int(k): v for k, v in json.loads(raw)["doors_by_owlevel"].items()
+    }
+
+    # Split into two disjoint pools.
+    regular_pool: "list[tuple[int, int, dict]]" = []
+    underwater_pool: "list[tuple[int, int, dict]]" = []
+    for ow, doors in doors_by_ow.items():
+        target = underwater_pool if ow in _UNDERWATER_OWLEVELS else regular_pool
+        for i, d in enumerate(doors):
+            target.append((ow, i, d))
+
+    reg_pairs = _pair_pool_greedy(regular_pool,    world.random)
+    uw_pairs  = _pair_pool_greedy(underwater_pool, world.random)
 
     # Encode pairs as two table entries each (A→B and B→A).
     entries: "list[bytes]" = []
-    for i, j in pairs:
-        ow_a, _, door_a = all_doors[i]
-        ow_b, _, door_b = all_doors[j]
-        entries.append(bytes([ow_a, door_a["x"], door_a["y"],
-                              ow_b, door_b["x"], door_b["y"], door_b["slot"]]))
-        entries.append(bytes([ow_b, door_b["x"], door_b["y"],
-                              ow_a, door_a["x"], door_a["y"], door_a["slot"]]))
+    for pool, pool_pairs in ((regular_pool, reg_pairs), (underwater_pool, uw_pairs)):
+        for i, j in pool_pairs:
+            ow_a, _, door_a = pool[i]
+            ow_b, _, door_b = pool[j]
+            entries.append(bytes([ow_a, door_a["x"], door_a["y"],
+                                  ow_b, door_b["x"], door_b["y"], door_b["slot"]]))
+            entries.append(bytes([ow_b, door_b["x"], door_b["y"],
+                                  ow_a, door_a["x"], door_a["y"], door_a["slot"]]))
     # Terminator: single $FF as src_ow.
     payload = b"".join(entries) + b"\xFF"
     if len(payload) > 2100:
         raise ValueError(f"CrossLevelDoorTable overflow: {len(payload)}b > 2100b")
+    return payload
+
+
+def _build_side_transition_table(world: "WL3World") -> bytes:
+    """L/R side-scroll randomizer — bijective cross-level pairing of
+    right-exits with left-exits, encoded into SideTransitionTable.
+
+    Table format: 7 bytes per entry [src_ow, src_room, src_dir, dst_ow,
+    dst_x, dst_y, dst_room], terminated by $FF as src_ow.
+    src_dir encoding: 0 = LEFT exit, 1 = RIGHT exit (matches wDirection).
+
+    Reads exits from data/side_transition_table.json (built by
+    tools/enumerate_side_transitions.py).
+
+    Cross-level only: source and destination MUST have different owlevel.
+    Loose Y matching: destination Y is the midpoint of the dst exit's
+    y_range. Wario's exit Y in the source room is ignored; he lands at
+    the fixed dst midpoint. Simpler, no wall-spawn risk since dst_y sits
+    inside the destination exit's valid Y range."""
+    import json, pkgutil
+    raw = pkgutil.get_data(__name__, "data/side_transition_table.json")
+    if raw is None:
+        raise FileNotFoundError("data/side_transition_table.json missing from apworld")
+    by_ow: "dict[int, list[dict]]" = {
+        int(k): v for k, v in json.loads(raw)["transitions_by_owlevel"].items()
+    }
+
+    # Split into right/left pools. Cross-level constraint enforced during
+    # pairing (source and dest must be different owlevels).
+    rights: "list[tuple[int, dict]]" = []
+    lefts:  "list[tuple[int, dict]]" = []
+    for ow, exits in by_ow.items():
+        for e in exits:
+            (rights if e["direction"] == "right" else lefts).append((ow, e))
+    world.random.shuffle(rights)
+    world.random.shuffle(lefts)
+
+    # Greedy pair: walk rights, pair each with the first left from a
+    # different owlevel. Leftover rights/lefts fall through to vanilla.
+    lefts_avail = list(range(len(lefts)))
+    pairs: "list[tuple[int, int]]" = []
+    for r_idx, (ow_r, _) in enumerate(rights):
+        for k, l_idx in enumerate(lefts_avail):
+            if lefts[l_idx][0] != ow_r:
+                pairs.append((r_idx, l_idx))
+                lefts_avail.pop(k)
+                break
+
+    # Encode each pair as TWO entries (A→B and B→A) with the correct
+    # source direction encoded in each entry.
+    def midpoint(e: dict) -> int:
+        # dst_y = midpoint of the destination exit's y-range, in blocks.
+        return (e["y_min"] + e["y_max"] - 1) // 2
+
+    def x_inside(e: dict) -> int:
+        # Land Wario one block INSIDE the destination room past its
+        # boundary (avoids re-triggering the same edge). For a left
+        # exit (Wario entered from the right side of dst room),
+        # x_edge is the LEFT column of the dst room, so land at x_edge+1.
+        # For a right exit (Wario entered from the left side of dst),
+        # x_edge is the RIGHT column, so land at x_edge-1.
+        if e["direction"] == "left":
+            return e["x_edge"] + 1
+        return e["x_edge"] - 1
+
+    entries: "list[bytes]" = []
+    for r_idx, l_idx in pairs:
+        ow_r, right = rights[r_idx]   # source is a RIGHT exit
+        ow_l, left  = lefts[l_idx]    # source is a LEFT exit
+        # Entering the RIGHT of the source (rights[r_idx]) → land in
+        # the left-side-entry of the paired dst (lefts[l_idx]).
+        entries.append(bytes([
+            ow_r, right["slot"], 1,               # src: right exit
+            ow_l, x_inside(left), midpoint(left), left["slot"],
+        ]))
+        # Entering the LEFT of the source (lefts[l_idx]) → land in the
+        # right-side-entry of the paired dst (rights[r_idx]).
+        entries.append(bytes([
+            ow_l, left["slot"], 0,                # src: left exit
+            ow_r, x_inside(right), midpoint(right), right["slot"],
+        ]))
+
+    payload = b"".join(entries) + b"\xFF"
+    if len(payload) > 1400:
+        raise ValueError(f"SideTransitionTable overflow: {len(payload)}b > 1400b")
     return payload
 
 
@@ -815,9 +1008,11 @@ def write_tokens(world: "WL3World", patch: WL3ProcedurePatch) -> None:
     # cross_level_er.asm), so the hijack scan finds terminator at byte 0
     # and returns immediately — every door plays vanilla.
     if world.options.door_shuffle:
+        door_bytes, side_bytes = _build_unified_transition_shuffle(world)
         patch.write_token(APTokenTypes.WRITE,
-                          CROSS_LEVEL_DOOR_TABLE_OFFSET,
-                          _build_cross_level_door_table(world))
+                          CROSS_LEVEL_DOOR_TABLE_OFFSET, door_bytes)
+        patch.write_token(APTokenTypes.WRITE,
+                          SIDE_TRANSITION_TABLE_OFFSET,  side_bytes)
 
     chest_assignments = list(world._build_chest_assignments())
 

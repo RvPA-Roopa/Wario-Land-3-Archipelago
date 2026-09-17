@@ -1895,11 +1895,15 @@ class WL3Client(BizHawkClient):
                     (ADDR_ROOM,         1, "System Bus"),
                     (ADDR_WARIO_POS,    4, "System Bus"),
                     (ADDR_OBJECT_GROUP, 1, "System Bus"),
+                    (0xC0A0,            1, "System Bus"),  # wLevelRoomID
+                    (0xC4BD,            1, "System Bus"),  # wDirection
                 ])
                 w_level = results[0][0]
                 w_room  = results[1][0]
                 pos     = results[2]
                 w_wgid  = results[3][0]
+                w_slot  = results[4][0]
+                w_dir   = results[5][0]
                 y = pos[0] | (pos[1] << 8)
                 x = pos[2] | (pos[3] << 8)
                 owlevel = (w_level >> 3) + 1
@@ -1907,7 +1911,8 @@ class WL3Client(BizHawkClient):
                 name    = LEVEL_NAMES.get(owlevel, "(unknown)")
                 logger.info(f"[WL3] where: {name} — wLevel=${w_level:02x} "
                             f"(owlevel={owlevel}, variant={variant}) "
-                            f"room=${w_room:02x} wgid=${w_wgid:02x} "
+                            f"room=${w_room:02x} slot={w_slot} dir={w_dir} "
+                            f"wgid=${w_wgid:02x} "
                             f"x=${x:04x} y=${y:04x}")
             except Exception as e:
                 logger.warning(f"[WL3] /where read failed: {e}")
