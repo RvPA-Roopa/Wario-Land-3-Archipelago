@@ -379,6 +379,11 @@ class WL3Client(BizHawkClient):
         self._shown_hints:     set  = set()    # (item_id, loc_id, finder_slot) tuples we've already
                                                 # surfaced in-game (PrintJSON Hint dedup, survives single
                                                 # session — resets on reconnect)
+        self._shown_sent_locs: set  = set()    # loc_ids we fired a local "_show_sent_msg" for this
+                                                # session — used to gate the item-receive duplicate-msg
+                                                # suppressor. Only locs in this set are considered
+                                                # "already shown", so /send_location on an un-opened
+                                                # loc still fires the item-receive msg.
         # --- DeathLink ---
         self._death_link_enabled: bool = False  # True when slot_data["death_link"] is on
         self._death_link_tag_sent: bool = False # True after we've added "DeathLink" to ctx.tags
@@ -1032,7 +1037,31 @@ class WL3Client(BizHawkClient):
             try:
                 sram = (await read(ctx.bizhawk_ctx,
                     [(ADDR_MSG_SHOWN_INDEX_SRAM, 2, "SRAM")]))[0]
-                self._msg_shown_baseline = sram[0] | (sram[1] << 8)
+                raw_baseline = sram[0] | (sram[1] << 8)
+                # Sanity: baseline is the highest items_received index we've
+                # shown — it can never exceed any plausible AP item count.
+                # Older ROMs didn't reserve this SRAM slot, so a save that
+                # pre-dates the mechanism has whatever garbage happened to
+                # live at $A06D. If the value is implausibly large, treat
+                # SRAM as uninitialised: reset to 0 and rewrite below as
+                # msgs fire this session.
+                MAX_PLAUSIBLE_ITEMS = 10000
+                if raw_baseline > MAX_PLAUSIBLE_ITEMS:
+                    logger.info(
+                        f"[WL3] sMsgShownIndex SRAM has implausible value "
+                        f"{raw_baseline} — treating as uninitialised (reset to 0)"
+                    )
+                    self._msg_shown_baseline = 0
+                    try:
+                        await write(ctx.bizhawk_ctx, [(
+                            ADDR_MSG_SHOWN_INDEX_SRAM,
+                            bytes([0, 0]),
+                            "SRAM",
+                        )])
+                    except RequestFailedError:
+                        pass
+                else:
+                    self._msg_shown_baseline = raw_baseline
             except RequestFailedError:
                 pass
 
@@ -1098,21 +1127,22 @@ class WL3Client(BizHawkClient):
                     if popup_tid < 0:
                         popup_tid = None
                     sender = net_item.player
-                    # OWN-item receipt suppression: for any own item from a
-                    # real check (loc > 0), the chest/key/boss-detection
-                    # path already fired a msg. Skip the msg here to avoid
-                    # a duplicate. IMPORTANT: skip only the msg, not the
-                    # loop iteration — the outer `self._items_handled += 1`
+                    # OWN-item receipt suppression: for an own item that we
+                    # actually scraped locally this session (opened the chest,
+                    # grabbed the coin, etc.), _show_sent_msg already fired
+                    # the msg and recorded the loc in _shown_sent_locs. Skip
+                    # the duplicate here. For own items the server pushed
+                    # WITHOUT a local scrape (/send_location, /getitem,
+                    # starting inventory, hint reward, !release — all have
+                    # loc <= 0 OR loc > 0 but not in the set), fall through
+                    # so the msg DOES fire. IMPORTANT: skip only the msg,
+                    # not the loop iteration — `self._items_handled += 1`
                     # runs after this try, so a `continue` would hang the
-                    # loop on the same item forever (and starve later items
-                    # like transformations).
-                    #
-                    # Starting-inventory items come with loc <= 0 and still
-                    # fire the msg here. !release re-deliveries of own items
-                    # go silent — acceptable since !release is a deliberate
-                    # user command.
+                    # loop on the same item forever.
+                    loc = getattr(net_item, "location", 0)
                     skip_msg = (sender == ctx.slot
-                                and getattr(net_item, "location", 0) > 0)
+                                and loc > 0
+                                and loc in self._shown_sent_locs)
                     # 2026-08-27 — persistent already-shown gate. If this
                     # item's index sits below sMsgShownIndex (from SRAM),
                     # we already showed its msg in a prior session. Skip
@@ -1322,6 +1352,12 @@ class WL3Client(BizHawkClient):
             return  # msgs off
         info = self._loc_items[loc_id]
         item_name = info["item"]
+        # Record that we fired a msg for this loc so the item-receive
+        # path knows to skip its own duplicate when the server echoes
+        # the item back. /send_location on an un-opened loc never
+        # reaches this function, so its loc stays OUT of the set and
+        # the item-receive msg DOES fire.
+        self._shown_sent_locs.add(loc_id)
         if info["player"] == ctx.slot:
             await self._show_msg(ctx, item_name)
             return
@@ -2351,7 +2387,15 @@ class WL3Client(BizHawkClient):
             sub_state = state_data[1][0]
             msg_active = state_data[2][0]
             popup_timer = state_data[3][0]
-            if game_state != 2 or sub_state < 2:
+            # ST_LEVEL=2 (sub_state must be past init, >=2) OR ST_OVERWORLD=1
+            # (any sub_state). Previously in-level only — relaxed to also
+            # fire msgs on the OW now that the OW engine calls TickMsgDisplay.
+            if game_state == 2:
+                if sub_state < 2:
+                    return
+            elif game_state == 1:
+                pass  # OW: no sub_state gate
+            else:
                 return
             # Wait for the previous scrolling message to finish before firing
             # the next one — otherwise we'd overwrite wMsgBuffer mid-scroll.
@@ -2363,20 +2407,56 @@ class WL3Client(BizHawkClient):
             # uses OBP6 (green treasures in particular). Delaying msg
             # until the popup expires lets the icon render with its true
             # colours first.
-            if popup_timer != 0:
+            # IN-LEVEL only: the popup rendering routine (which decrements
+            # wItemPopupTimer) only runs during level state. On OW, the
+            # timer sits at 180 forever and blocks every msg. The popup
+            # icon doesn't render on OW anyway, so the wait is pointless.
+            if game_state == 2 and popup_timer != 0:
                 return
+            # OW: forcibly clear any lingering popup_timer so a later level
+            # entry doesn't inherit a stale icon state. The popup icon
+            # itself was never rendered on OW.
+            if game_state == 1 and popup_timer != 0:
+                try:
+                    await write(ctx.bizhawk_ctx, [
+                        (ADDR_ITEM_POPUP_TIMER_WRAM, bytes([0]), "WRAM"),
+                    ])
+                except RequestFailedError:
+                    pass
+            # OW: the ROM's level-vblank handles end-of-msg teardown
+            # (clears wMsgRestorePending + hMsgStatPhase + runs
+            # MsgDisableStatIRQ). That path doesn't run on the OW, so
+            # after the first msg ends both bytes stay non-zero —
+            # wMsgRestorePending blocks any new msg from starting
+            # (TickMsgDisplay defers while it's set), and
+            # hMsgStatPhase being non-zero keeps the compass
+            # suppressed by LoadCompassSprite's hide check. Flush does
+            # the teardown here instead when no msg is active.
+            if game_state == 1 and msg_active == 0:
+                try:
+                    await write(ctx.bizhawk_ctx, [
+                        (0xC1A8, bytes([0]), "System Bus"),  # wMsgRestorePending (WRAM0)
+                        (0xFF97, bytes([0]), "System Bus"),  # hMsgStatPhase (HRAM)
+                    ])
+                except RequestFailedError:
+                    pass
             # Small post-msg gap so back-to-back messages don't visually
             # merge into one long stream.
             now = time.time()
             if hasattr(self, '_last_msg_time') and now - self._last_msg_time < 0.5:
                 return
-            # Suppress messages in Temple: check wOWLevel (bank 2)
-            try:
-                owlevel = (await read(ctx.bizhawk_ctx, [(0x200F, 1, "WRAM")]))[0][0]
-                if owlevel == 0:
-                    return  # Temple — suppress messages
-            except RequestFailedError:
-                pass
+            # Suppress messages in Temple — IN-LEVEL only. On the OW, wOWLevel
+            # == 0 just means the cursor is hovering the Temple node, which
+            # shouldn't block msgs. (The ROM's TickMsgDisplay has its own
+            # Temple suppression via wLevel == THE_TEMPLE for the actual
+            # boss fight.)
+            if game_state == 2:
+                try:
+                    owlevel = (await read(ctx.bizhawk_ctx, [(0x200F, 1, "WRAM")]))[0][0]
+                    if owlevel == 0:
+                        return  # Temple level — suppress messages
+                except RequestFailedError:
+                    pass
         except RequestFailedError:
             return
 
@@ -2396,7 +2476,12 @@ class WL3Client(BizHawkClient):
             # If this msg has a tied popup, fire the popup and stash
             # the msg for the NEXT flush cycle. Icon renders alone
             # (~3s), THEN msg starts scrolling — sequential per item.
-            if popup_tid is not None:
+            # OW: the icon-above-Wario popup doesn't render on the
+            # overworld (that routine is level-only), so skip the
+            # two-phase stashing and just fire the msg immediately.
+            # The icon would otherwise be a silent 3s delay with no
+            # visible output.
+            if popup_tid is not None and game_state != 1:
                 self._enqueue_item_popup(popup_tid)
                 self._msg_pending_after_popup = text
                 return

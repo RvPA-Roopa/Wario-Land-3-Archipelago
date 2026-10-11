@@ -334,7 +334,7 @@ class BossDefeats(Toggle):
 
 class Shopsanity(Toggle):
     """Adds 10 shop locations to the pool, purchasable with coins from
-    the old-man shopkeeper (new overworld tile east of the hidden temple).
+    the new overworld node east of the hidden temple.
     Prices scale with slot number and the shop_price_tier option."""
     display_name = "Shopsanity"
     default = 0
