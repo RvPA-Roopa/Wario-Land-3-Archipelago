@@ -388,6 +388,14 @@ class WL3Client(BizHawkClient):
         self._death_link_enabled: bool = False  # True when slot_data["death_link"] is on
         self._death_link_tag_sent: bool = False # True after we've added "DeathLink" to ctx.tags
         self._prev_state:      int   = 0       # last seen wState; used to edge-trigger sends
+        self._ow_warmup_done:  bool  = False   # set after a one-char warm-up msg has been issued
+                                                # on the current OW visit — the real first msg
+                                                # otherwise hits an LCD-timing race on initial
+                                                # font load and renders as garbage. Cleared each
+                                                # time we leave OW.
+        self._ow_compass_bg_backup = None       # Saved (tilemap_bytes, attrmap_bytes) for the
+                                                # compass BG region while an OW msg is active.
+                                                # None = no overlay in place.
         self._suppress_next_send: bool = False  # set when an inbound DeathLink forces game over,
                                                  # cleared on the matching wState=$0C transition,
                                                  # so receiving doesn't echo a send back
@@ -782,6 +790,25 @@ class WL3Client(BizHawkClient):
                                 self._checked_locs.add(loc_id)
                                 self._recent_check_times[loc_id] = time.time()
                                 logger.debug(f"[WL3] Shop purchase — slot {slot_idx+1} -> AP loc {loc_id}")
+                                # Offline-friendly grant: apply the item NOW
+                                # from _loc_items (populated at connect from
+                                # slot_data) so the player gets what they
+                                # bought even if the AP server is unreachable.
+                                # Only grants OWN-world items; foreign items
+                                # still wait for the server round-trip when
+                                # it reconnects. _grant_item is idempotent so
+                                # the server's eventual item echo is a no-op.
+                                info = self._loc_items.get(loc_id) if self._loc_items else None
+                                if info and info.get("player") == ctx.slot:
+                                    ap_id = info.get("ap_id")
+                                    if ap_id is not None:
+                                        try:
+                                            await self._grant_item(ctx, ap_id, silent=False)
+                                            self._cached_received.add(ap_id)
+                                        except Exception:
+                                            logger.exception(
+                                                f"[WL3] Offline shop grant failed slot={slot_idx} ap_id={ap_id}"
+                                            )
                                 await self._show_sent_msg(ctx, loc_id)
                                 await self._trigger_item_popup(ctx, loc_id)
                 self._prev_shop_slots_bought = bytes(ss_raw)
@@ -1368,6 +1395,78 @@ class WL3Client(BizHawkClient):
         # confuses the intent of a SENT msg.
         player_name = ctx.player_names.get(info["player"], f"P{info['player']}") if ctx.player_names else f"P{info['player']}"
         await self._show_msg(ctx, f"SENT {item_name} TO {player_name}")
+
+    # --- OW compass BG overlay --------------------------------------------
+    # The compass "face" at the top-left of the overworld is baked into the
+    # BG tilemap, so hiding the sprite layer (arrow + NSEW letters) still
+    # leaves that decoration visible through the msg ticker. Overlay the
+    # region with a blank tile while a msg is active, then restore the
+    # original tilemap+attrmap bytes on drain.
+    _OW_COMPASS_BG_WIDTH   = 4           # tiles wide — covers compass face
+    _OW_COMPASS_BG_HEIGHT  = 3           # tiles tall — covers compass face
+    _OW_COMPASS_BG_TILE    = 0x7F        # blank-ish tile (ClearBGMap0 fills with $7F)
+    _OW_COMPASS_BG_ATTR    = 0x00        # palette 0, no priority — msg sprites render on top
+    # wTilemap at $D500 and wAttrmap at $D200 live in WRAMX bank 2.
+    # BizHawk's "WRAM" domain is 32KB flat; bank 2 starts at offset $2000
+    # (bank N starts at N*$1000 relative to $D000).
+    _OW_TILEMAP_ADDR       = 0x2000 + (0xD500 - 0xD000)   # 0x2500
+    _OW_ATTRMAP_ADDR       = 0x2000 + (0xD200 - 0xD000)   # 0x2200
+    _OW_WRAM_DOMAIN        = "WRAM"
+    _OW_TILEMAP_STRIDE     = 32          # BG tilemap row stride
+
+    async def _apply_ow_compass_bg_overlay(self, ctx: "BizHawkClientContext",
+                                            msg_present: bool) -> None:
+        """Overlay / restore the top-left compass region of the OW BG.
+
+        msg_present=True:  if no backup exists, snapshot the region and
+                           overwrite with blank tile+attr.
+        msg_present=False: if a backup exists, write it back and clear.
+
+        wTilemap+wAttrmap are in WRAMX bank 2. BizHawk's flat WRAM domain
+        maps bank N at offset N*$1000 relative to $D000, so bank-2 $D500
+        is WRAM offset $2500 (and $D200 is $2200). Using the WRAM domain
+        avoids the SVBK-aware System Bus which would miss writes when
+        the game's SVBK is on a different bank at the moment of the call."""
+        cols = self._OW_COMPASS_BG_WIDTH
+        rows = self._OW_COMPASS_BG_HEIGHT
+        stride = self._OW_TILEMAP_STRIDE
+        dom   = self._OW_WRAM_DOMAIN
+
+        if msg_present:
+            if self._ow_compass_bg_backup is not None:
+                return  # overlay already applied
+            tile_rows: list = []
+            attr_rows: list = []
+            for r in range(rows):
+                tile_rows.append(
+                    (await read(ctx.bizhawk_ctx,
+                                [(self._OW_TILEMAP_ADDR + r * stride, cols, dom)]))[0]
+                )
+                attr_rows.append(
+                    (await read(ctx.bizhawk_ctx,
+                                [(self._OW_ATTRMAP_ADDR + r * stride, cols, dom)]))[0]
+                )
+            self._ow_compass_bg_backup = (
+                [bytes(row) for row in tile_rows],
+                [bytes(row) for row in attr_rows],
+            )
+            blank_tile = bytes([self._OW_COMPASS_BG_TILE] * cols)
+            blank_attr = bytes([self._OW_COMPASS_BG_ATTR] * cols)
+            writes = []
+            for r in range(rows):
+                writes.append((self._OW_TILEMAP_ADDR + r * stride, blank_tile, dom))
+                writes.append((self._OW_ATTRMAP_ADDR + r * stride, blank_attr, dom))
+            await write(ctx.bizhawk_ctx, writes)
+        else:
+            if self._ow_compass_bg_backup is None:
+                return  # nothing to restore
+            tile_rows, attr_rows = self._ow_compass_bg_backup
+            writes = []
+            for r in range(rows):
+                writes.append((self._OW_TILEMAP_ADDR + r * stride, tile_rows[r], dom))
+                writes.append((self._OW_ATTRMAP_ADDR + r * stride, attr_rows[r], dom))
+            await write(ctx.bizhawk_ctx, writes)
+            self._ow_compass_bg_backup = None
 
     async def _trigger_item_popup(self, ctx: "BizHawkClientContext", loc_id: int) -> None:
         """Kick off the icon-above-Wario popup for a location the player
@@ -2394,8 +2493,23 @@ class WL3Client(BizHawkClient):
                 if sub_state < 2:
                     return
             elif game_state == 1:
-                pass  # OW: no sub_state gate
+                # OW warm-up: the very first msg of this OW visit tends to
+                # hit an LCD-timing race in MsgAssignAndLoad and render as
+                # garbage glyphs. Fire a single-space msg once per OW entry
+                # so the real first visible msg is actually the SECOND
+                # MsgAssignAndLoad invocation, which lands cleanly. The
+                # warm-up is prepended to the queue so it runs before any
+                # queued real msg. No ROM changes needed.
+                if (not self._ow_warmup_done
+                        and (self._msg_queue or self._msg_pending_after_popup is not None)
+                        and msg_active == 0):
+                    self._msg_queue.insert(0, (" ", None))
+                    self._ow_warmup_done = True
             else:
+                self._ow_warmup_done = False  # reset — next OW entry will re-warm
+                # Discard any pending overlay backup; the OW tilemap gets
+                # rebuilt on re-entry so the saved bytes would be stale.
+                self._ow_compass_bg_backup = None
                 return
             # Wait for the previous scrolling message to finish before firing
             # the next one — otherwise we'd overwrite wMsgBuffer mid-scroll.
@@ -2426,18 +2540,40 @@ class WL3Client(BizHawkClient):
             # OW: the ROM's level-vblank handles end-of-msg teardown
             # (clears wMsgRestorePending + hMsgStatPhase + runs
             # MsgDisableStatIRQ). That path doesn't run on the OW, so
-            # after the first msg ends both bytes stay non-zero —
-            # wMsgRestorePending blocks any new msg from starting
-            # (TickMsgDisplay defers while it's set), and
-            # hMsgStatPhase being non-zero keeps the compass
-            # suppressed by LoadCompassSprite's hide check. Flush does
-            # the teardown here instead when no msg is active.
-            if game_state == 1 and msg_active == 0:
+            # we do it here.
+            #
+            # wMsgRestorePending MUST be cleared ASAP on msg_active==0,
+            # otherwise TickMsgDisplay defers every new msg → msgs stop
+            # firing after the first one.
+            #
+            # hMsgStatPhase gates LoadCompassSprite — keep it non-zero
+            # while any msg work is queued so the compass stays hidden
+            # across back-to-back messages instead of flickering between
+            # them. Only clear it once the queue is fully drained.
+            if game_state == 1:
+                queue_empty = (not self._msg_queue
+                               and self._msg_pending_after_popup is None)
+                if msg_active == 0:
+                    try:
+                        writes = [
+                            (0xC1A8, bytes([0]), "System Bus"),  # wMsgRestorePending (WRAM0)
+                        ]
+                        if queue_empty:
+                            writes.append(
+                                (0xFF97, bytes([0]), "System Bus")  # hMsgStatPhase (HRAM)
+                            )
+                        await write(ctx.bizhawk_ctx, writes)
+                    except RequestFailedError:
+                        pass
+                # Compass BG overlay — overwrite a small region of the OW
+                # BG tilemap (where the compass face is drawn) with a
+                # blank tile while any msg is active or pending in the
+                # queue. Restore from the saved snapshot once the queue
+                # fully drains. See _OW_COMPASS_BG_TILES constants for
+                # region. Zero ROM impact; works via WRAM writes only.
+                msg_present = (msg_active != 0) or (not queue_empty)
                 try:
-                    await write(ctx.bizhawk_ctx, [
-                        (0xC1A8, bytes([0]), "System Bus"),  # wMsgRestorePending (WRAM0)
-                        (0xFF97, bytes([0]), "System Bus"),  # hMsgStatPhase (HRAM)
-                    ])
+                    await self._apply_ow_compass_bg_overlay(ctx, msg_present)
                 except RequestFailedError:
                     pass
             # Small post-msg gap so back-to-back messages don't visually

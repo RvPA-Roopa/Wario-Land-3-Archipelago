@@ -1084,7 +1084,7 @@ def set_rules(world: "WL3World") -> None:
         add_tf(chest_logic["A Town in Chaos"], red, _has("Zombie Form")) 
         add_tf(chest_logic["A Town in Chaos"], green, can_fly) 
         add_tf(key_logic["A Town in Chaos"], green, _has("Fat Form"))
-        add_tf(coin_logic["A Town in Chaos"], 3, _has("Zombie Form"), can_bounce)
+        coin_logic["A Town in Chaos"][3] = _c(_has("Zombie Form"), _o(can_bounce, _has("Spiked Helmet")))
         add_tf(coin_logic["A Town in Chaos"], 7, _has("Bouncy Form"), _has("Puffy Form"))
         add_tf(chest_logic["Beneath the Waves"], green, _has("Yarn Form"), _has("Roll Form"))
         add_tf(chest_logic["Beneath the Waves"], blue, _has("Fat Form"))

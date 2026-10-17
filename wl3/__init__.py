@@ -1074,6 +1074,7 @@ class WL3World(World):
                 loc_items[str(loc_data.ap_id)] = {
                     "item": loc.item.name,
                     "player": loc.item.player,
+                    "ap_id": loc.item.code,  # offline-grant lookup (shopsanity)
                 }
 
         # Names of every item the apworld classifies as progression — the
