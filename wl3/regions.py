@@ -10,7 +10,7 @@ from typing import TYPE_CHECKING, Dict
 
 from BaseClasses import Location, Region
 
-from .locations import BOSS_DEFEAT_LOCATION_TABLE, COIN_LOCATION_TABLE, KEY_LOCATION_TABLE, LOCATION_TABLE, SHOP_LOCATION_TABLE
+from .locations import BOSS_DEFEAT_LOCATION_TABLE, COIN_BLOCK_LOCATION_TABLE, COIN_LOCATION_TABLE, KEY_LOCATION_TABLE, LOCATION_TABLE, SHOP_LOCATION_TABLE
 
 if TYPE_CHECKING:
     from . import WL3World
@@ -78,6 +78,16 @@ def create_regions(world: "WL3World") -> Dict[str, Region]:
     # Hidden Temple), no unlock item required. Player pays with in-game coins.
     if world.options.shopsanity:
         for loc_name, loc_data in SHOP_LOCATION_TABLE.items():
+            region = all_regions[loc_data.region]
+            loc = Location(player, loc_name, loc_data.ap_id, region)
+            region.locations.append(loc)
+
+    # Coin Blocksanity: 44 "always colour coin" block locations, gated by
+    # the coin_blocksanity option. Breaking the block still grants the
+    # normal +10 coins; reachability piggybacks on the level being
+    # reachable (same as bigcoinsanity).
+    if world.options.coin_blocksanity:
+        for loc_name, loc_data in COIN_BLOCK_LOCATION_TABLE.items():
             region = all_regions[loc_data.region]
             loc = Location(player, loc_name, loc_data.ap_id, region)
             region.locations.append(loc)

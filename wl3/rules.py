@@ -1357,6 +1357,19 @@ def set_rules(world: "WL3World") -> None:
                 mw.get_location(loc_name, player).access_rule = \
                     lambda state, r=coin_rule: r(state, player)
 
+    # Coin Blocksanity — gated by level entry only for now. Each of the 44
+    # blocks' exact in-room reachability (whether it needs a specific
+    # breaking ability, flight, swimming, etc. beyond "the level is
+    # accessible") is left to logic refinement later — same deferred
+    # split as the rest of this project's detailed per-location rules.
+    if world.options.coin_blocksanity:
+        from .locations import COIN_BLOCK_LOCATION_TABLE
+        for loc_name, loc_data in COIN_BLOCK_LOCATION_TABLE.items():
+            level_rule = level_rules.get(loc_data.level_name)
+            if level_rule is not None:
+                mw.get_location(loc_name, player).access_rule = \
+                    lambda state, r=level_rule: r(state, player)
+
     # Boss defeats — reuse each boss's existing chest access rule. Boss chest
     # locations always live in LOCATION_TABLE (they're regular chest slots
     # from the level's grey/red/green/blue set), so we can look up the

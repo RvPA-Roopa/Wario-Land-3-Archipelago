@@ -42,7 +42,7 @@ from .items import (
     TREASURE_TABLE,
     WL3ItemData,
 )
-from .locations import BASE_LOC_ID, BOSS_DEFEAT_LOCATION_TABLE, COIN_LOCATION_TABLE, KEY_LOCATION_TABLE, LOCATION_TABLE, SHOP_LOCATION_TABLE, WL3LocationData
+from .locations import BASE_LOC_ID, BOSS_DEFEAT_LOCATION_TABLE, COIN_BLOCK_LOCATION_TABLE, COIN_LOCATION_TABLE, KEY_LOCATION_TABLE, LOCATION_TABLE, SHOP_LOCATION_TABLE, WL3LocationData
 from Options import OptionGroup
 from .options import (WL3Options, KeyShuffle, CombinedItems, BossDefeats,
                       GolfPrice, GolfBuilding, IHateGolf,
@@ -250,6 +250,9 @@ class WL3World(World):
         # 10 shopsanity locations, added to the multiworld only when the
         # shopsanity option is enabled (see create_regions).
         **{name: data.ap_id for name, data in SHOP_LOCATION_TABLE.items()},
+        # 44 coin-block locations, added to the multiworld only when the
+        # coin_blocksanity option is enabled (see create_regions).
+        **{name: data.ap_id for name, data in COIN_BLOCK_LOCATION_TABLE.items()},
     }
 
     item_name_groups = {
@@ -468,6 +471,13 @@ class WL3World(World):
         # downstream. Players buy each slot with in-game coins.
         if self.options.shopsanity:
             for _ in range(10):
+                items.append(self.create_item(self.random.choice(filler_items)))
+
+        # Coin Blocksanity: 44 new coin-block locations need 44 new filler
+        # items. Same pattern as bigcoinsanity — random filler, trap
+        # candidates downstream.
+        if self.options.coin_blocksanity:
+            for _ in range(44):
                 items.append(self.create_item(self.random.choice(filler_items)))
 
         # Trap replacement: swap a % of filler items for random trap items.
@@ -1068,6 +1078,8 @@ class WL3World(World):
             all_locs = {**all_locs, **BOSS_DEFEAT_LOCATION_TABLE}
         if self.options.shopsanity:
             all_locs = {**all_locs, **SHOP_LOCATION_TABLE}
+        if self.options.coin_blocksanity:
+            all_locs = {**all_locs, **COIN_BLOCK_LOCATION_TABLE}
         for loc_name, loc_data in all_locs.items():
             loc = self.multiworld.get_location(loc_name, self.player)
             if loc.item is not None:
@@ -1104,6 +1116,7 @@ class WL3World(World):
             "golf_par_hint_frequency": golf_par_hints_split(int(self.options.golf_par_hints))[1],
             "in_game_messages":        int(self.options.in_game_messages),
             "boss_defeats":            bool(self.options.boss_defeats),
+            "coin_blocksanity":        bool(self.options.coin_blocksanity),
             "shopsanity":              bool(self.options.shopsanity),
             "shop_price_tier":         int(self.options.shop_price_tier),
             "shop_prices":             list(self.shop_prices),

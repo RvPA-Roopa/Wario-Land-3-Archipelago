@@ -247,3 +247,57 @@ def _build_shop_location_table() -> Dict[str, WL3ShopLocationData]:
 SHOP_LOCATION_TABLE: Dict[str, WL3ShopLocationData] = _build_shop_location_table()
 assert len(SHOP_LOCATION_TABLE) == NUM_SHOP_SLOTS, \
     f"Expected {NUM_SHOP_SLOTS} shop locations, got {len(SHOP_LOCATION_TABLE)}"
+
+
+# --------------------- Coin Blocksanity ---------------------
+# 44 locations — blocks that always drop a colour coin when broken (the
+# same blocks "reveal hidden blocks and colour coins" highlights). Unlike
+# COIN_BASE_LOC_ID's fixed 8-per-level, this count varies per level (0-5
+# real entries; max 8 slots reserved on the ROM side). idx (0-7) is the
+# SAME slot index wColourCoinBlockFlags uses — both this table and the
+# ROM's ColourCoinBlockPositions come from one generator run
+# (tools/build_colour_coin_block_table.py) so they can't drift apart.
+# ROM still grants the normal +10 coins on pickup regardless of this
+# option; the AP check just fires alongside it.
+COIN_BLOCK_BASE_LOC_ID = 7_770_900
+COIN_BLOCK_SLOTS_PER_LEVEL = 8
+
+
+class WL3CoinBlockLocationData(NamedTuple):
+    ap_id: int
+    owlevel: int        # wOWLevel (1-25)
+    block_index: int    # 0-7, matches wColourCoinBlockFlags bit index
+    abs_x: int           # block-grid coords in the level's decompressed
+    abs_y: int           # block map (not pixels) — see color_coin_positions.py
+    region: str
+    level_name: str
+
+    @property
+    def loc_index(self) -> int:
+        """0-based index into the 200-slot space: (owlevel-1)*8 + block_index."""
+        return (self.owlevel - 1) * COIN_BLOCK_SLOTS_PER_LEVEL + self.block_index
+
+
+def _build_coin_block_location_table() -> Dict[str, WL3CoinBlockLocationData]:
+    from .colour_coin_block_table import COLOUR_COIN_BLOCK_TABLE
+    level_info = {owlevel: (name, region) for owlevel, name, region in LEVEL_LIST}
+    table: Dict[str, WL3CoinBlockLocationData] = {}
+    for owlevel, idx, abs_x, abs_y, _block_id in COLOUR_COIN_BLOCK_TABLE:
+        level_name, region = level_info[owlevel]
+        loc_name = f"{level_name} - Coin Block {idx + 1}"
+        ap_id = COIN_BLOCK_BASE_LOC_ID + (owlevel - 1) * COIN_BLOCK_SLOTS_PER_LEVEL + idx
+        table[loc_name] = WL3CoinBlockLocationData(
+            ap_id=ap_id,
+            owlevel=owlevel,
+            block_index=idx,
+            abs_x=abs_x,
+            abs_y=abs_y,
+            region=region,
+            level_name=level_name,
+        )
+    return table
+
+
+COIN_BLOCK_LOCATION_TABLE: Dict[str, WL3CoinBlockLocationData] = _build_coin_block_location_table()
+assert len(COIN_BLOCK_LOCATION_TABLE) == 44, \
+    f"Expected 44 coin block locations, got {len(COIN_BLOCK_LOCATION_TABLE)}"

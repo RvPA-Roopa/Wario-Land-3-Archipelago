@@ -323,6 +323,15 @@ class BigCoinsanity(Toggle):
     default = 0
 
 
+class CoinBlocksanity(Toggle):
+    """Adds 44 locations for blocks that always drop a colour coin when
+    broken — the same blocks the "reveal hidden blocks and colour coins"
+    option highlights. Breaking one still gives the normal coins; the AP
+    check fires separately."""
+    display_name = "Coin Blocksanity"
+    default = 0
+
+
 class BossDefeats(Toggle):
     """Adds 10 boss-defeat locations to the pool. This option can be used
      with "Bosses_Required" as well 
@@ -513,6 +522,7 @@ class WL3Options(PerGameCommonOptions):
     non_stop_chests:              NonStopChests
     in_game_messages:             InGameMessages
     bigcoinsanity:                BigCoinsanity
+    coin_blocksanity:             CoinBlocksanity
     boss_defeats:                 BossDefeats
     shopsanity:                   Shopsanity
     shop_price_tier:              ShopPriceTier

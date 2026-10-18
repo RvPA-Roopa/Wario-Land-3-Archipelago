@@ -157,6 +157,14 @@ ADDR_COIN_FLAGS_WRAM = 0x14A2  # wCoinFlags (bank 1 0xD4A2) — 25 bytes,
                                        # 1 bit per musical coin per level
                                        # (200 total). Bit (level-1)*8+idx
                                        # set on coinsanity pickup.
+ADDR_COLOUR_COIN_BLOCK_FLAGS_WRAM = 0x14E3  # wColourCoinBlockFlags (bank 1
+                                       # 0xD4E3) — 25 bytes, 1 bit per
+                                       # "always colour coin" block per
+                                       # level (up to 8).
+ADDR_OBJ_TABLE_WRAM = 0x1000  # wObj1Flags (bank 1 0xD000) — 8 objects x 32
+                               # bytes; +0=Flags, +8=InteractionType per slot.
+OBJ_STRIDE = 32
+NUM_OBJECT_SLOTS = 8
 ADDR_STATE_WRAM = 0x009B  # wState (WRAM0 0xC09B) — main state machine
                                        # value; 0x0C = ST_GAME_OVER (DeathLink trigger).
 ADDR_NUM_COINS_WRAM = 0x0456  # wNumCoins (WRAM0 0xC456) — 2 bytes, big-endian BCD
@@ -205,6 +213,8 @@ BOSS_DEFEAT_BASE_LOC_ID = 7_770_700  # AP loc ID = BOSS_DEFEAT_BASE_LOC_ID + bos
 NUM_BOSSES = 10                     # matches ROM wBossDefeatedFlags bit count
 SHOP_BASE_LOC_ID = 7_770_800        # AP loc ID = SHOP_BASE_LOC_ID + shop_slot_index (0-9)
 NUM_SHOP_SLOTS = 10                 # matches ROM wShopSlotsBought bit count
+COIN_BLOCK_BASE_LOC_ID = 7_770_900  # AP loc ID = COIN_BLOCK_BASE_LOC_ID + (owlevel-1)*8 + block_idx
+COIN_BLOCK_SLOTS_PER_LEVEL = 8       # matches ROM wColourCoinBlockFlags bit count per level
 KEY_BASE_ITEM_ID = BASE_ITEM_ID + 300  # 7_770_300
 KEYRING_BASE_ITEM_ID = BASE_ITEM_ID + 700  # 7_770_700 (one per level, owlevel-1 offset)
 
@@ -290,6 +300,7 @@ class WL3Client(BizHawkClient):
         self._prev_level_keys:  bytes = bytes(25)
         self._prev_coin_flags:  bytes = bytes(25)
         self._prev_boss_defeated_flags: bytes = bytes(2)
+        self._prev_colour_coin_block_flags: bytes = bytes(25)
         self._prev_opened_chests: bytes = bytes(13)
         self._prev_shop_slots_bought: bytes = bytes(2)
         self._prev_shop_mode: int = 0        # last-seen wShopMode
@@ -739,6 +750,54 @@ class WL3Client(BizHawkClient):
         except RequestFailedError:
             pass
 
+        # ---- Detect coin-block pickups: new bits set in wColourCoinBlockFlags ----
+        # 25 bytes, one byte per level, 8 bits each = up to 8 "always colour
+        # coin" blocks per level (44 real across all levels; unused bits
+        # never get set since FindColourCoinBlockIdx only matches real
+        # table entries). Set by ObjInteraction_ColourCoin on pickup.
+        # Gated on slot_data["coin_blocksanity"] so old seeds without the
+        # option don't send unknown-location checks.
+        if bool((ctx.slot_data or {}).get("coin_blocksanity", False)):
+            try:
+                ccb_raw = (await read(ctx.bizhawk_ctx,
+                    [(ADDR_COLOUR_COIN_BLOCK_FLAGS_WRAM, 25, "WRAM")]))[0]
+                for byte_idx in range(25):
+                    new_bits = (~self._prev_colour_coin_block_flags[byte_idx]) & ccb_raw[byte_idx]
+                    if new_bits == 0:
+                        continue
+                    for bit in range(COIN_BLOCK_SLOTS_PER_LEVEL):
+                        if new_bits & (1 << bit):
+                            loc_id = COIN_BLOCK_BASE_LOC_ID + byte_idx * COIN_BLOCK_SLOTS_PER_LEVEL + bit
+                            if loc_id not in self._checked_locs:
+                                self._checked_locs.add(loc_id)
+                                self._recent_check_times[loc_id] = time.time()
+                                logger.debug(f"[WL3] Coin block pickup — L{byte_idx+1} "
+                                             f"#{bit+1} -> AP loc {loc_id}")
+                                # Offline-friendly grant — same pattern as
+                                # shop purchases: apply the item NOW from
+                                # _loc_items so the player gets it even if
+                                # the AP server is unreachable. Only grants
+                                # OWN-world items; foreign items wait for
+                                # the server round-trip. _grant_item is
+                                # idempotent so the server's eventual echo
+                                # is a no-op.
+                                info = self._loc_items.get(loc_id) if self._loc_items else None
+                                if info and info.get("player") == ctx.slot:
+                                    ap_id = info.get("ap_id")
+                                    if ap_id is not None:
+                                        try:
+                                            await self._grant_item(ctx, ap_id, silent=False)
+                                            self._cached_received.add(ap_id)
+                                        except Exception:
+                                            logger.exception(
+                                                f"[WL3] Offline coin-block grant failed "
+                                                f"loc={loc_id} ap_id={ap_id}"
+                                            )
+                                await self._show_sent_msg(ctx, loc_id)
+                self._prev_colour_coin_block_flags = bytes(ccb_raw)
+            except RequestFailedError:
+                pass
+
         # ---- Detect boss defeats: new bits set in wBossDefeatedFlags ----
         # 2 bytes, 10 bits total (one per boss). ROM SetBossDefeatedBit is
         # called from each boss's defeat handler; idempotent per bit. The
@@ -923,6 +982,7 @@ class WL3Client(BizHawkClient):
             #     tuple(a for a in args if isinstance(a, str)))
             ctx.command_processor.commands["vanillaenemies"] = lambda *_: self._vanillaenemies_command()
             ctx.command_processor.commands["where"] = lambda *_: self._where_command(ctx)
+            ctx.command_processor.commands["ccb"] = lambda *_: self._ccb_debug_command(ctx)
             ctx.command_processor.commands["enemizerlog"] = lambda *_: self._enemizerlog_command(ctx)
             # ctx.command_processor.commands["dbgtreasures"] = lambda *args: self._dbgtreasures_command(
             #     ctx, tuple(a for a in args if isinstance(a, str)))
@@ -963,6 +1023,15 @@ class WL3Client(BizHawkClient):
                         if ss_raw[slot_idx >> 3] & (1 << (slot_idx & 7)):
                             self._checked_locs.add(SHOP_BASE_LOC_ID + slot_idx)
                     self._prev_shop_slots_bought = bytes(ss_raw)
+                if bool((ctx.slot_data or {}).get("coin_blocksanity", False)):
+                    ccb_raw = (await read(ctx.bizhawk_ctx,
+                        [(ADDR_COLOUR_COIN_BLOCK_FLAGS_WRAM, 25, "WRAM")]))[0]
+                    for byte_idx in range(25):
+                        for bit in range(COIN_BLOCK_SLOTS_PER_LEVEL):
+                            if ccb_raw[byte_idx] & (1 << bit):
+                                self._checked_locs.add(
+                                    COIN_BLOCK_BASE_LOC_ID + byte_idx * COIN_BLOCK_SLOTS_PER_LEVEL + bit)
+                    self._prev_colour_coin_block_flags = bytes(ccb_raw)
                 self._seeded_from_wram = True
                 logger.debug(f"[WL3] Seeded {len(self._checked_locs)} offline checks from wOpenedChests + wCoinFlags")
                 self._levels_shown = False  # trigger auto-print after items are processed
@@ -2035,8 +2104,13 @@ class WL3Client(BizHawkClient):
                 w_room  = results[1][0]
                 pos     = results[2]
                 w_wgid  = results[3][0]
-                y = pos[0] | (pos[1] << 8)
-                x = pos[2] | (pos[3] << 8)
+                # wWarioYPos/wWarioXPos are stored HIGH byte first (see
+                # update_pos_y/update_pos_x in src/macros/pos.asm — they
+                # copy hYPosHi/hXPosHi into +0, hYPosLo/hXPosLo into +1).
+                # Previously unpacked as little-endian here, which silently
+                # produced garbage values (e.g. y=61441 instead of ~496).
+                y = (pos[0] << 8) | pos[1]
+                x = (pos[2] << 8) | pos[3]
                 owlevel = (w_level >> 3) + 1
                 variant = w_level & 0x07
                 name    = LEVEL_NAMES.get(owlevel, "(unknown)")
@@ -2046,6 +2120,62 @@ class WL3Client(BizHawkClient):
                             f"x=${x:04x} y=${y:04x}")
             except Exception as e:
                 logger.warning(f"[WL3] /where read failed: {e}")
+        import asyncio
+        asyncio.create_task(_do())
+
+    def _ccb_debug_command(self, ctx: "BizHawkClientContext") -> None:
+        """/ccb — debug readout for coin_blocksanity. Dumps
+        wColourCoinBlockFlags (25 bytes, bit per idx per level) plus the
+        current Wario position, so breaking one of the 44 tracked blocks
+        and running /ccb confirms: (1) the block's idx resolved correctly
+        (FindColourCoinBlockIdx's position-extraction math), and (2) the
+        flag bit actually got set on pickup. Cross-check x>>4, y>>4
+        (block-grid coords) against the broken block's known (abs_x,
+        abs_y) from color_coin_positions.py. The real send/grant path
+        (separate from this readout) is the "Detect coin-block pickups"
+        block above, gated on slot_data["coin_blocksanity"]."""
+        async def _do():
+            try:
+                wram_results = await read(ctx.bizhawk_ctx, [
+                    (ADDR_COLOUR_COIN_BLOCK_FLAGS_WRAM, 25, "WRAM"),
+                    (ADDR_OBJ_TABLE_WRAM, OBJ_STRIDE * NUM_OBJECT_SLOTS, "WRAM"),
+                ])
+                sysbus_results = await read(ctx.bizhawk_ctx, [
+                    (ADDR_LEVEL,     1, "System Bus"),
+                    (ADDR_WARIO_POS, 4, "System Bus"),
+                ])
+                flags = wram_results[0]
+                obj_table = wram_results[1]
+                w_level = sysbus_results[0][0]
+                pos = sysbus_results[1]
+                # wWarioYPos/wWarioXPos are HIGH byte first — see the fix
+                # note on the same unpacking in _where_command above.
+                y = (pos[0] << 8) | pos[1]
+                x = (pos[2] << 8) | pos[3]
+                owlevel = (w_level >> 3) + 1
+                block_x = x >> 4
+                block_y = y >> 4
+                set_levels = [(i + 1, f"{b:08b}") for i, b in enumerate(flags) if b != 0]
+                logger.info(
+                    f"[WL3 ccb] current: owlevel={owlevel} wario_px=({x},{y}) "
+                    f"block_grid=({block_x},{block_y})"
+                )
+                if set_levels:
+                    for lvl, bits in set_levels:
+                        logger.info(f"[WL3 ccb]   owlevel {lvl}: bits={bits}")
+                else:
+                    logger.info("[WL3 ccb]   no bits set yet in any level")
+                for slot in range(NUM_OBJECT_SLOTS):
+                    base = slot * OBJ_STRIDE
+                    oflags = obj_table[base]
+                    itype = obj_table[base + 8]
+                    if oflags != 0 or itype != 0:
+                        logger.info(
+                            f"[WL3 ccb]   obj slot {slot}: flags=0x{oflags:02x} "
+                            f"interaction_type=0x{itype:02x}"
+                        )
+            except Exception as e:
+                logger.warning(f"[WL3] /ccb read failed: {e}")
         import asyncio
         asyncio.create_task(_do())
 
