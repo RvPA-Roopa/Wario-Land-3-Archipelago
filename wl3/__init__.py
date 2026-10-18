@@ -979,6 +979,109 @@ class WL3World(World):
 
         return list(coin_items), list(coin_pals)
 
+    def _build_coin_block_assignments(self) -> "tuple[List[int], List[int]]":
+        """Return (LevelColourCoinBlockItems, ColourCoinBlockPaletteOverrides),
+        each 200 bytes. Index: (owlevel - 1) * 8 + block_index (matches
+        COIN_BLOCK_LOCATION_TABLE's loc_index / LEVEL_COLOUR_COIN_BLOCK_ITEMS_OFFSET
+        layout). Same encoding and logic as _build_coin_assignments — see that
+        docstring — just over the 44 coin-block locations instead of the 200
+        musical-coin locations, and a separate table/space so coin-block
+        slots never collide with musical-coin slots.
+
+        GrantColourCoinBlockItem reads LevelColourCoinBlockItems (plus
+        TrapColourCoinBlockTable) to grant the AP-placed item locally on
+        block pickup, alongside the vanilla +10 coins and the AP location
+        check (unlike coins, which are visual-portrait-only — see that
+        docstring). ColourCoinBlockPaletteOverrides is reserved for the
+        portrait system once that lands; not yet read by the ROM.
+        """
+        from .locations import COIN_BLOCK_LOCATION_TABLE
+        from .items import COMBINED_ITEMS, KEY_ITEM_TABLE, KEYRING_ITEM_TABLE
+        OBPAL_TREASURE_YELLOW = 4
+
+        block_items = bytearray([0xFF] * 200)
+        block_pals  = bytearray([0xFF] * 200)
+
+        if not self.options.coin_blocksanity:
+            return list(block_items), list(block_pals)
+
+        for loc_name, loc_data in COIN_BLOCK_LOCATION_TABLE.items():
+            idx = loc_data.loc_index
+            location = self.multiworld.get_location(loc_name, self.player)
+            item = location.item
+            if item is None or item.player != self.player:
+                # Foreign / empty — show generic gem so the player still sees a
+                # portrait indicating "you're sending this to someone."
+                if item is not None:
+                    cls = item.classification
+                    if cls in (ItemClassification.progression,
+                               ItemClassification.progression_skip_balancing):
+                        block_items[idx] = 0x4E  # Red Gem
+                    elif cls == ItemClassification.useful:
+                        block_items[idx] = 0x50  # Blue Gem
+                    else:
+                        block_items[idx] = 0x4F  # Green Gem
+                continue
+
+            # Own item — pick a display treasure ID (and the grant ID GrantColourCoinBlockItem reads).
+            if item.name in KEY_ITEM_TABLE:
+                key_data = KEY_ITEM_TABLE[item.name]
+                block_items[idx] = 0x80 | ((key_data.owlevel - 1) * 4 + key_data.color_index)
+                block_pals[idx] = KEY_COLOR_PALS[key_data.color_index]
+            elif item.name in KEYRING_ITEM_TABLE:
+                # Keyring → 4-keys icon. No offline local grant yet at coin-
+                # block locations (see GrantColourCoinBlockItem) — the AP
+                # client still delivers it once online.
+                block_items[idx] = 0x66
+                block_pals[idx] = OBPAL_TREASURE_YELLOW
+            elif item.name in TRANSFORM_UNLOCK_ITEMS:
+                block_items[idx] = FORM_DISPLAY_TREASURE[item.name]
+            elif item.name in COMBINED_ITEMS:
+                item_data = ITEM_TABLE.get(item.name)
+                block_items[idx] = item_data.tier_ids[0] if item_data else 0x4F
+                block_pals[idx]  = OBPAL_TREASURE_PURPLE
+            else:
+                item_data = ITEM_TABLE.get(item.name)
+                if item_data is None:
+                    block_items[idx] = 0x4F
+                elif item_data.ap_id in TRAP_AP_IDS_SET:
+                    # Trap → random treasure-ID disguise (same as chests/keys/
+                    # coins). TrapColourCoinBlockTable (separate table) is
+                    # what actually queues the trap on pickup.
+                    block_items[idx] = self.random.choice(TRAP_DISGUISE_POOL)
+                else:
+                    block_items[idx] = item_data.tier_ids[0]
+                    from .rom import COIN_BUNDLE_PALS
+                    if item.name in COIN_BUNDLE_PALS:
+                        block_pals[idx] = COIN_BUNDLE_PALS[item.name]
+
+        return list(block_items), list(block_pals)
+
+    def _build_trap_coin_block_table(self) -> List[int]:
+        """Like _build_trap_coin_table but for coin-block locations (coin
+        blocksanity). GrantColourCoinBlockItem reads ROM
+        TrapColourCoinBlockTable[(owlevel-1)*8 + block_idx]; non-zero entries
+        queue the trap and skip the regular item grant (the vanilla +10
+        coins and the AP location check still fire either way).
+        """
+        from .items import TRAP_AP_IDS
+        trap_table = [0] * 200
+        if not self.options.coin_blocksanity:
+            return trap_table
+        from .locations import COIN_BLOCK_LOCATION_TABLE
+        for loc_name, loc_data in COIN_BLOCK_LOCATION_TABLE.items():
+            location = self.multiworld.get_location(loc_name, self.player)
+            item = location.item
+            if item is None or item.player != self.player:
+                continue
+            item_data = ITEM_TABLE.get(item.name)
+            if item_data is None:
+                continue
+            trap_id = TRAP_AP_IDS.get(item_data.ap_id)
+            if trap_id is not None:
+                trap_table[loc_data.loc_index] = trap_id
+        return trap_table
+
     def _build_boss_item_assignments(self) -> "tuple[List[int], List[int], List[int]]":
         """Return (LevelBossItems, BossKeyringTargets, TrapBossTable), each 10 bytes.
 

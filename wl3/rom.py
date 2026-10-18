@@ -42,6 +42,10 @@ LEVEL_COIN_ITEMS_OFFSET          = 0x05836C   # LevelCoinItems       (200 bytes;
 COIN_PAL_OVERRIDE_OFFSET         = 0x058434   # CoinPaletteOverrides (200 bytes; bank $16 — OBPAL per coin, $FF=default)
 TRAP_COIN_TABLE_OFFSET           = 0x0584FC   # TrapCoinTable        (200 bytes; bank $16 — 0=no trap, 1-5=TRAP_* — offline trap dispatch from coins)
 COIN_KEYRING_TARGETS_OFFSET      = 0x0585C4   # CoinKeyringTargets   (200 bytes; bank $16 — $FF=not keyring, 1-25=target owlevel)
+LEVEL_COLOUR_COIN_BLOCK_ITEMS_OFFSET        = 0x0279D9  # LevelColourCoinBlockItems       (200 bytes; bank $09 — same encoding as LevelCoinItems, separate 200-entry space for coin blocksanity)
+COLOUR_COIN_BLOCK_PAL_OVERRIDE_OFFSET       = 0x027AA1  # ColourCoinBlockPaletteOverrides (200 bytes; bank $09 — OBPAL per block, $FF=default; not consumed by ROM yet — portrait system not wired)
+TRAP_COLOUR_COIN_BLOCK_TABLE_OFFSET         = 0x027B69  # TrapColourCoinBlockTable        (200 bytes; bank $09 — 0=no trap, 1-5=TRAP_* — offline trap dispatch from coin blocks)
+COLOUR_COIN_BLOCK_KEYRING_TARGETS_OFFSET    = 0x027C31  # ColourCoinBlockKeyringTargets   (200 bytes; bank $09 — reserved; not read by ROM yet, see GrantColourCoinBlockItem)
 LEVEL_BOSS_ITEMS_OFFSET          = 0x05868C   # LevelBossItems       (10 bytes;  bank $16 — same encoding as LevelCoinItems)
 TRAP_BOSS_TABLE_OFFSET           = 0x058696   # TrapBossTable        (10 bytes;  bank $16 — 0=no trap, 1-5=TRAP_*)
 BOSS_KEYRING_TARGETS_OFFSET      = 0x0586A0   # BossKeyringTargets   (10 bytes;  bank $16 — $FF=not keyring, 1-25=target owlevel)
@@ -760,6 +764,15 @@ def write_tokens(world: "WL3World", patch: WL3ProcedurePatch) -> None:
     patch.write_token(APTokenTypes.WRITE, LEVEL_COIN_ITEMS_OFFSET,  bytes(coin_items))
     patch.write_token(APTokenTypes.WRITE, COIN_PAL_OVERRIDE_OFFSET, bytes(coin_pals))
 
+    # Coin-blocksanity per-block item + palette tables (200 bytes each,
+    # bank $09) — separate space from the musical-coin tables above so the
+    # two options' slots never collide. GrantColourCoinBlockItem reads the
+    # item table (plus the trap table below) to grant the real local item
+    # on pickup, alongside the vanilla +10 coins and the AP location check.
+    coin_block_items, coin_block_pals = world._build_coin_block_assignments()
+    patch.write_token(APTokenTypes.WRITE, LEVEL_COLOUR_COIN_BLOCK_ITEMS_OFFSET,  bytes(coin_block_items))
+    patch.write_token(APTokenTypes.WRITE, COLOUR_COIN_BLOCK_PAL_OVERRIDE_OFFSET, bytes(coin_block_pals))
+
     # Write keysanity mode flag (0=vanilla, 1=simple, 2=full)
     from .options import KeyShuffle
     patch.write_token(APTokenTypes.WRITE, KEYSANITY_MODE_OFFSET,
@@ -933,6 +946,12 @@ def write_tokens(world: "WL3World", patch: WL3ProcedurePatch) -> None:
     trap_coin_table = list(world._build_trap_coin_table())
     patch.write_token(APTokenTypes.WRITE, TRAP_COIN_TABLE_OFFSET, bytes(trap_coin_table))
 
+    # Same dispatch for traps placed at coin-block locations (coin
+    # blocksanity). GrantColourCoinBlockItem reads TrapColourCoinBlockTable;
+    # LevelColourCoinBlockItems keeps a gem/disguise placeholder.
+    trap_coin_block_table = list(world._build_trap_coin_block_table())
+    patch.write_token(APTokenTypes.WRITE, TRAP_COLOUR_COIN_BLOCK_TABLE_OFFSET, bytes(trap_coin_block_table))
+
     # Boss-defeat item tables (offline grant). Only populated when the
     # boss_defeats option is on; otherwise all three tables ship as
     # defaults ($FF / $00 / $FF) and GrantBossItem's ret-on-$FF path
@@ -967,6 +986,8 @@ def write_tokens(world: "WL3World", patch: WL3ProcedurePatch) -> None:
         total_checks += 10
     if world.options.shopsanity:
         total_checks += 10
+    if world.options.coin_blocksanity:
+        total_checks += 44
     hundreds = total_checks // 100
     tens_ones = total_checks % 100
     bcd_hi = hundreds & 0x0F           # e.g. 4 → 0x04
