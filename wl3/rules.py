@@ -249,7 +249,7 @@ CHEST_RULES: dict = {
     "The West Crater": [
         _o(can_pound_cracked_blocks, _has("Yarn Form")),                             # grey
         _o(_c(has_overalls_2, _has("Garlic")), _has("Fat Form")),                    # red
-        _o(_c(can_pass_through_fire, can_jump_high),can_fly),                        # green
+        _o(_c(_has("Fire Drencher"), can_jump_high),can_fly),                        # green
         _has("Rust Spray"),                                                          # blue
     ],
     "The Grasslands": [
@@ -294,7 +294,7 @@ CHEST_RULES: dict = {
                                           _has("Roll Form"))), can_bounce),          # red
         _c(_has("Scissors"), can_jump_high),                                         # green
         _c(_has("Scissors"), _has("Full Moon Gong"), can_jump_high,
-           _o(_c(_has("High Jump Boots"), has_overalls_2, has_grab_1)), _has("Roll Form")),# blue
+           _o(_c(_has("High Jump Boots"), has_overalls_2, has_grab_1), _has("Roll Form"))),# blue
     ],
     "The Stagnant Swamp": [
         None,                                                                        # grey
@@ -424,7 +424,7 @@ KEY_RULES: dict = {
     "The West Crater": [
         None,                                                                        # grey
         _c(_o(can_pound_cracked_blocks, _has("Yarn Form")), _o(has_grab_1, can_fly)),# red
-        _o(_c(can_pass_through_fire, can_jump_high), can_fly),                       # green
+        _o(_c(_has("Fire Drencher"), can_jump_high), can_fly),                       # green
         _c(_has("Rust Spray"), has_grab_1),                                          # blue
     ],
     "The Grasslands": [
@@ -645,8 +645,8 @@ COIN_RULES: dict = {
         _c(_has("Rust Spray"),_o(has_grab_1,can_fly)),                                  #3
         _has("Rust Spray"),                                                             #4
         can_pound_large_solid_blocks,                                                   #5
-        _o(_c(can_pass_through_fire, can_jump_high), can_fly),                          #6
-        _o(_c(can_pass_through_fire, _has("High Jump Boots")), can_fly),                #7
+        _o(_c(_has("Fire Drencher"), can_jump_high), can_fly),                          #6
+        _o(_c(_has("Fire Drencher"), _has("High Jump Boots")), can_fly),                #7
         _c(_o(can_pound_cracked_blocks, _has("Yarn Form")), _o(has_grab_1, can_fly)),   #8
     ],
     "The Grasslands": [
@@ -1035,6 +1035,8 @@ def set_rules(world: "WL3World") -> None:
         chest_logic["Beneath the Waves"][blue] = _c(_o(has_flippers_1,_has("Flat Form")),_o(has_grab_1,_has("Fat Form")))
         
     if world.options.enemizer:
+        add_tf(key_logic["Out of the Woods"], blue, can_bounce)
+        add_tf(chest_logic["Out of the Woods"], blue, can_bounce)
         add_tf(coin_logic["Out of the Woods"], 1, _has("Fire Form"), can_pound_solid_blocks)
         add_tf(coin_logic["Out of the Woods"], 2, _has("Puffy Form"))
         add_tf(coin_logic["Out of the Woods"], 4, can_bounce)
@@ -1246,7 +1248,7 @@ def set_rules(world: "WL3World") -> None:
             add_tf(coin_logic["The Steep Canyon"], 7, _has("Fire Form"), _has("Roll Form"), _c(_has("Spiked Helmet"),_has("Flat Form")))
 
         if glitches < all_glitches:
-            key_logic["Out of the Woods"][green] = can_bounce
+            add_tf(key_logic["Out of the Woods"], green, can_bounce)
 
         if difficulty >= knowledge_checks and glitches < easy_glitches:
             add_tf(key_logic["The Vast Plain"], red, _has("Puffy Form"), _has("Roll Form"))
