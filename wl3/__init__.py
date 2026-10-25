@@ -39,6 +39,7 @@ from .items import (
     TRANSFORM_SACRIFICED_TREASURES,
     TRANSFORM_UNLOCK_ITEMS,
     TRANSFORM_UNLOCK_PROGRESSIVE_COUNTS,
+    ROOM_KEY_ITEMS,
     TREASURE_TABLE,
     WL3ItemData,
 )
@@ -415,6 +416,12 @@ class WL3World(World):
                 count = TRANSFORM_UNLOCK_PROGRESSIVE_COUNTS.get(name, 1)
                 for _ in range(count):
                     items.append(self.create_item(name))
+
+        # Room-key items (proof of concept) — always added, one copy each.
+        # Lands in one of the 100 base chest locations via the normal fill
+        # algorithm, same as any other progression treasure.
+        for name in ROOM_KEY_ITEMS:
+            items.append(self.create_item(name))
 
         # Fill remaining slots to reach 100 using coin bundles. Use the existing
         # bundle distribution tables as the starting point, then top up with 1-coin fillers.

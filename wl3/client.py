@@ -161,6 +161,17 @@ ADDR_COLOUR_COIN_BLOCK_FLAGS_WRAM = 0x14E3  # wColourCoinBlockFlags (bank 1
                                        # 0xD4E3) — 25 bytes, 1 bit per
                                        # "always colour coin" block per
                                        # level (up to 8).
+ADDR_ROOM_DOOR_FLAGS_WRAM = 0x14FD    # wRoomDoorFlags (bank 1 0xD4FD) — 1
+                                       # byte, 1 bit per locked-door
+                                       # mechanism. Bit 0 = Out of the
+                                       # Woods shortcut door (block 128,29
+                                       # — see BlockFunc_Door, ROM). ROM's
+                                       # GrantTreasureByID already sets
+                                       # this on physical pickup; client
+                                       # also sets it on network receive
+                                       # so the door unlocks even if this
+                                       # item was sent from elsewhere (not
+                                       # physically picked up in this ROM).
 ADDR_OBJ_TABLE_WRAM = 0x1000  # wObj1Flags (bank 1 0xD000) — 8 objects x 32
                                # bytes; +0=Flags, +8=InteractionType per slot.
 OBJ_STRIDE = 32
@@ -217,6 +228,7 @@ COIN_BLOCK_BASE_LOC_ID = 7_770_900  # AP loc ID = COIN_BLOCK_BASE_LOC_ID + (owle
 COIN_BLOCK_SLOTS_PER_LEVEL = 8       # matches ROM wColourCoinBlockFlags bit count per level
 KEY_BASE_ITEM_ID = BASE_ITEM_ID + 300  # 7_770_300
 KEYRING_BASE_ITEM_ID = BASE_ITEM_ID + 700  # 7_770_700 (one per level, owlevel-1 offset)
+ROOM_KEY_BASE_ITEM_ID = BASE_ITEM_ID + 600  # Room-key items (proof of concept)
 
 # Item name categories for GolfParHints. Matched against the item name in
 # self._loc_items (populated from slot_data["loc_items"]).
@@ -303,6 +315,8 @@ class WL3Client(BizHawkClient):
         self._prev_colour_coin_block_flags: bytes = bytes(25)
         self._prev_opened_chests: bytes = bytes(13)
         self._prev_shop_slots_bought: bytes = bytes(2)
+        self._prev_room_door_flags_dbg: int = 0  # diagnostic poll only
+        self._prev_wario_state_dbg: int = -1     # diagnostic poll only
         self._prev_shop_mode: int = 0        # last-seen wShopMode
         self._shop_slots_hinted: bool = False # legacy — kept for compat, no longer used
         self._shop_scouted_slots: set = set() # slots already scouted this session (per-A-press hint)
@@ -1390,6 +1404,18 @@ class WL3Client(BizHawkClient):
             tid = ap_id - BASE_ITEM_ID
             logger.debug(f"[WL3] Item AP {ap_id} → treasure 0x{tid:02X}")
             await self._apply_treasure(ctx, tid)
+        elif ROOM_KEY_BASE_ITEM_ID <= ap_id < ROOM_KEY_BASE_ITEM_ID + 10:
+            # Room-key items (proof of concept) — set the matching bit in
+            # wRoomDoorFlags directly. The ROM's GrantTreasureByID already
+            # does this on physical pickup; this covers delivery when the
+            # item wasn't physically picked up in THIS ROM (sent from
+            # another world, !getitem, hint reward, precollected start).
+            bit_idx = ap_id - ROOM_KEY_BASE_ITEM_ID
+            cur = (await read(ctx.bizhawk_ctx, [(ADDR_ROOM_DOOR_FLAGS_WRAM, 1, "WRAM")]))[0][0]
+            new = cur | (1 << bit_idx)
+            if new != cur:
+                await write(ctx.bizhawk_ctx, [(ADDR_ROOM_DOOR_FLAGS_WRAM, bytes([new]), "WRAM")])
+            logger.debug(f"[WL3] Room-key AP {ap_id} → wRoomDoorFlags bit {bit_idx}")
         elif KEY_BASE_ITEM_ID <= ap_id < KEY_BASE_ITEM_ID + 100:
             key_index = ap_id - KEY_BASE_ITEM_ID
             owlevel_minus1 = key_index >> 2   # // 4

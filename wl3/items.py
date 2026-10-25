@@ -522,6 +522,27 @@ TRANSFORM_UNLOCK_TREASURE_ID: Dict[str, int] = {
 # TREASURE_KEYRING = $66 renders the keyring bundle sprite.
 KEYRING_TREASURE_ID = 0x66
 
+# ---------------------------------------------------------------------------
+# Room-key items — proof of concept. Each key permanently unlocks one
+# specific door elsewhere in the world (a shortcut/alternate path), checked
+# ROM-side by block position (see BlockFunc_Door, block_functions.asm, and
+# wRoomDoorFlags, wram.asm). tier_ids[0] is the ROOM_DOOR_KEY_* treasure id
+# GrantTreasureByID special-cases to set the matching wRoomDoorFlags bit
+# instead of a normal grant. No TreasureGfx entry exists for this id yet —
+# a chest/shop/popup that tries to render its portrait will show wrong art
+# until a real icon is wired up; GrantTreasureByID's own dispatch is
+# bounds-safe for ids past NUM_TREASURES ($65), so this doesn't crash.
+# ---------------------------------------------------------------------------
+ROOM_KEY_BASE_ITEM_ID = BASE_ITEM_ID + 600  # 7_770_600
+
+ROOM_KEY_ITEMS: Dict[str, WL3ItemData] = {
+    "Out of the Woods Shortcut Key": WL3ItemData(
+        ap_id=ROOM_KEY_BASE_ITEM_ID + 0,
+        classification=ItemClassification.progression,
+        tier_ids=[0x73],  # ROOM_DOOR_KEY_N1
+    ),
+}
+
 TRANSFORM_UNLOCK_AP_IDS_SET: set = {item.ap_id for item in TRANSFORM_UNLOCK_ITEMS.values()}
 
 # Treasures removed from the pool when Transformation Shuffle is ON.
@@ -575,7 +596,7 @@ _used = {item.tier_ids[0] for item in TREASURE_TABLE.values()}
 assert not (_used & _PROGRESSIVE_TREASURE_IDS), "Progressive treasure IDs must not overlap regular table"
 
 # Combined lookup: name → data (regular + progressive + combined + traps + transform unlocks)
-ITEM_TABLE: Dict[str, WL3ItemData] = {**TREASURE_TABLE, **PROGRESSIVE_ITEMS, **COMBINED_ITEMS, **TRAP_ITEMS, **TRANSFORM_UNLOCK_ITEMS}
+ITEM_TABLE: Dict[str, WL3ItemData] = {**TREASURE_TABLE, **PROGRESSIVE_ITEMS, **COMBINED_ITEMS, **TRAP_ITEMS, **TRANSFORM_UNLOCK_ITEMS, **ROOM_KEY_ITEMS}
 
 # Reverse lookup by AP ID
 ID_TO_ITEM: Dict[int, WL3ItemData] = {item.ap_id: item for item in ITEM_TABLE.values()}
