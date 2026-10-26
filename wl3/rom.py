@@ -288,7 +288,7 @@ SHOPSANITY_MODE_OFFSET           = 0x080F9D   # ShopsanityModeOpt byte in Bank 2
 SHOP_SLOT_ITEMS_OFFSET           = 0x080F9E   # ShopSlotItems table in Bank 20 (10 bytes = treasure ID per shop slot)
 SHOP_SLOT_NAMES_OFFSET           = 0x080FA8   # ShopSlotNamesTable in Bank 20 (10 slots × 20 bytes = 200 bytes, msg-font encoded)
 SHOP_SLOT_KEY_COLORS_OFFSET      = 0x081072   # ShopSlotKeyColors table in Bank 20 (10 bytes, $FF = not a key, 0-3 = grey/red/green/blue)
-HIDDEN_PASSAGES_REVEALED_OFFSET = 0x01BD1D  # HiddenPassagesRevealedOpt byte in Bank 07 (moved from Bank 3 during reveal-hidden-blocks refactor)
+HIDDEN_PASSAGES_REVEALED_OFFSET = 0x01BD45  # HiddenPassagesRevealedOpt byte in Bank 07 (moved from Bank 3 during reveal-hidden-blocks refactor)
 GOLF_PRICE_OPT_OFFSET            = 0x003A00   # GolfPriceOpt byte in Home bank
 GOLF_BUILDING_OPT_OFFSET         = 0x003A01   # GolfBuildingOpt byte in Home bank
 DISABLE_PAL_CYCLE_OFFSET         = 0x003A02   # DisablePalCycleOpt byte in Home bank
