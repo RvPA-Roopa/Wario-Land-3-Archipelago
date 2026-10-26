@@ -315,8 +315,6 @@ class WL3Client(BizHawkClient):
         self._prev_colour_coin_block_flags: bytes = bytes(25)
         self._prev_opened_chests: bytes = bytes(13)
         self._prev_shop_slots_bought: bytes = bytes(2)
-        self._prev_room_door_flags_dbg: int = 0  # diagnostic poll only
-        self._prev_wario_state_dbg: int = -1     # diagnostic poll only
         self._prev_shop_mode: int = 0        # last-seen wShopMode
         self._shop_slots_hinted: bool = False # legacy — kept for compat, no longer used
         self._shop_scouted_slots: set = set() # slots already scouted this session (per-A-press hint)
