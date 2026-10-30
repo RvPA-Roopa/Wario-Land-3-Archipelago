@@ -812,6 +812,25 @@ BOSS_RULES: dict = {
 able_to_beat_rudy = _c(has_grab_2,_o(has_overalls_1,has_vampire_1,_has("Zombie Form"),_has("Fat Form"),_has("Fire Form")))
 
 # ---------------------------------------------------------------------------
+# ---------------------------------------------------------------------------
+
+DOOR_RULES: dict = {
+    # N1 Out of the Woods
+    "Out of the Woods - Green Chest":         _has("N1 - Door A Key"),
+    "Out of the Woods - Big Coin 4":          _has("N1 - Door A Key"),
+    "Out of the Woods - Grey Chest":          _has("N1 - Door B Key"),
+    # N2 The Peaceful Village
+    "The Peaceful Village - Big Coin 3":      _has("N2 - Door A Key"),
+    # B room is also reachable from the roof via pipe F (Flute / high jump)
+    "The Peaceful Village - Red Key":         _o(_has("N2 - Door B Key"), _has("Flute"), can_jump_high),
+    "The Peaceful Village - Coin Block 3":    _o(_has("N2 - Door B Key"), _has("Flute"), can_jump_high),
+    "The Peaceful Village - Grey Chest":      _has("N2 - Door C Key"),
+    "The Peaceful Village - Red Chest":       _has("N2 - Door D Key"),
+    "The Peaceful Village - Green Key":       _has("N2 - Door J Key"),
+    "The Peaceful Village - Big Coin 4":      _has("N2 - Door J Key"),
+}
+
+# ---------------------------------------------------------------------------
 # Main rule-setting function — called from WL3World.set_rules()
 # ---------------------------------------------------------------------------
 
@@ -1388,6 +1407,24 @@ def set_rules(world: "WL3World") -> None:
             elif boss_rule is not None:
                 mw.get_location(loc_name, player).access_rule = \
                     lambda state, r=boss_rule: r(state, player)
+
+    # Locked doors — AND each door rule onto whatever rule the location has.
+    # With vanilla keys a chest's rule includes reaching its key, so a key
+    # location's door rule carries over to the same-colour chest.
+    door_rules = dict(DOOR_RULES)
+    if not keysanity:
+        for loc_name, rule in DOOR_RULES.items():
+            if loc_name.endswith(" Key"):
+                chest = loc_name[:-len(" Key")] + " Chest"
+                old_rule = door_rules.get(chest)
+                door_rules[chest] = _c(old_rule, rule) if old_rule else rule
+    for loc_name, door_rule in door_rules.items():
+        try:
+            loc = mw.get_location(loc_name, player)
+        except KeyError:
+            continue
+        loc.access_rule = (lambda state, old=loc.access_rule, dr=door_rule:
+                           old(state) and dr(state, player))
 
     # Shop item filter — reject coin bundles (ex-crests). No point
     # spending coins to buy more coins.

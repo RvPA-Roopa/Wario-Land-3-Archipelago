@@ -764,7 +764,7 @@ class WL3World(World):
         and queues the trap on chest open instead of granting an item, so
         traps fire even with the AP client disconnected (offline solo seeds).
         """
-        from .items import TRAP_AP_IDS  # AP item id → TRAP_* (1-5)
+        from .items import SIDE_TABLE_CODES  # AP item id → TRAP_* / door-key code
         trap_table = [0] * 100
         for loc_name, loc_data in LOCATION_TABLE.items():
             location = self.multiworld.get_location(loc_name, self.player)
@@ -774,7 +774,7 @@ class WL3World(World):
             item_data = ITEM_TABLE.get(item.name)
             if item_data is None:
                 continue
-            trap_id = TRAP_AP_IDS.get(item_data.ap_id)
+            trap_id = SIDE_TABLE_CODES.get(item_data.ap_id)
             if trap_id is not None:
                 trap_table[loc_data.loc_index] = trap_id
         return trap_table
@@ -784,7 +784,7 @@ class WL3World(World):
         SaveKeyToInventory reads ROM TrapKeyTable; non-zero entries queue the
         trap and skip the regular key/treasure inventory write.
         """
-        from .items import TRAP_AP_IDS
+        from .items import SIDE_TABLE_CODES
         trap_table = [0] * 100
         for loc_name, loc_data in KEY_LOCATION_TABLE.items():
             location = self.multiworld.get_location(loc_name, self.player)
@@ -794,7 +794,7 @@ class WL3World(World):
             item_data = ITEM_TABLE.get(item.name)
             if item_data is None:
                 continue
-            trap_id = TRAP_AP_IDS.get(item_data.ap_id)
+            trap_id = SIDE_TABLE_CODES.get(item_data.ap_id)
             if trap_id is not None:
                 idx = (loc_data.owlevel - 1) * 4 + loc_data.color_index
                 trap_table[idx] = trap_id
@@ -805,7 +805,7 @@ class WL3World(World):
         GrantCoinItem reads ROM TrapCoinTable[(owlevel-1)*8 + coin_idx]; non-zero
         entries queue the trap and skip the regular item grant.
         """
-        from .items import TRAP_AP_IDS
+        from .items import SIDE_TABLE_CODES
         trap_table = [0] * 200
         if not self.options.bigcoinsanity:
             return trap_table
@@ -817,7 +817,7 @@ class WL3World(World):
             item_data = ITEM_TABLE.get(item.name)
             if item_data is None:
                 continue
-            trap_id = TRAP_AP_IDS.get(item_data.ap_id)
+            trap_id = SIDE_TABLE_CODES.get(item_data.ap_id)
             if trap_id is not None:
                 trap_table[loc_data.loc_index] = trap_id
         return trap_table
@@ -846,9 +846,12 @@ class WL3World(World):
                 item_data = ITEM_TABLE.get(item.name)
                 if item_data is None:
                     continue
+                idx = (loc_data.owlevel - 1) * 4 + loc_data.color_index
                 if item_data.ap_id in TRAP_AP_IDS_SET:
-                    idx = (loc_data.owlevel - 1) * 4 + loc_data.color_index
                     key_table[idx] = self.random.choice(TRAP_DISGUISE_POOL)
+                elif item.name in ROOM_KEY_ITEMS:
+                    # plando'd door key: gem placeholder; TrapKeyTable grants it
+                    key_table[idx] = item_data.tier_ids[0]
             return key_table
 
         key_table = [0] * 100
@@ -1071,7 +1074,7 @@ class WL3World(World):
         queue the trap and skip the regular item grant (the vanilla +10
         coins and the AP location check still fire either way).
         """
-        from .items import TRAP_AP_IDS
+        from .items import SIDE_TABLE_CODES
         trap_table = [0] * 200
         if not self.options.coin_blocksanity:
             return trap_table
@@ -1084,7 +1087,7 @@ class WL3World(World):
             item_data = ITEM_TABLE.get(item.name)
             if item_data is None:
                 continue
-            trap_id = TRAP_AP_IDS.get(item_data.ap_id)
+            trap_id = SIDE_TABLE_CODES.get(item_data.ap_id)
             if trap_id is not None:
                 trap_table[loc_data.loc_index] = trap_id
         return trap_table
@@ -1112,7 +1115,7 @@ class WL3World(World):
         placing traps here is possible but rare. Foreign items get a gem
         disguise so the local "you sent X" popup still fires cleanly.
         """
-        from .items import COMBINED_ITEMS, KEY_ITEM_TABLE, KEYRING_ITEM_TABLE, TRAP_AP_IDS
+        from .items import COMBINED_ITEMS, KEY_ITEM_TABLE, KEYRING_ITEM_TABLE, TRAP_AP_IDS, SIDE_TABLE_CODES
 
         boss_items    = bytearray([0xFF] * 10)
         keyring_tgts  = bytearray([0xFF] * 10)
@@ -1164,6 +1167,8 @@ class WL3World(World):
                     trap_table[idx] = TRAP_AP_IDS[item_data.ap_id]
                 else:
                     boss_items[idx] = item_data.tier_ids[0]
+                    # door keys: placeholder above + code in TrapBossTable
+                    trap_table[idx] = SIDE_TABLE_CODES.get(item_data.ap_id, 0)
 
         return list(boss_items), list(keyring_tgts), list(trap_table)
 

@@ -536,11 +536,62 @@ KEYRING_TREASURE_ID = 0x66
 ROOM_KEY_BASE_ITEM_ID = BASE_ITEM_ID + 600  # 7_770_600
 
 ROOM_KEY_ITEMS: Dict[str, WL3ItemData] = {
-    "Out of the Woods Shortcut Key": WL3ItemData(
+    # Named "<level> - Door <letter> Key"; letters follow wl3_door_map.csv.
+    "N1 - Door A Key": WL3ItemData(
         ap_id=ROOM_KEY_BASE_ITEM_ID + 0,
         classification=ItemClassification.progression,
-        tier_ids=[0x73],  # ROOM_DOOR_KEY_N1
+        tier_ids=[0x4E],  # Red Gem placeholder
     ),
+    "N2 - Door C Key": WL3ItemData(
+        ap_id=ROOM_KEY_BASE_ITEM_ID + 1,
+        classification=ItemClassification.progression,
+        tier_ids=[0x4E],  # Red Gem placeholder
+    ),
+    "N1 - Door B Key": WL3ItemData(
+        ap_id=ROOM_KEY_BASE_ITEM_ID + 2,
+        classification=ItemClassification.progression,
+        tier_ids=[0x4E],  # Red Gem placeholder
+    ),
+    "N1 - Door C Key": WL3ItemData(
+        ap_id=ROOM_KEY_BASE_ITEM_ID + 3,
+        classification=ItemClassification.useful,  # gates nothing on its own — see DOOR_RULES
+        tier_ids=[0x4E],  # Red Gem placeholder
+    ),
+    "N2 - Door A Key": WL3ItemData(
+        ap_id=ROOM_KEY_BASE_ITEM_ID + 4,
+        classification=ItemClassification.progression,
+        tier_ids=[0x4E],  # Red Gem placeholder
+    ),
+    "N2 - Door B Key": WL3ItemData(
+        ap_id=ROOM_KEY_BASE_ITEM_ID + 5,
+        classification=ItemClassification.progression,
+        tier_ids=[0x4E],  # Red Gem placeholder
+    ),
+    "N2 - Door D Key": WL3ItemData(
+        ap_id=ROOM_KEY_BASE_ITEM_ID + 6,
+        classification=ItemClassification.progression,
+        tier_ids=[0x4E],  # Red Gem placeholder
+    ),
+    "N2 - Door J Key": WL3ItemData(
+        ap_id=ROOM_KEY_BASE_ITEM_ID + 7,
+        classification=ItemClassification.progression,
+        tier_ids=[0x4E],  # Red Gem placeholder
+    ),
+}
+
+# Door keys are granted offline through the same Trap*Table side tables as
+# traps: the main item table shows the tier_ids[0] Red Gem placeholder (a
+# no-op grant) and the side table holds DOOR_KEY_CODE_BASE + door index,
+# which the ROM hands to GrantDoorKeyCode. ap_id offset from
+# ROOM_KEY_BASE_ITEM_ID must equal the ROM's DOOR_* index
+# (treasure_constants.asm); the AP client uses the same mapping.
+DOOR_KEY_CODE_BASE = 0x20  # DOOR_KEY_CODE_BASE, treasure_constants.asm
+
+# AP item id → Trap*Table side-table code (TRAP_* or door key).
+SIDE_TABLE_CODES: Dict[int, int] = {
+    **TRAP_AP_IDS,
+    **{item.ap_id: DOOR_KEY_CODE_BASE + (item.ap_id - ROOM_KEY_BASE_ITEM_ID)
+       for item in ROOM_KEY_ITEMS.values()},
 }
 
 TRANSFORM_UNLOCK_AP_IDS_SET: set = {item.ap_id for item in TRANSFORM_UNLOCK_ITEMS.values()}

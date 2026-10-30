@@ -161,17 +161,14 @@ ADDR_COLOUR_COIN_BLOCK_FLAGS_WRAM = 0x14E3  # wColourCoinBlockFlags (bank 1
                                        # 0xD4E3) — 25 bytes, 1 bit per
                                        # "always colour coin" block per
                                        # level (up to 8).
-ADDR_ROOM_DOOR_FLAGS_WRAM = 0x14FD    # wRoomDoorFlags (bank 1 0xD4FD) — 1
-                                       # byte, 1 bit per locked-door
-                                       # mechanism. Bit 0 = Out of the
-                                       # Woods shortcut door (block 128,29
-                                       # — see BlockFunc_Door, ROM). ROM's
-                                       # GrantTreasureByID already sets
-                                       # this on physical pickup; client
-                                       # also sets it on network receive
-                                       # so the door unlocks even if this
-                                       # item was sent from elsewhere (not
-                                       # physically picked up in this ROM).
+ADDR_DOOR_KEY_FLAGS_WRAM = 0x1750     # wDoorKeyFlags (bank 1 0xD750, pinned
+                                       # "Door State" section) — 17 bytes, one
+                                       # bit per locked door; bit N = door
+                                       # index N (DOOR_* in ROM, item ap_id -
+                                       # ROOM_KEY_BASE_ITEM_ID). Client sets it
+                                       # on receive so keys found anywhere
+                                       # (other worlds, !getitem, starting
+                                       # inventory) still unlock the door.
 ADDR_OBJ_TABLE_WRAM = 0x1000  # wObj1Flags (bank 1 0xD000) — 8 objects x 32
                                # bytes; +0=Flags, +8=InteractionType per slot.
 OBJ_STRIDE = 32
@@ -1402,18 +1399,17 @@ class WL3Client(BizHawkClient):
             tid = ap_id - BASE_ITEM_ID
             logger.debug(f"[WL3] Item AP {ap_id} → treasure 0x{tid:02X}")
             await self._apply_treasure(ctx, tid)
-        elif ROOM_KEY_BASE_ITEM_ID <= ap_id < ROOM_KEY_BASE_ITEM_ID + 10:
-            # Room-key items (proof of concept) — set the matching bit in
-            # wRoomDoorFlags directly. The ROM's GrantTreasureByID already
-            # does this on physical pickup; this covers delivery when the
-            # item wasn't physically picked up in THIS ROM (sent from
-            # another world, !getitem, hint reward, precollected start).
-            bit_idx = ap_id - ROOM_KEY_BASE_ITEM_ID
-            cur = (await read(ctx.bizhawk_ctx, [(ADDR_ROOM_DOOR_FLAGS_WRAM, 1, "WRAM")]))[0][0]
-            new = cur | (1 << bit_idx)
+        elif ROOM_KEY_BASE_ITEM_ID <= ap_id < ROOM_KEY_BASE_ITEM_ID + 136:
+            # Door keys ("N1 - Door A Key" etc.) — set the door's bit in
+            # wDoorKeyFlags. The ROM also sets it on physical pickup; this
+            # covers delivery from anywhere else.
+            door_idx = ap_id - ROOM_KEY_BASE_ITEM_ID
+            addr = ADDR_DOOR_KEY_FLAGS_WRAM + (door_idx >> 3)
+            cur = (await read(ctx.bizhawk_ctx, [(addr, 1, "WRAM")]))[0][0]
+            new = cur | (1 << (door_idx & 7))
             if new != cur:
-                await write(ctx.bizhawk_ctx, [(ADDR_ROOM_DOOR_FLAGS_WRAM, bytes([new]), "WRAM")])
-            logger.debug(f"[WL3] Room-key AP {ap_id} → wRoomDoorFlags bit {bit_idx}")
+                await write(ctx.bizhawk_ctx, [(addr, bytes([new]), "WRAM")])
+            logger.debug(f"[WL3] Door key AP {ap_id} → wDoorKeyFlags door {door_idx}")
         elif KEY_BASE_ITEM_ID <= ap_id < KEY_BASE_ITEM_ID + 100:
             key_index = ap_id - KEY_BASE_ITEM_ID
             owlevel_minus1 = key_index >> 2   # // 4
