@@ -109,6 +109,16 @@ FORM_ICON_FLIPPED_EXTRACTIONS = (
     # motion trail is on the right (matches rolling right visually).
     ("sprite_raw", 0x025000, 2048, 112, 32, TREASURE_ROLL_TILE_OFFSET),
 )
+# Graphics built from the user's vanilla font (RLE, 16 tiles wide) at patch
+# time, so none ship: the signpost box's down arrow (SignFontArrow: 2 1bpp
+# glyphs, see _build_sign_arrow) and the message/key tracker fonts' letters
+# (see _build_vanilla_font_tiles).
+VANILLA_FONT_SOURCE = (0x1f1d5d, 3685)
+SIGN_ARROW_GLYPHS_OFFSET         = 0x04E0B2   # SignFontArrow
+MSG_FONT_TILES_OFFSET            = 0x027800   # MsgFontTiles — 32 bytes per glyph
+TITLE_SMALL_FONT_OFFSET          = 0x09AC12   # TitleSmallFontGfx — 16 bytes per tile
+CHECKS_EXTRA_TILES_OFFSET        = 0x09AA72   # ChecksExtraTilesGfx — 16 bytes per tile
+
 # Door key icon: the locked door's handle and keyhole, cut out of the vanilla
 # door tiles (main_tiles38, plain 16-tile-wide sheet) — see _build_door_key_icon.
 DOOR_KEY_ICON_SOURCE = (0x157000, 2048)
@@ -250,6 +260,58 @@ def _build_door_key_icon(pixels) -> bytes:
             if (y, x) not in panel:
                 canvas[1 + y][4 + x] = remap[crop[y][x]]
     return _encode_icon_from_pixels(canvas, 0, 0)
+
+
+def _build_sign_arrow(pixels) -> bytes:
+    """The message box's down arrow: the vanilla font's (tile 13, 21; text =
+    its 2 lightest colours) as 2 1bpp glyphs, left then right half, shifted
+    so it centres on the line between them (the box's middle)."""
+    rows = [sum((pixels[21 * 8 + r][13 * 8 + c] < 2) << (7 - c) for c in range(8))
+            for r in range(8)]
+    arrow = [row << 3 for row in rows]  # 5 wide at 1-5 -> 6-10 of 16
+    return bytes(v >> 8 for v in arrow) + bytes(v & 0xFF for v in arrow)
+
+
+def _build_vanilla_font_tiles(font: bytes) -> "list[tuple[int, bytes]]":
+    """(offset, bytes) writes for the hack's fonts' letters, which are the
+    vanilla font's (font.2bpp: digits $130, A-P $140, Q-Z $150, dash $15A;
+    ink = colour 0):
+      - MsgFontTiles (tools/build_msg_font.py): 8x16 sprite pairs, ink as
+        colour 1 with a colour-2 drop shadow one pixel down-right, in the
+        order A-Z, 0-9, space, -, &, . (space, & and . are hand-made);
+      - TitleSmallFontGfx / ChecksExtraTilesGfx: 8x8 tiles, ink as colour 3
+        with a colour-2 shadow one pixel down-right."""
+    def ink(tile: int) -> "list[int]":
+        b = font[tile * 16:tile * 16 + 16]
+        return [~(b[2 * r] | b[2 * r + 1]) & 0xFF for r in range(8)]
+
+    def letter(ch: str) -> int:
+        if ch.isdigit():
+            return 0x130 + int(ch)
+        if ch == "-":
+            return 0x15A
+        return 0x140 + ord(ch) - ord("A")
+
+    def sprite_pair(tile: int) -> bytes:
+        body = ink(tile) + [0] * 8                      # 8x16, rows of colour 1
+        shadow = [((body[r - 1] >> 1) & ~body[r]) & 0xFF if r else 0 for r in range(16)]
+        return bytes(x for r in range(16) for x in (body[r], shadow[r]))
+
+    def small(tile: int) -> bytes:
+        k = ink(tile)
+        return bytes(x for r in range(8)
+                     for x in (k[r], k[r] | ((k[r - 1] >> 1) if r else 0)))
+
+    writes = []
+    for i, ch in enumerate("ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789 -"):
+        if ch != " ":
+            writes.append((MSG_FONT_TILES_OFFSET + i * 32, sprite_pair(letter(ch))))
+    for i, ch in enumerate("KEYS,BOCHT"):
+        if ch != ",":
+            writes.append((TITLE_SMALL_FONT_OFFSET + i * 16, small(letter(ch))))
+    for i, ch in ((2, "W"), (3, "N"), (5, "D"), (6, "G"), (7, "R")):
+        writes.append((CHECKS_EXTRA_TILES_OFFSET + i * 16, small(letter(ch))))
+    return writes
 
 
 def _build_mirrored_icon(pixels, crop_x: int, crop_y: int, half_w: int, half_h: int) -> bytes:
@@ -522,6 +584,12 @@ class WL3PatchExtension(APPatchExtension):
         pixels = _decode_tilemap(vanilla[src_offset:src_offset + src_length], width_tiles=16)
         encoded = _build_door_key_icon(pixels)
         rom[TREASURE_DOOR_KEY_TILE_OFFSET:TREASURE_DOOR_KEY_TILE_OFFSET + len(encoded)] = encoded
+        src_offset, src_length = VANILLA_FONT_SOURCE
+        font = _wl3_rle_decompress(vanilla[src_offset:src_offset + src_length])
+        encoded = _build_sign_arrow(_decode_tilemap(font, width_tiles=16))
+        rom[SIGN_ARROW_GLYPHS_OFFSET:SIGN_ARROW_GLYPHS_OFFSET + len(encoded)] = encoded
+        for offset, data in _build_vanilla_font_tiles(font):
+            rom[offset:offset + len(data)] = data
         return bytes(rom)
 
     @staticmethod
