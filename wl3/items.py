@@ -607,6 +607,26 @@ ROOM_KEY_ITEMS: Dict[str, WL3ItemData] = {
         classification=ItemClassification.progression,
         tier_ids=[0x4E],  # Red Gem placeholder
     ),
+    "N4 - Door A Key": WL3ItemData(
+        ap_id=ROOM_KEY_BASE_ITEM_ID + 14,
+        classification=ItemClassification.progression,
+        tier_ids=[0x4E],  # Red Gem placeholder
+    ),
+    "N4 - Door B Key": WL3ItemData(
+        ap_id=ROOM_KEY_BASE_ITEM_ID + 15,
+        classification=ItemClassification.progression,
+        tier_ids=[0x4E],  # Red Gem placeholder
+    ),
+    "N4 - Door C Key": WL3ItemData(
+        ap_id=ROOM_KEY_BASE_ITEM_ID + 16,
+        classification=ItemClassification.progression,
+        tier_ids=[0x4E],  # Red Gem placeholder
+    ),
+    "N4 - Door D Key": WL3ItemData(
+        ap_id=ROOM_KEY_BASE_ITEM_ID + 17,
+        classification=ItemClassification.progression,
+        tier_ids=[0x4E],  # Red Gem placeholder
+    ),
 }
 
 # Door keys are granted offline through the same Trap*Table side tables as

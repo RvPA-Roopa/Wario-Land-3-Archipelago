@@ -831,9 +831,13 @@ DOOR_RULES: dict = {
     # N3 The Vast Plain
     "The Vast Plain - Green Chest":           _has("N3 - Door H Key"),
     "The Vast Plain - Blue Chest":            _has("N3 - Door J Key"),
-    # N4 Bank of the Wild River (A-D unlocked: their rooms are entered by
-    # breaking blocks). F: river side -> Green Chest Room; G: Green Chest
-    # Room -> Pesce room (green key); H: river lobby -> the big lower room.
+    # N4 Bank of the Wild River. A-D: river bank doors behind breakable
+    # blocks; F: river side -> Green Chest Room; G: Green Chest Room ->
+    # Pesce room (green key); H: river lobby -> the big lower room.
+    "Bank of the Wild River - Red Chest":     _has("N4 - Door A Key"),
+    "Bank of the Wild River - Big Coin 7":    _has("N4 - Door B Key"),
+    "Bank of the Wild River - Big Coin 6":    _has("N4 - Door C Key"),
+    "Bank of the Wild River - Red Key":       _has("N4 - Door D Key"),
     "Bank of the Wild River - Green Chest":   _has("N4 - Door F Key"),
     "Bank of the Wild River - Green Key":     _c(_has("N4 - Door F Key"), _has("N4 - Door G Key")),
     "Bank of the Wild River - Blue Key":      _has("N4 - Door H Key"),
@@ -1415,12 +1419,27 @@ def set_rules(world: "WL3World") -> None:
         "Bank of the Wild River - Door F Sign": (green, None),
         "Bank of the Wild River - Door G Sign": (green, "N4 - Door F Key"),
     }
+    # A-D's signposts are out when their door is: breaking in is what their
+    # room's own logic asks for first.
+    sign_logic_from = {
+        "Bank of the Wild River - Door A Sign": (chest_logic, red),
+        "Bank of the Wild River - Door B Sign": (coin_logic, 6),
+        "Bank of the Wild River - Door C Sign": (coin_logic, 5),
+        "Bank of the Wild River - Door D Sign": (key_logic, red),
+    }
     for loc_name, loc_data in DOOR_SIGN_LOCATION_TABLE.items():
         if loc_name in sign_rule_from:
             mw.get_location(loc_name, player).access_rule = \
                 mw.get_location(sign_rule_from[loc_name], player).access_rule
             continue
         level_rule = level_rules.get(loc_data.level_name)
+        if loc_name in sign_logic_from:
+            table, index = sign_logic_from[loc_name]
+            area = table[loc_data.level_name][index]
+            mw.get_location(loc_name, player).access_rule = \
+                lambda state, r=level_rule, a=area: \
+                (r is None or r(state, player)) and (a is None or a(state, player))
+            continue
         if loc_name in sign_chest_area:
             colour, door_key = sign_chest_area[loc_name]
             area = chest_logic[loc_data.level_name][colour]
