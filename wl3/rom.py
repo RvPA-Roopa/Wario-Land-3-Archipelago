@@ -65,6 +65,7 @@ TREASURE_ICE_SKATIN_TILE_OFFSET  = 0x099bc0   # TreasureIceSkatinFormGfx — 64 
 TREASURE_FLAT_TILE_OFFSET        = 0x099c00   # TreasureFlatFormGfx      — 64 bytes (4 tiles, 2bpp)
 TREASURE_PUFFY_TILE_OFFSET       = 0x099c40   # TreasurePuffyFormGfx     — 64 bytes (4 tiles, 2bpp)
 TREASURE_ROLL_TILE_OFFSET        = 0x099c80   # TreasureRollFormGfx      — 64 bytes (4 tiles, 2bpp)
+TREASURE_DOOR_KEY_TILE_OFFSET    = 0x099d00   # TreasureDoorKeyGfx       — 64 bytes (4 tiles, 2bpp)
 
 # Vanilla Form icon extractions. Each entry:
 #   (kind, offset, length, crop_x, crop_y, dest_offset)
@@ -108,9 +109,13 @@ FORM_ICON_FLIPPED_EXTRACTIONS = (
     # motion trail is on the right (matches rolling right visually).
     ("sprite_raw", 0x025000, 2048, 112, 32, TREASURE_ROLL_TILE_OFFSET),
 )
-TREASURE_DUMMY_PAL_OFFSET        = 0x09BC85   # TreasureOBPals[$65] — 1 byte (palette index)
+# Door key icon: the locked door's handle and keyhole, cut out of the vanilla
+# door tiles (main_tiles38, plain 16-tile-wide sheet) — see _build_door_key_icon.
+DOOR_KEY_ICON_SOURCE = (0x157000, 2048)
+
+TREASURE_DUMMY_PAL_OFFSET        = 0x09BCC5   # TreasureOBPals[$65] — 1 byte (palette index)
 TREASURE_GFX_BASE                = 0x098000   # TreasureGfx[0] — each entry 64 bytes
-TREASURE_PAL_BASE                = 0x09BC20   # TreasureOBPals[0] — each entry 1 byte
+TREASURE_PAL_BASE                = 0x09BC60   # TreasureOBPals[0] — each entry 1 byte
 KEY_COLOR_PALS = [0x08, 0x05, 0x06, 0x07]    # OBPAL: grey, red, green, blue
 OBPAL_TREASURE_PURPLE = 0x09                  # Combined unlock items
 
@@ -218,6 +223,35 @@ def _encode_icon_from_pixels(pixels, crop_x: int, crop_y: int,
     return encode_tile(0, 0) + encode_tile(1, 0) + encode_tile(0, 1) + encode_tile(1, 1)
 
 
+def _build_door_key_icon(pixels) -> bytes:
+    """The door key popup icon: the handle and keyhole drawn on the vanilla
+    padlock door (main_tiles38 tiles 26/42, sheet pixels x 80-86, y 11-23),
+    cut out of the door panel and centred on a 16x16 canvas.
+      - door-panel pixels (colour 2) reachable from the crop's edge become
+        transparent, as do the 2 door-frame pixels the crop catches;
+      - colour 0 (the knob's shine, the keyhole ring) becomes 1, as 0 is
+        transparent in an icon; 1 becomes 2."""
+    x0, y0, w, h = 80, 11, 7, 13
+    crop = [[pixels[y0 + y][x0 + x] for x in range(w)] for y in range(h)]
+    panel = set()
+    stack = [(y, x) for y in range(h) for x in range(w)
+             if y in (0, h - 1) or x in (0, w - 1)]
+    while stack:
+        y, x = stack.pop()
+        if not (0 <= y < h and 0 <= x < w) or (y, x) in panel or crop[y][x] != 2:
+            continue
+        panel.add((y, x))
+        stack += [(y + 1, x), (y - 1, x), (y, x + 1), (y, x - 1)]
+    panel |= {(0, 5), (12, 5)}  # door frame
+    remap = {0: 1, 1: 2, 2: 2, 3: 3}
+    canvas = [[0] * 16 for _ in range(16)]
+    for y in range(h):
+        for x in range(w):
+            if (y, x) not in panel:
+                canvas[1 + y][4 + x] = remap[crop[y][x]]
+    return _encode_icon_from_pixels(canvas, 0, 0)
+
+
 def _build_mirrored_icon(pixels, crop_x: int, crop_y: int, half_w: int, half_h: int) -> bytes:
     """Build a 16x16 icon by horizontally mirroring a half-sprite:
       1. Take a half_w x half_h crop at (crop_x, crop_y) from the source grid.
@@ -308,7 +342,7 @@ GOLF_PAR_HINT_FREQ_OFFSET        = 0x003A6E   # GolfParHintFrequencyOpt byte in 
 # Vanilla source is `$04`; the AP option lets the player pick 1-10 without
 # touching the ROM layout. Re-audit if hidden_figure.asm changes above line 15.
 RUDY_HIT_POINTS_OFFSET           = 0x04CC94
-TREASURE_OB_PALS_OFFSET          = 0x09BC20   # TreasureOBPals table (indexed by treasure ID)
+TREASURE_OB_PALS_OFFSET          = 0x09BC60   # TreasureOBPals table (indexed by treasure ID)
 
 # Combined-item companion chains: collecting key → also grant value (chained).
 # Tusk Set: $24→$25→$26 (two hops).
@@ -484,6 +518,10 @@ class WL3PatchExtension(APPatchExtension):
                 pixels = _decode_tilemap(raw, width_tiles=16)
             encoded = _encode_icon_from_pixels(pixels, crop_x, crop_y, flip_h=True)
             rom[dest_offset:dest_offset + len(encoded)] = encoded
+        src_offset, src_length = DOOR_KEY_ICON_SOURCE
+        pixels = _decode_tilemap(vanilla[src_offset:src_offset + src_length], width_tiles=16)
+        encoded = _build_door_key_icon(pixels)
+        rom[TREASURE_DOOR_KEY_TILE_OFFSET:TREASURE_DOOR_KEY_TILE_OFFSET + len(encoded)] = encoded
         return bytes(rom)
 
     @staticmethod

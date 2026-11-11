@@ -1693,6 +1693,9 @@ class WL3Client(BizHawkClient):
         # so it's accurate here.
         if self._KEYRING_AP_ID_MIN <= ap_id <= self._KEYRING_AP_ID_MAX:
             return 0x66
+        # Door keys — the locked door's handle (TreasureDoorKeyGfx).
+        if ROOM_KEY_BASE_ITEM_ID <= ap_id < ROOM_KEY_BASE_ITEM_ID + 136:
+            return 0x74
         # Regular treasure / combined item — tier_ids[0] IS the display tid.
         data = ID_TO_ITEM.get(ap_id)
         if data and data.tier_ids:
