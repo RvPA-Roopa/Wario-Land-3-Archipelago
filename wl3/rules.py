@@ -831,6 +831,14 @@ DOOR_RULES: dict = {
     # N3 The Vast Plain
     "The Vast Plain - Green Chest":           _has("N3 - Door H Key"),
     "The Vast Plain - Blue Chest":            _has("N3 - Door J Key"),
+    # N4 Bank of the Wild River (A-D unlocked: their rooms are entered by
+    # breaking blocks). F: river side -> Green Chest Room; G: Green Chest
+    # Room -> Pesce room (green key); H: river lobby -> the big lower room.
+    "Bank of the Wild River - Green Chest":   _has("N4 - Door F Key"),
+    "Bank of the Wild River - Green Key":     _c(_has("N4 - Door F Key"), _has("N4 - Door G Key")),
+    "Bank of the Wild River - Blue Key":      _has("N4 - Door H Key"),
+    "Bank of the Wild River - Blue Chest":    _has("N4 - Door H Key"),
+    "Bank of the Wild River - Big Coin 8":    _has("N4 - Door H Key"),
 }
 
 # ---------------------------------------------------------------------------
@@ -1395,14 +1403,17 @@ def set_rules(world: "WL3World") -> None:
     # Door signposts stand outside their door: reachable with the level,
     # unless the door is deeper in, where its sign takes the rule of a
     # location behind that door (set above; the door rules come below), or
-    # the level's plus the chest logic of the chest behind it (not its key).
+    # the level's plus the chest logic of the chest behind it (not its key)
+    # and any door key on the way there.
     from .locations import DOOR_SIGN_LOCATION_TABLE
     sign_rule_from = {
         "The Peaceful Village - Door J Sign": "The Peaceful Village - Green Key",
     }
     sign_chest_area = {
-        "The Vast Plain - Door H Sign": green,
-        "The Vast Plain - Door J Sign": blue,
+        "The Vast Plain - Door H Sign": (green, None),
+        "The Vast Plain - Door J Sign": (blue, None),
+        "Bank of the Wild River - Door F Sign": (green, None),
+        "Bank of the Wild River - Door G Sign": (green, "N4 - Door F Key"),
     }
     for loc_name, loc_data in DOOR_SIGN_LOCATION_TABLE.items():
         if loc_name in sign_rule_from:
@@ -1411,10 +1422,12 @@ def set_rules(world: "WL3World") -> None:
             continue
         level_rule = level_rules.get(loc_data.level_name)
         if loc_name in sign_chest_area:
-            area = chest_logic[loc_data.level_name][sign_chest_area[loc_name]]
+            colour, door_key = sign_chest_area[loc_name]
+            area = chest_logic[loc_data.level_name][colour]
             mw.get_location(loc_name, player).access_rule = \
-                lambda state, r=level_rule, a=area: \
-                (r is None or r(state, player)) and (a is None or a(state, player))
+                lambda state, r=level_rule, a=area, k=door_key: \
+                (r is None or r(state, player)) and (a is None or a(state, player)) \
+                and (k is None or state.has(k, player))
             continue
         if level_rule is not None:
             mw.get_location(loc_name, player).access_rule = \

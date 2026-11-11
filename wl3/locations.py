@@ -333,6 +333,9 @@ _DOOR_SIGNS = [
     (7, 2, "J"),  # DOOR_N2_J
     (9, 3, "H"),  # DOOR_N3_H
     (10, 3, "J"),  # DOOR_N3_J
+    (11, 4, "F"),  # DOOR_N4_F
+    (12, 4, "G"),  # DOOR_N4_G
+    (13, 4, "H"),  # DOOR_N4_H
 ]
 
 
