@@ -114,7 +114,7 @@ FORM_ICON_FLIPPED_EXTRACTIONS = (
 # glyphs, see _build_sign_arrow) and the message/key tracker fonts' letters
 # (see _build_vanilla_font_tiles).
 VANILLA_FONT_SOURCE = (0x1f1d5d, 3685)
-SIGN_ARROW_GLYPHS_OFFSET         = 0x04E0B2   # SignFontArrow
+SIGN_ARROW_GLYPHS_OFFSET         = 0x04E0F2   # SignFontArrow
 MSG_FONT_TILES_OFFSET            = 0x027800   # MsgFontTiles — 32 bytes per glyph
 TITLE_SMALL_FONT_OFFSET          = 0x09AC12   # TitleSmallFontGfx — 16 bytes per tile
 CHECKS_EXTRA_TILES_OFFSET        = 0x09AA72   # ChecksExtraTilesGfx — 16 bytes per tile

@@ -1392,10 +1392,30 @@ def set_rules(world: "WL3World") -> None:
                 mw.get_location(loc_name, player).access_rule = \
                     lambda state, r=level_rule: r(state, player)
 
-    # Door signposts stand outside their door: reachable with the level.
+    # Door signposts stand outside their door: reachable with the level,
+    # unless the door is deeper in, where its sign takes the rule of a
+    # location behind that door (set above; the door rules come below), or
+    # the level's plus the chest logic of the chest behind it (not its key).
     from .locations import DOOR_SIGN_LOCATION_TABLE
+    sign_rule_from = {
+        "The Peaceful Village - Door J Sign": "The Peaceful Village - Green Key",
+    }
+    sign_chest_area = {
+        "The Vast Plain - Door H Sign": green,
+        "The Vast Plain - Door J Sign": blue,
+    }
     for loc_name, loc_data in DOOR_SIGN_LOCATION_TABLE.items():
+        if loc_name in sign_rule_from:
+            mw.get_location(loc_name, player).access_rule = \
+                mw.get_location(sign_rule_from[loc_name], player).access_rule
+            continue
         level_rule = level_rules.get(loc_data.level_name)
+        if loc_name in sign_chest_area:
+            area = chest_logic[loc_data.level_name][sign_chest_area[loc_name]]
+            mw.get_location(loc_name, player).access_rule = \
+                lambda state, r=level_rule, a=area: \
+                (r is None or r(state, player)) and (a is None or a(state, player))
+            continue
         if level_rule is not None:
             mw.get_location(loc_name, player).access_rule = \
                 lambda state, r=level_rule: r(state, player)
