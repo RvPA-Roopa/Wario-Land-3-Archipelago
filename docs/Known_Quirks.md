@@ -7,35 +7,3 @@ When receiving or sending an item, the text message may affect other sprites in 
 
 **Wrong Palette For AP Items**
 When two checks are too close together, the palette of one will be overwritten by the other, potentially causing one of them to be wrong.
-
-**Large Non-Cracked Blocks require Garlic + Tier 2 Overalls**
-The Peaceful Village Blue Chest and The West Crater Red Chest both require Tier 2 Overalls AND Garlic. This is due to how large non-cracked blocks handle collision — this is vanilla behavior.
-
-**Level Variant Glitches**
-Very rarely, levels may load the wrong variant, either allowing the player to go out of logic or blocking off an area that should be in logic. In order to load the correct variant, simply exit the level and re-enter. If exiting via the pause menu doesn't work, exit via a chest door.
-
-**N3 (The Vast Plain at Night) — Chemical background glitch**
-If you have the blue or red chemical item, the stalks in this level will produce a glitched-looking background. This is a visual issue only and does not affect gameplay.
-
-**N5 (Sea Turtle Rocks) issues**
-- The boss fight against Scowler contains some glitched blocks. This makes the fight slightly more difficult.
-
-- The room with the door to the Blue Chest room will sometimes appear lit without Night Vision Goggles. This is only visual, Night Vision Goggles are still required to enter the door.
-
-**W3 (The Pool of Rain) — Boss Softlock**
-With Transformation Shuffle, it is possible to transform in the Green Chest Boss room without getting to the exit. If this happens, the boss will disappear, and you will need to reset the game unless you have a form that allows you to escape (Puffy, Bat, or Zombie).
-
-**W5 (Beneath the waves) — Octopi and the chemical pathway**
-With the blue or red chemical, octopi will grow and appear to open the underwater pathway. However, the path remains physically blocked unless you also have the Sapling of Growth — it just looks open. You cannot swim through it.
-
-**S3 (Tower of Revival) — Visual issues**
-The Tower of Revival level has some graphical roughness, but all mechanics work correctly. Specifically:
-- The Blue Snake Door will appear open but still requires the correct treasures to actually enter
-- The wire will appear built but cannot be climbed without the Statue
-- With "Hidden Passages Revealed" turned on, some hidden passages will appear to be cracked blocks, but are actually only breakable with garlic.
-
-**S5 (Cave of Flames) — Visual Issues**
-Cave of Flames rust blocks show up as non-breakable blocks if you just have rust spray but not explosive plunger box, due to the graphic set per variant. This is only visual, you can break these blocks.
-
-**E5 (The Warped Void) issues**
-When holding the barrel needed to access the Green Key, it is possible that the enemies that shake the screen will affect Wario in midair. If this is the case, instead of carrying the barrel, bump it along the bottom by walking into it while Wario is crouched.
