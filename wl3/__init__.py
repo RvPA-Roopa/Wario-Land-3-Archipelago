@@ -40,6 +40,7 @@ from .items import (
     TRANSFORM_SACRIFICED_TREASURES,
     TRANSFORM_UNLOCK_ITEMS,
     TRANSFORM_UNLOCK_PROGRESSIVE_COUNTS,
+    ROOM_KEY_BASE_ITEM_ID,
     ROOM_KEY_ITEMS,
     TREASURE_TABLE,
     WL3ItemData,
@@ -420,11 +421,16 @@ class WL3World(World):
                 for _ in range(count):
                     items.append(self.create_item(name))
 
-        # Room-key items (proof of concept) — always added, one copy each.
-        # Lands in one of the 100 base chest locations via the normal fill
-        # algorithm, same as any other progression treasure.
+        # Door keys — always added, one copy each. A door with a signpost
+        # brings its own location (DOOR_SIGN_LOCATION_TABLE), so its key is
+        # added with the signposts below, outside the base 100; any other
+        # door key takes one of the base 100's filler slots.
+        sign_doors = {data.door_index for data in DOOR_SIGN_LOCATION_TABLE.values()}
+        signed_door_keys = [name for name, data in ROOM_KEY_ITEMS.items()
+                            if data.ap_id - ROOM_KEY_BASE_ITEM_ID in sign_doors]
         for name in ROOM_KEY_ITEMS:
-            items.append(self.create_item(name))
+            if name not in signed_door_keys:
+                items.append(self.create_item(name))
 
         # Fill remaining slots to reach 100 using coin bundles. Use the existing
         # bundle distribution tables as the starting point, then top up with 1-coin fillers.
@@ -490,8 +496,11 @@ class WL3World(World):
             for _ in range(44):
                 items.append(self.create_item(self.random.choice(filler_items)))
 
-        # Door signposts: one location per signposted door, one filler each.
-        for _ in range(len(DOOR_SIGN_LOCATION_TABLE)):
+        # Door signposts: one location per signposted door, filled by that
+        # door's key (filler if a signpost's door has no key item).
+        for name in signed_door_keys:
+            items.append(self.create_item(name))
+        for _ in range(len(DOOR_SIGN_LOCATION_TABLE) - len(signed_door_keys)):
             items.append(self.create_item(self.random.choice(filler_items)))
 
         # Trap replacement: swap a % of filler items for random trap items.

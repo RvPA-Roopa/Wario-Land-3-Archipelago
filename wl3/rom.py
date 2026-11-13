@@ -42,10 +42,10 @@ LEVEL_COIN_ITEMS_OFFSET          = 0x05836C   # LevelCoinItems       (200 bytes;
 COIN_PAL_OVERRIDE_OFFSET         = 0x058434   # CoinPaletteOverrides (200 bytes; bank $16 — OBPAL per coin, $FF=default)
 TRAP_COIN_TABLE_OFFSET           = 0x0584FC   # TrapCoinTable        (200 bytes; bank $16 — 0=no trap, 1-5=TRAP_* — offline trap dispatch from coins)
 COIN_KEYRING_TARGETS_OFFSET      = 0x0585C4   # CoinKeyringTargets   (200 bytes; bank $16 — $FF=not keyring, 1-25=target owlevel)
-LEVEL_COLOUR_COIN_BLOCK_ITEMS_OFFSET        = 0x01BC7D  # LevelColourCoinBlockItems       (200 bytes; same encoding as LevelCoinItems, separate 200-entry space for coin blocksanity)
-COLOUR_COIN_BLOCK_PAL_OVERRIDE_OFFSET       = 0x01BD45  # ColourCoinBlockPaletteOverrides (200 bytes; OBPAL per block, $FF=default; not consumed by ROM yet — portrait system not wired)
-TRAP_COLOUR_COIN_BLOCK_TABLE_OFFSET         = 0x01BE0D  # TrapColourCoinBlockTable        (200 bytes; 0=no trap, 1-5=TRAP_* — offline trap dispatch from coin blocks)
-COLOUR_COIN_BLOCK_KEYRING_TARGETS_OFFSET    = 0x01BED5  # ColourCoinBlockKeyringTargets   (200 bytes; reserved; not read by ROM yet, see GrantColourCoinBlockItem)
+LEVEL_COLOUR_COIN_BLOCK_ITEMS_OFFSET        = 0x02B904  # LevelColourCoinBlockItems       (200 bytes; same encoding as LevelCoinItems, separate 200-entry space for coin blocksanity)
+COLOUR_COIN_BLOCK_PAL_OVERRIDE_OFFSET       = 0x02B9CC  # ColourCoinBlockPaletteOverrides (200 bytes; OBPAL per block, $FF=default; not consumed by ROM yet — portrait system not wired)
+TRAP_COLOUR_COIN_BLOCK_TABLE_OFFSET         = 0x02BA94  # TrapColourCoinBlockTable        (200 bytes; 0=no trap, 1-5=TRAP_* — offline trap dispatch from coin blocks)
+COLOUR_COIN_BLOCK_KEYRING_TARGETS_OFFSET    = 0x02BB5C  # ColourCoinBlockKeyringTargets   (200 bytes; reserved; not read by ROM yet, see GrantColourCoinBlockItem)
 LEVEL_BOSS_ITEMS_OFFSET          = 0x05868C   # LevelBossItems       (10 bytes;  bank $16 — same encoding as LevelCoinItems)
 SIGN_ITEMS_OFFSET                = 0x05874B   # SignItems            (136 bytes; bank $16 — door signpost item per door index, LevelCoinItems encoding)
 SIGN_MESSAGES_OFFSET             = 0x13C800   # SignMessages         (136 * 96 bytes; SignFont glyphs per door signpost)
@@ -66,6 +66,7 @@ TREASURE_FLAT_TILE_OFFSET        = 0x099c00   # TreasureFlatFormGfx      — 64 
 TREASURE_PUFFY_TILE_OFFSET       = 0x099c40   # TreasurePuffyFormGfx     — 64 bytes (4 tiles, 2bpp)
 TREASURE_ROLL_TILE_OFFSET        = 0x099c80   # TreasureRollFormGfx      — 64 bytes (4 tiles, 2bpp)
 TREASURE_DOOR_KEY_TILE_OFFSET    = 0x099d00   # TreasureDoorKeyGfx       — 64 bytes (4 tiles, 2bpp)
+TREASURE_DOOR_UNLOCK_TILE_OFFSET = 0x099d40   # TreasureDoorUnlockGfx    — 64 bytes (4 tiles, 2bpp)
 
 # Vanilla Form icon extractions. Each entry:
 #   (kind, offset, length, crop_x, crop_y, dest_offset)
@@ -115,17 +116,20 @@ FORM_ICON_FLIPPED_EXTRACTIONS = (
 # (see _build_vanilla_font_tiles).
 VANILLA_FONT_SOURCE = (0x1f1d5d, 3685)
 SIGN_ARROW_GLYPHS_OFFSET         = 0x04E0F2   # SignFontArrow
-MSG_FONT_TILES_OFFSET            = 0x02B733   # MsgFontTiles — 32 bytes per glyph
-TITLE_SMALL_FONT_OFFSET          = 0x09AC12   # TitleSmallFontGfx — 16 bytes per tile
-CHECKS_EXTRA_TILES_OFFSET        = 0x09AA72   # ChecksExtraTilesGfx — 16 bytes per tile
+MSG_FONT_TILES_OFFSET            = 0x027800   # MsgFontTiles — 32 bytes per glyph
+TITLE_SMALL_FONT_OFFSET          = 0x09AC52   # TitleSmallFontGfx — 16 bytes per tile
+CHECKS_EXTRA_TILES_OFFSET        = 0x09AAB2   # ChecksExtraTilesGfx — 16 bytes per tile
 
 # Door key icon: the locked door's handle and keyhole, cut out of the vanilla
 # door tiles (main_tiles38, plain 16-tile-wide sheet) — see _build_door_key_icon.
 DOOR_KEY_ICON_SOURCE = (0x157000, 2048)
+# The "!" bubble's left half: WarioClearGfx (bank $0b, $7000) tile $48 and
+# the one below it (8x16 OBJ pair) — see _build_door_unlock_icon.
+DOOR_UNLOCK_ICON_SOURCE = 0x02f000 + 0x48 * 16
 
-TREASURE_DUMMY_PAL_OFFSET        = 0x09BCC5   # TreasureOBPals[$65] — 1 byte (palette index)
+TREASURE_DUMMY_PAL_OFFSET        = 0x09BD05   # TreasureOBPals[$65] — 1 byte (palette index)
 TREASURE_GFX_BASE                = 0x098000   # TreasureGfx[0] — each entry 64 bytes
-TREASURE_PAL_BASE                = 0x09BC60   # TreasureOBPals[0] — each entry 1 byte
+TREASURE_PAL_BASE                = 0x09BCA0   # TreasureOBPals[0] — each entry 1 byte
 KEY_COLOR_PALS = [0x08, 0x05, 0x06, 0x07]    # OBPAL: grey, red, green, blue
 OBPAL_TREASURE_PURPLE = 0x09                  # Combined unlock items
 
@@ -262,6 +266,21 @@ def _build_door_key_icon(pixels) -> bytes:
     return _encode_icon_from_pixels(canvas, 0, 0)
 
 
+def _build_door_unlock_icon(tiles: bytes) -> bytes:
+    """The underwater door unlock popup icon: the vanilla "!" bubble (the
+    chest-opening pose's), 2 stacked tiles of its left half, the right half
+    their mirror image (as the game draws it, with OAM_XFLIP)."""
+    canvas = [[0] * 16 for _ in range(16)]
+    for t in range(2):
+        for r in range(8):
+            lo, hi = tiles[t * 16 + r * 2], tiles[t * 16 + r * 2 + 1]
+            for c in range(8):
+                p = ((lo >> (7 - c)) & 1) | (((hi >> (7 - c)) & 1) << 1)
+                canvas[t * 8 + r][c] = p
+                canvas[t * 8 + r][15 - c] = p
+    return _encode_icon_from_pixels(canvas, 0, 0)
+
+
 def _build_sign_arrow(pixels) -> bytes:
     """The message box's down arrow: the vanilla font's (tile 13, 21; text =
     its 2 lightest colours) as 2 1bpp glyphs, left then right half, shifted
@@ -387,7 +406,7 @@ SHOPSANITY_MODE_OFFSET           = 0x080F9D   # ShopsanityModeOpt byte in Bank 2
 SHOP_SLOT_ITEMS_OFFSET           = 0x080F9E   # ShopSlotItems table in Bank 20 (10 bytes = treasure ID per shop slot)
 SHOP_SLOT_NAMES_OFFSET           = 0x080FA8   # ShopSlotNamesTable in Bank 20 (10 slots × 20 bytes = 200 bytes, msg-font encoded)
 SHOP_SLOT_KEY_COLORS_OFFSET      = 0x081072   # ShopSlotKeyColors table in Bank 20 (10 bytes, $FF = not a key, 0-3 = grey/red/green/blue)
-HIDDEN_PASSAGES_REVEALED_OFFSET = 0x01FE00  # HiddenPassagesRevealedOpt byte (floating ROMX section — re-check after linker shifts)
+HIDDEN_PASSAGES_REVEALED_OFFSET = 0x01FE3C  # HiddenPassagesRevealedOpt byte (floating ROMX section — re-check after linker shifts)
 GOLF_PRICE_OPT_OFFSET            = 0x003A00   # GolfPriceOpt byte in Home bank
 GOLF_BUILDING_OPT_OFFSET         = 0x003A01   # GolfBuildingOpt byte in Home bank
 DISABLE_PAL_CYCLE_OFFSET         = 0x003A02   # DisablePalCycleOpt byte in Home bank
@@ -404,7 +423,7 @@ GOLF_PAR_HINT_FREQ_OFFSET        = 0x003A6E   # GolfParHintFrequencyOpt byte in 
 # Vanilla source is `$04`; the AP option lets the player pick 1-10 without
 # touching the ROM layout. Re-audit if hidden_figure.asm changes above line 15.
 RUDY_HIT_POINTS_OFFSET           = 0x04CC94
-TREASURE_OB_PALS_OFFSET          = 0x09BC60   # TreasureOBPals table (indexed by treasure ID)
+TREASURE_OB_PALS_OFFSET          = 0x09BCA0   # TreasureOBPals table (indexed by treasure ID)
 
 # Combined-item companion chains: collecting key → also grant value (chained).
 # Tusk Set: $24→$25→$26 (two hops).
@@ -584,6 +603,8 @@ class WL3PatchExtension(APPatchExtension):
         pixels = _decode_tilemap(vanilla[src_offset:src_offset + src_length], width_tiles=16)
         encoded = _build_door_key_icon(pixels)
         rom[TREASURE_DOOR_KEY_TILE_OFFSET:TREASURE_DOOR_KEY_TILE_OFFSET + len(encoded)] = encoded
+        encoded = _build_door_unlock_icon(vanilla[DOOR_UNLOCK_ICON_SOURCE:DOOR_UNLOCK_ICON_SOURCE + 32])
+        rom[TREASURE_DOOR_UNLOCK_TILE_OFFSET:TREASURE_DOOR_UNLOCK_TILE_OFFSET + len(encoded)] = encoded
         src_offset, src_length = VANILLA_FONT_SOURCE
         font = _wl3_rle_decompress(vanilla[src_offset:src_offset + src_length])
         encoded = _build_sign_arrow(_decode_tilemap(font, width_tiles=16))

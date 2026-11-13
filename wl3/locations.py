@@ -340,6 +340,14 @@ _DOOR_SIGNS = [
     (15, 4, "B"),  # DOOR_N4_B
     (16, 4, "C"),  # DOOR_N4_C
     (17, 4, "D"),  # DOOR_N4_D
+    (18, 5, "A"),  # DOOR_N5_A
+    (19, 5, "D"),  # DOOR_N5_D
+    (20, 5, "E"),  # DOOR_N5_E
+    (21, 5, "F"),  # DOOR_N5_F
+    (22, 5, "H"),  # DOOR_N5_H
+    (23, 5, "I"),  # DOOR_N5_I
+    (24, 5, "C"),  # DOOR_N5_C (underwater)
+    (25, 5, "J"),  # DOOR_N5_J (underwater)
 ]
 
 

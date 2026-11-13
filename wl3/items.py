@@ -627,6 +627,46 @@ ROOM_KEY_ITEMS: Dict[str, WL3ItemData] = {
         classification=ItemClassification.progression,
         tier_ids=[0x4E],  # Red Gem placeholder
     ),
+    "N5 - Door A Key": WL3ItemData(
+        ap_id=ROOM_KEY_BASE_ITEM_ID + 18,
+        classification=ItemClassification.progression,
+        tier_ids=[0x4E],  # Red Gem placeholder
+    ),
+    "N5 - Door D Key": WL3ItemData(
+        ap_id=ROOM_KEY_BASE_ITEM_ID + 19,
+        classification=ItemClassification.progression,
+        tier_ids=[0x4E],  # Red Gem placeholder
+    ),
+    "N5 - Door E Key": WL3ItemData(
+        ap_id=ROOM_KEY_BASE_ITEM_ID + 20,
+        classification=ItemClassification.progression,
+        tier_ids=[0x4E],  # Red Gem placeholder
+    ),
+    "N5 - Door F Key": WL3ItemData(
+        ap_id=ROOM_KEY_BASE_ITEM_ID + 21,
+        classification=ItemClassification.progression,
+        tier_ids=[0x4E],  # Red Gem placeholder
+    ),
+    "N5 - Door H Key": WL3ItemData(
+        ap_id=ROOM_KEY_BASE_ITEM_ID + 22,
+        classification=ItemClassification.useful,  # only leads back up: gates nothing
+        tier_ids=[0x4E],  # Red Gem placeholder
+    ),
+    "N5 - Door I Key": WL3ItemData(
+        ap_id=ROOM_KEY_BASE_ITEM_ID + 23,
+        classification=ItemClassification.progression,
+        tier_ids=[0x4E],  # Red Gem placeholder
+    ),
+    "N5 - Door C Key": WL3ItemData(
+        ap_id=ROOM_KEY_BASE_ITEM_ID + 24,
+        classification=ItemClassification.progression,
+        tier_ids=[0x4E],  # Red Gem placeholder
+    ),
+    "N5 - Door J Key": WL3ItemData(
+        ap_id=ROOM_KEY_BASE_ITEM_ID + 25,
+        classification=ItemClassification.progression,
+        tier_ids=[0x4E],  # Red Gem placeholder
+    ),
 }
 
 # Door keys are granted offline through the same Trap*Table side tables as

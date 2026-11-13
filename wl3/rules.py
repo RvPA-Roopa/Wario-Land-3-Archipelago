@@ -843,6 +843,21 @@ DOOR_RULES: dict = {
     "Bank of the Wild River - Blue Key":      _has("N4 - Door H Key"),
     "Bank of the Wild River - Blue Chest":    _has("N4 - Door H Key"),
     "Bank of the Wild River - Big Coin 8":    _has("N4 - Door H Key"),
+    # N5 The Tidal Coast. A: outside -> the octopi room (and the blue chest
+    # room past it); D: outside -> the vine rooms; E: outside -> the green
+    # key room; F / I: vine rooms -> green chest room (either will do);
+    # H only leads back up from it. Underwater doors: C, from the tall water
+    # room -> the red chest room; J, from the octopi room -> the blue chest
+    # room.
+    "The Tidal Coast - Blue Key":             _has("N5 - Door A Key"),
+    "The Tidal Coast - Big Coin 7":           _has("N5 - Door A Key"),
+    "The Tidal Coast - Big Coin 8":           _has("N5 - Door A Key"),
+    "The Tidal Coast - Blue Chest":           _c(_has("N5 - Door A Key"), _has("N5 - Door J Key")),
+    "The Tidal Coast - Red Chest":            _has("N5 - Door C Key"),
+    "The Tidal Coast - Big Coin 5":           _has("N5 - Door C Key"),
+    "The Tidal Coast - Green Key":            _has("N5 - Door E Key"),
+    "The Tidal Coast - Green Chest":          _c(_has("N5 - Door D Key"),
+                                                 _o(_has("N5 - Door F Key"), _has("N5 - Door I Key"))),
 }
 
 # ---------------------------------------------------------------------------
@@ -1418,9 +1433,19 @@ def set_rules(world: "WL3World") -> None:
         "The Vast Plain - Door J Sign": (blue, None),
         "Bank of the Wild River - Door F Sign": (green, None),
         "Bank of the Wild River - Door G Sign": (green, "N4 - Door F Key"),
+        # in the water before their doors: the swim there is the chest's
+        "The Tidal Coast - Door C Sign": (red, None),
+        "The Tidal Coast - Door J Sign": (blue, "N5 - Door A Key"),
     }
     # A-D's signposts are out when their door is: breaking in is what their
     # room's own logic asks for first.
+    # signposts past another locked door: the level plus those keys
+    sign_needs_keys = {
+        "The Tidal Coast - Door F Sign": _has("N5 - Door D Key"),
+        "The Tidal Coast - Door I Sign": _has("N5 - Door D Key"),
+        "The Tidal Coast - Door H Sign": _c(_has("N5 - Door D Key"),
+                                            _o(_has("N5 - Door F Key"), _has("N5 - Door I Key"))),
+    }
     sign_logic_from = {
         "Bank of the Wild River - Door A Sign": (chest_logic, red),
         "Bank of the Wild River - Door B Sign": (coin_logic, 6),
@@ -1433,6 +1458,11 @@ def set_rules(world: "WL3World") -> None:
                 mw.get_location(sign_rule_from[loc_name], player).access_rule
             continue
         level_rule = level_rules.get(loc_data.level_name)
+        if loc_name in sign_needs_keys:
+            mw.get_location(loc_name, player).access_rule = \
+                lambda state, r=level_rule, k=sign_needs_keys[loc_name]: \
+                (r is None or r(state, player)) and k(state, player)
+            continue
         if loc_name in sign_logic_from:
             table, index = sign_logic_from[loc_name]
             area = table[loc_data.level_name][index]
