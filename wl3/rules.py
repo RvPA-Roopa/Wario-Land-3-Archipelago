@@ -843,6 +843,7 @@ DOOR_RULES: dict = {
     "Bank of the Wild River - Blue Key":      _has("N4 - Door H Key"),
     "Bank of the Wild River - Blue Chest":    _has("N4 - Door H Key"),
     "Bank of the Wild River - Big Coin 8":    _has("N4 - Door H Key"),
+    "Pesce - Defeated":                       _c(_has("N4 - Door F Key"), _has("N4 - Door G Key")),
     # N5 The Tidal Coast. A: outside -> the octopi room (and the blue chest
     # room past it); D: outside -> the vine rooms; E: outside -> the green
     # key room; F / I: vine rooms -> green chest room (either will do);
@@ -855,6 +856,263 @@ DOOR_RULES: dict = {
     "The Tidal Coast - Blue Chest":           _c(_has("N5 - Door A Key"), _has("N5 - Door J Key")),
     "The Tidal Coast - Red Chest":            _has("N5 - Door C Key"),
     "The Tidal Coast - Big Coin 5":           _has("N5 - Door C Key"),
+    # N6 Sea Turtle Rocks, from the lobby: A -> Scowler's room (also reached
+    # from the pipe room's lower pipes, past C); B -> the minigame / red
+    # chest room; C -> the pipe room (green), whose pipe F leads to the dark
+    # room, where G -> the blue chest room.
+    "Sea Turtle Rocks - Grey Chest":          _o(_has("N6 - Door A Key"), _has("N6 - Door C Key")),
+    "Sea Turtle Rocks - Big Coin 5":          _o(_has("N6 - Door A Key"), _has("N6 - Door C Key")),
+    "Sea Turtle Rocks - Red Key":             _has("N6 - Door B Key"),
+    "Sea Turtle Rocks - Red Chest":           _has("N6 - Door B Key"),
+    "Sea Turtle Rocks - Green Key":           _has("N6 - Door C Key"),
+    "Sea Turtle Rocks - Green Chest":         _has("N6 - Door C Key"),
+    "Sea Turtle Rocks - Big Coin 7":          _has("N6 - Door C Key"),
+    "Sea Turtle Rocks - Blue Key":            _c(_has("N6 - Door C Key"), _has("N6 - Door G Key")),
+    "Sea Turtle Rocks - Blue Chest":          _c(_has("N6 - Door C Key"), _has("N6 - Door G Key")),
+    "Sea Turtle Rocks - Big Coin 6":          _c(_has("N6 - Door C Key"), _has("N6 - Door G Key")),
+    "Sea Turtle Rocks - Big Coin 8":          _c(_has("N6 - Door C Key"), _has("N6 - Door G Key")),
+    "Scowler - Defeated":                     _o(_has("N6 - Door A Key"), _has("N6 - Door C Key")),
+    # W1 Desert Ruins, from the lobby: A -> grey key room; B -> right hub
+    # (coins 4-6), whose E -> grey chest room; C -> red key room; D -> left
+    # hub (green key/chest, coin 7), whose F -> red chest room and G -> the
+    # switch room (coin 3); its H -> the stair room (blue key, coin 8), whose
+    # I -> the Yellow Belly room (blue chest). Strict: the stair room may be
+    # reachable without H.
+    "Desert Ruins - Grey Key":                _has("W1 - Door A Key"),
+    "Desert Ruins - Big Coin 4":              _has("W1 - Door B Key"),
+    "Desert Ruins - Big Coin 5":              _has("W1 - Door B Key"),
+    "Desert Ruins - Big Coin 6":              _has("W1 - Door B Key"),
+    "Desert Ruins - Grey Chest":              _c(_has("W1 - Door B Key"), _has("W1 - Door E Key")),
+    "Desert Ruins - Red Key":                 _has("W1 - Door C Key"),
+    "Desert Ruins - Green Key":               _has("W1 - Door D Key"),
+    "Desert Ruins - Green Chest":             _has("W1 - Door D Key"),
+    "Desert Ruins - Big Coin 7":              _has("W1 - Door D Key"),
+    "Desert Ruins - Red Chest":               _c(_has("W1 - Door D Key"), _has("W1 - Door F Key")),
+    "Desert Ruins - Big Coin 3":              _c(_has("W1 - Door D Key"), _has("W1 - Door G Key")),
+    "Desert Ruins - Blue Key":                _c(_has("W1 - Door D Key"), _has("W1 - Door G Key"), _has("W1 - Door H Key")),
+    "Desert Ruins - Big Coin 8":              _c(_has("W1 - Door D Key"), _has("W1 - Door G Key"), _has("W1 - Door H Key")),
+    "Desert Ruins - Blue Chest":              _c(_c(_has("W1 - Door D Key"), _has("W1 - Door G Key"), _has("W1 - Door H Key")), _has("W1 - Door I Key")),
+    # W2 The Volcano's Base: E (lobby) -> the ladder room (coin 4), whose
+    # pipe F -> the cloud room (red key / chest, coins 5, 6), whose G -> the
+    # green key room (coin 7) and H -> the green chest room; I (lobby, above
+    # the rock pile) -> the blue chest room; C (Doll Boy's room) -> the grey
+    # chest room; K (J's water room) -> L's room (coin 8). Strict: the cloud
+    # room and the grey chest may have other ways in.
+    "The Volcano's Base - Big Coin 4":        _has("W2 - Door E Key"),
+    "The Volcano's Base - Red Key":           _has("W2 - Door E Key"),
+    "The Volcano's Base - Red Chest":         _has("W2 - Door E Key"),
+    "The Volcano's Base - Big Coin 5":        _has("W2 - Door E Key"),
+    "The Volcano's Base - Big Coin 6":        _has("W2 - Door E Key"),
+    "The Volcano's Base - Green Key":         _c(_has("W2 - Door E Key"), _has("W2 - Door G Key")),
+    "The Volcano's Base - Big Coin 7":        _c(_has("W2 - Door E Key"), _has("W2 - Door G Key")),
+    "The Volcano's Base - Green Chest":       _c(_has("W2 - Door E Key"), _has("W2 - Door H Key")),
+    "The Volcano's Base - Blue Chest":        _has("W2 - Door I Key"),
+    "The Volcano's Base - Grey Chest":        _has("W2 - Door C Key"),
+    "The Volcano's Base - Big Coin 8":        _has("W2 - Door K Key"),
+    # W3 The Pool of Rain: A (lobby) -> the grey chest room; D (the pool,
+    # underwater) -> the currents (green key, coins 5-7), whose F
+    # (underwater) -> Wolfenboss's room (green chest below him). Strict: G
+    # (unlocked) also reaches Wolfenboss's room from the currents.
+    "The Pool of Rain - Grey Chest":          _has("W3 - Door A Key"),
+    "The Pool of Rain - Green Key":           _has("W3 - Door D Key"),
+    "The Pool of Rain - Big Coin 5":          _has("W3 - Door D Key"),
+    "The Pool of Rain - Big Coin 6":          _has("W3 - Door D Key"),
+    "The Pool of Rain - Big Coin 7":          _has("W3 - Door D Key"),
+    "The Pool of Rain - Green Chest":         _c(_has("W3 - Door D Key"), _has("W3 - Door F Key")),
+    "Wolfenboss - Defeated":                  _c(_has("W3 - Door D Key"), _has("W3 - Door F Key")),
+    # W4 A Town in Chaos, from the lobby: A -> the red key room (coin 3),
+    # whose K -> the pipe water room (blue key, coin 6), whose L -> the blue
+    # chest room; B -> the grey key room (coin 2), whose C -> the sunlight
+    # room (coin 4), whose E -> Shoot's room (red chest); G -> the hub (green
+    # chest, coin 5), whose H / I -> the coin 7 / 8 switch rooms. Strict: D
+    # and F (unlocked) also reach the sunlight room and Shoot's room.
+    "A Town in Chaos - Red Key":              _has("W4 - Door A Key"),
+    "A Town in Chaos - Big Coin 3":           _has("W4 - Door A Key"),
+    "A Town in Chaos - Grey Key":             _has("W4 - Door B Key"),
+    "A Town in Chaos - Big Coin 2":           _has("W4 - Door B Key"),
+    "A Town in Chaos - Big Coin 4":           _c(_has("W4 - Door B Key"), _has("W4 - Door C Key")),
+    "A Town in Chaos - Red Chest":            _c(_has("W4 - Door B Key"), _has("W4 - Door C Key"), _has("W4 - Door E Key")),
+    "Shoot - Defeated":                       _c(_has("W4 - Door B Key"), _has("W4 - Door C Key"), _has("W4 - Door E Key")),
+    "A Town in Chaos - Green Chest":          _has("W4 - Door G Key"),
+    "A Town in Chaos - Big Coin 5":           _has("W4 - Door G Key"),
+    "A Town in Chaos - Big Coin 7":           _c(_has("W4 - Door G Key"), _has("W4 - Door H Key")),
+    "A Town in Chaos - Big Coin 8":           _c(_has("W4 - Door G Key"), _has("W4 - Door I Key")),
+    "A Town in Chaos - Blue Key":             _c(_has("W4 - Door A Key"), _has("W4 - Door K Key")),
+    "A Town in Chaos - Big Coin 6":           _c(_has("W4 - Door A Key"), _has("W4 - Door K Key")),
+    "A Town in Chaos - Blue Chest":           _c(_has("W4 - Door A Key"), _has("W4 - Door K Key"), _has("W4 - Door L Key")),
+    # W5 Beneath the Waves, from the lobby: A -> the grey key room (coin 1);
+    # B (the island, underwater) -> the zipline hub (coin 2, grey chest),
+    # whose E / F / G -> the red / green / blue chest rooms (G's has coin 6);
+    # from the arrow water room, I -> the red key room's left half (red key,
+    # coin 7), H -> its right half (coin 8).
+    "Beneath the Waves - Grey Key":             _has("W5 - Door A Key"),
+    "Beneath the Waves - Big Coin 1":           _has("W5 - Door A Key"),
+    "Beneath the Waves - Big Coin 2":           _has("W5 - Door B Key"),
+    "Beneath the Waves - Grey Chest":           _has("W5 - Door B Key"),
+    "Beneath the Waves - Red Chest":            _c(_has("W5 - Door B Key"), _has("W5 - Door E Key")),
+    "Beneath the Waves - Green Chest":          _c(_has("W5 - Door B Key"), _has("W5 - Door F Key")),
+    "Beneath the Waves - Blue Chest":           _c(_has("W5 - Door B Key"), _has("W5 - Door G Key")),
+    "Beneath the Waves - Big Coin 6":           _c(_has("W5 - Door B Key"), _has("W5 - Door G Key")),
+    "Beneath the Waves - Red Key":              _has("W5 - Door I Key"),
+    "Beneath the Waves - Big Coin 7":           _has("W5 - Door I Key"),
+    "Beneath the Waves - Big Coin 8":           _has("W5 - Door H Key"),
+    # W6 The West Crater, from the lobby: A -> the red key room (coin 8); C
+    # (past the flames) -> the green chest room (green key, coins 6, 7); D
+    # (past the gate) -> the windy hub (blue key / chest, coins 3, 4).
+    "The West Crater - Red Key":              _has("W6 - Door A Key"),
+    "The West Crater - Big Coin 8":           _has("W6 - Door A Key"),
+    "The West Crater - Green Key":            _has("W6 - Door C Key"),
+    "The West Crater - Green Chest":          _has("W6 - Door C Key"),
+    "The West Crater - Big Coin 6":           _has("W6 - Door C Key"),
+    "The West Crater - Big Coin 7":           _has("W6 - Door C Key"),
+    "The West Crater - Blue Key":             _has("W6 - Door D Key"),
+    "The West Crater - Blue Chest":           _has("W6 - Door D Key"),
+    "The West Crater - Big Coin 3":           _has("W6 - Door D Key"),
+    "The West Crater - Big Coin 4":           _has("W6 - Door D Key"),
+    # S1 The Grasslands, from the lobby: A / B -> Wormwould's room (bottom /
+    # top; grey chest); C -> the grey key room (coin 3); D / E -> the tree
+    # trunk (green key, coin 6), whose H (underwater) -> the green chest
+    # room; F -> the red chest room (coin 8); G -> the vertical hub (and the
+    # blue chest room past J: coins 4, 5), whose I -> the blue key room
+    # (coin 7). Wormwould's room: B (the usual way in) or A with Puffy Form.
+    "The Grasslands - Grey Chest":           _o(_has("S1 - Door B Key"), _c(_has("S1 - Door A Key"), _has("Puffy Form"))),
+    "Wormwould - Defeated":                   _o(_has("S1 - Door B Key"), _c(_has("S1 - Door A Key"), _has("Puffy Form"))),
+    "The Grasslands - Grey Key":             _has("S1 - Door C Key"),
+    "The Grasslands - Big Coin 3":           _has("S1 - Door C Key"),
+    "The Grasslands - Green Key":            _o(_has("S1 - Door D Key"), _has("S1 - Door E Key")),
+    "The Grasslands - Big Coin 6":           _o(_has("S1 - Door D Key"), _has("S1 - Door E Key")),
+    "The Grasslands - Green Chest":          _c(_o(_has("S1 - Door D Key"), _has("S1 - Door E Key")), _has("S1 - Door H Key")),
+    "The Grasslands - Red Chest":            _has("S1 - Door F Key"),
+    "The Grasslands - Big Coin 8":           _has("S1 - Door F Key"),
+    "The Grasslands - Blue Chest":           _has("S1 - Door G Key"),
+    "The Grasslands - Big Coin 4":           _has("S1 - Door G Key"),
+    "The Grasslands - Big Coin 5":           _has("S1 - Door G Key"),
+    "The Grasslands - Blue Key":             _c(_has("S1 - Door G Key"), _has("S1 - Door I Key")),
+    "The Grasslands - Big Coin 7":           _c(_has("S1 - Door G Key"), _has("S1 - Door I Key")),
+    # S2 The Big Bridge, from the lobby: A -> the green key room (coin 7);
+    # B (underwater) -> the red chest room (red key, coins 3, 4); C -> the
+    # green chest room; D (past the lake) -> the blue key room (coin 8); E
+    # (underwater) -> the blue chest room (coins 5, 6).
+    "The Big Bridge - Green Key":            _has("S2 - Door A Key"),
+    "The Big Bridge - Big Coin 7":           _has("S2 - Door A Key"),
+    "The Big Bridge - Red Key":              _has("S2 - Door B Key"),
+    "The Big Bridge - Red Chest":            _has("S2 - Door B Key"),
+    "The Big Bridge - Big Coin 3":           _has("S2 - Door B Key"),
+    "The Big Bridge - Big Coin 4":           _has("S2 - Door B Key"),
+    "The Big Bridge - Green Chest":          _has("S2 - Door C Key"),
+    "The Big Bridge - Blue Key":             _has("S2 - Door D Key"),
+    "The Big Bridge - Big Coin 8":           _has("S2 - Door D Key"),
+    "The Big Bridge - Blue Chest":           _has("S2 - Door E Key"),
+    "The Big Bridge - Big Coin 5":           _has("S2 - Door E Key"),
+    "The Big Bridge - Big Coin 6":           _has("S2 - Door E Key"),
+    # S3 Tower of Revival: D (the lobby tower's top) -> the blue chest room
+    "Tower of Revival - Blue Chest":          _has("S3 - Door D Key"),
+    "Tower of Revival - Big Coin 1":          _has("S3 - Door D Key"),
+    # S5 Cave of Flames, from the lobby: A -> the red chest room (red key,
+    # coin 2; coin 4's room past B); E (past the rust blocks) -> the blue
+    # chest room (blue key, coin 6), whose G -> the vertical room (coin 7;
+    # coin 8 past F); H -> the stay-down room (coin 5).
+    "Cave of Flames - Red Key":              _has("S5 - Door A Key"),
+    "Cave of Flames - Red Chest":            _has("S5 - Door A Key"),
+    "Cave of Flames - Big Coin 2":           _has("S5 - Door A Key"),
+    "Cave of Flames - Big Coin 4":           _has("S5 - Door A Key"),
+    "Cave of Flames - Blue Key":             _has("S5 - Door E Key"),
+    "Cave of Flames - Blue Chest":           _has("S5 - Door E Key"),
+    "Cave of Flames - Big Coin 6":           _has("S5 - Door E Key"),
+    "Cave of Flames - Big Coin 7":           _c(_has("S5 - Door E Key"), _has("S5 - Door G Key")),
+    "Cave of Flames - Big Coin 8":           _c(_has("S5 - Door E Key"), _has("S5 - Door G Key")),
+    "Cave of Flames - Big Coin 5":           _has("S5 - Door H Key"),
+    # S6 Above the Clouds: A -> the grey key cave (coins 3, 4); B / C -> the
+    # red chest room's left (red chest, coin 5) / right (red key) parts; D
+    # (balloon) -> the green chest room (green key, coins 6-8); F (from E's
+    # temple room, night) -> the blue chest room. Strict: B and C's parts may
+    # connect.
+    "Above the Clouds - Grey Key":             _has("S6 - Door A Key"),
+    "Above the Clouds - Big Coin 3":           _has("S6 - Door A Key"),
+    "Above the Clouds - Big Coin 4":           _has("S6 - Door A Key"),
+    "Above the Clouds - Red Chest":            _has("S6 - Door B Key"),
+    "Above the Clouds - Big Coin 5":           _has("S6 - Door B Key"),
+    "Above the Clouds - Red Key":              _has("S6 - Door C Key"),
+    "Above the Clouds - Green Chest":          _has("S6 - Door D Key"),
+    "Above the Clouds - Green Key":            _has("S6 - Door D Key"),
+    "Above the Clouds - Big Coin 6":           _has("S6 - Door D Key"),
+    "Above the Clouds - Big Coin 7":           _has("S6 - Door D Key"),
+    "Above the Clouds - Big Coin 8":           _has("S6 - Door D Key"),
+    "Above the Clouds - Blue Chest":           _has("S6 - Door F Key"),
+    # E1 The Stagnant Swamp, from the lobby: C / D -> the wood hub (bottom /
+    # top; red key, coins 4, 5; Jamano and the green chest past pipes G/F),
+    # whose E -> the green key room (coin 8); H -> the blue chest room (blue
+    # key, coins 6, 7).
+    "The Stagnant Swamp - Red Key":              _o(_has("E1 - Door C Key"), _has("E1 - Door D Key")),
+    "The Stagnant Swamp - Big Coin 4":           _o(_has("E1 - Door C Key"), _has("E1 - Door D Key")),
+    "The Stagnant Swamp - Big Coin 5":           _o(_has("E1 - Door C Key"), _has("E1 - Door D Key")),
+    "The Stagnant Swamp - Green Chest":          _o(_has("E1 - Door C Key"), _has("E1 - Door D Key")),
+    "Jamano - Defeated":                      _o(_has("E1 - Door C Key"), _has("E1 - Door D Key")),
+    "The Stagnant Swamp - Green Key":            _c(_o(_has("E1 - Door C Key"), _has("E1 - Door D Key")), _has("E1 - Door E Key")),
+    "The Stagnant Swamp - Big Coin 8":           _c(_o(_has("E1 - Door C Key"), _has("E1 - Door D Key")), _has("E1 - Door E Key")),
+    "The Stagnant Swamp - Blue Chest":           _has("E1 - Door H Key"),
+    "The Stagnant Swamp - Blue Key":             _has("E1 - Door H Key"),
+    "The Stagnant Swamp - Big Coin 6":           _has("E1 - Door H Key"),
+    "The Stagnant Swamp - Big Coin 7":           _has("E1 - Door H Key"),
+    # E2 The Frigid Sea, from the lobby: A -> the red chest room (coin 3);
+    # B -> the red key room (coin 4); C (underwater) -> the green chest hub
+    # (green key, coin 5), whose E (underwater) -> the pipe passthrough
+    # (coins 6, 7); D -> the blue chest room (blue key, coin 8).
+    "The Frigid Sea - Red Chest":            _has("E2 - Door A Key"),
+    "The Frigid Sea - Big Coin 3":           _has("E2 - Door A Key"),
+    "The Frigid Sea - Red Key":              _has("E2 - Door B Key"),
+    "The Frigid Sea - Big Coin 4":           _has("E2 - Door B Key"),
+    "The Frigid Sea - Green Chest":          _has("E2 - Door C Key"),
+    "The Frigid Sea - Green Key":            _has("E2 - Door C Key"),
+    "The Frigid Sea - Big Coin 5":           _has("E2 - Door C Key"),
+    "The Frigid Sea - Big Coin 6":           _c(_has("E2 - Door C Key"), _has("E2 - Door E Key")),
+    "The Frigid Sea - Big Coin 7":           _c(_has("E2 - Door C Key"), _has("E2 - Door E Key")),
+    "The Frigid Sea - Blue Chest":           _has("E2 - Door D Key"),
+    "The Frigid Sea - Blue Key":             _has("E2 - Door D Key"),
+    "The Frigid Sea - Big Coin 8":           _has("E2 - Door D Key"),
+    # E3 Castle of Illusions, from the lobby: A / B / C / D -> the grey /
+    # red / green / blue chest rooms; from the green / blue chest rooms, I /
+    # J -> the blue key room's left / right (blue key, coins 6, 7; strict:
+    # both, until that room's switch/platform logic is redone); G (F/G
+    # room) -> the switch room.
+    "Castle of Illusions - Grey Chest":           _has("E3 - Door A Key"),
+    "Castle of Illusions - Red Chest":            _has("E3 - Door B Key"),
+    "Castle of Illusions - Green Chest":          _has("E3 - Door C Key"),
+    "Castle of Illusions - Blue Chest":           _has("E3 - Door D Key"),
+    "Castle of Illusions - Blue Key":             _c(_has("E3 - Door C Key"), _has("E3 - Door I Key"), _has("E3 - Door D Key"), _has("E3 - Door J Key")),
+    "Castle of Illusions - Big Coin 6":           _c(_has("E3 - Door C Key"), _has("E3 - Door I Key"), _has("E3 - Door D Key"), _has("E3 - Door J Key")),
+    "Castle of Illusions - Big Coin 7":           _c(_has("E3 - Door C Key"), _has("E3 - Door I Key"), _has("E3 - Door D Key"), _has("E3 - Door J Key")),
+    # E4 The Colossal Hole, from the hole: A -> the red key room; B -> the
+    # red chest room (coin 8); C -> the green chest room (coin 6); D (past
+    # the falling blocks) -> the blue chest room (blue key, coin 7).
+    "The Colossal Hole - Red Key":              _has("E4 - Door A Key"),
+    "The Colossal Hole - Red Chest":            _has("E4 - Door B Key"),
+    "The Colossal Hole - Big Coin 8":           _has("E4 - Door B Key"),
+    "The Colossal Hole - Green Chest":          _has("E4 - Door C Key"),
+    "The Colossal Hole - Big Coin 6":           _has("E4 - Door C Key"),
+    "The Colossal Hole - Blue Chest":           _has("E4 - Door D Key"),
+    "The Colossal Hole - Blue Key":             _has("E4 - Door D Key"),
+    "The Colossal Hole - Big Coin 7":           _has("E4 - Door D Key"),
+    # E6 The East Crater: B (crater) -> the green chest room (green key,
+    # coin 6); C (red chest room) -> the Omodon room (coin 5), whose D -> the
+    # red chest room's right part (red chest).
+    "The East Crater - Green Chest":          _has("E6 - Door B Key"),
+    "The East Crater - Green Key":            _has("E6 - Door B Key"),
+    "The East Crater - Big Coin 6":           _has("E6 - Door B Key"),
+    "The East Crater - Big Coin 5":           _has("E6 - Door C Key"),
+    "The East Crater - Red Chest":            _c(_has("E6 - Door C Key"), _has("E6 - Door D Key")),
+    # E7 Forest of Fear: E (lobby) -> the blue chest room (blue key, coin
+    # 5); D (green chest room) -> the red chest room (coins 3, 4), whose F ->
+    # the red key room (coin 6).
+    "Forest of Fear - Blue Chest":           _has("E7 - Door E Key"),
+    "Forest of Fear - Blue Key":             _has("E7 - Door E Key"),
+    "Forest of Fear - Big Coin 5":           _has("E7 - Door E Key"),
+    "Forest of Fear - Red Chest":            _has("E7 - Door D Key"),
+    "Forest of Fear - Big Coin 3":           _has("E7 - Door D Key"),
+    "Forest of Fear - Big Coin 4":           _has("E7 - Door D Key"),
+    "Forest of Fear - Red Key":              _c(_has("E7 - Door D Key"), _has("E7 - Door F Key")),
+    "Forest of Fear - Big Coin 6":           _c(_has("E7 - Door D Key"), _has("E7 - Door F Key")),
+    "Yellow Belly - Defeated":                _c(_c(_has("W1 - Door D Key"), _has("W1 - Door G Key"), _has("W1 - Door H Key")), _has("W1 - Door I Key")),
     "The Tidal Coast - Green Key":            _has("N5 - Door E Key"),
     "The Tidal Coast - Green Chest":          _c(_has("N5 - Door D Key"),
                                                  _o(_has("N5 - Door F Key"), _has("N5 - Door I Key"))),
@@ -1433,6 +1691,12 @@ def set_rules(world: "WL3World") -> None:
         "The Vast Plain - Door J Sign": (blue, None),
         "Bank of the Wild River - Door F Sign": (green, None),
         "Bank of the Wild River - Door G Sign": (green, "N4 - Door F Key"),
+        "Forest of Fear - Door D Sign": (green, None),
+        "Forest of Fear - Door F Sign": (red, "E7 - Door D Key"),
+        "Castle of Illusions - Door I Sign": (green, "E3 - Door C Key"),
+        "Castle of Illusions - Door J Sign": (blue, "E3 - Door D Key"),
+        "The Frigid Sea - Door C Sign": (green, None),
+        "The Frigid Sea - Door E Sign": (green, "E2 - Door C Key"),
         # in the water before their doors: the swim there is the chest's
         "The Tidal Coast - Door C Sign": (red, None),
         "The Tidal Coast - Door J Sign": (blue, "N5 - Door A Key"),
@@ -1443,6 +1707,34 @@ def set_rules(world: "WL3World") -> None:
     sign_needs_keys = {
         "The Tidal Coast - Door F Sign": _has("N5 - Door D Key"),
         "The Tidal Coast - Door I Sign": _has("N5 - Door D Key"),
+        # B's door is only there once the Scepter clears the water; G's
+        # signpost is in the dark room, past C, where the door wants the scope
+        "Sea Turtle Rocks - Door B Sign": _has("Scepter"),
+        "The Volcano's Base - Door G Sign": _has("W2 - Door E Key"),
+        "The Volcano's Base - Door H Sign": _has("W2 - Door E Key"),
+        "The Pool of Rain - Door D Sign": has_flippers_1,
+        "The Pool of Rain - Door F Sign": _c(_has("W3 - Door D Key"), has_flippers_1),
+        "A Town in Chaos - Door C Sign": _has("W4 - Door B Key"),
+        "A Town in Chaos - Door E Sign": _c(_has("W4 - Door B Key"), _has("W4 - Door C Key")),
+        "A Town in Chaos - Door H Sign": _has("W4 - Door G Key"),
+        "A Town in Chaos - Door I Sign": _has("W4 - Door G Key"),
+        "A Town in Chaos - Door J Sign": _has("W4 - Door G Key"),
+        "A Town in Chaos - Door K Sign": _has("W4 - Door A Key"),
+        "A Town in Chaos - Door L Sign": _c(_has("W4 - Door A Key"), _has("W4 - Door K Key")),
+        "Beneath the Waves - Door E Sign": _has("W5 - Door B Key"),
+        "Beneath the Waves - Door F Sign": _has("W5 - Door B Key"),
+        "Beneath the Waves - Door G Sign": _has("W5 - Door B Key"),
+        "The Grasslands - Door H Sign": _o(_has("S1 - Door D Key"), _has("S1 - Door E Key")),
+        "The Grasslands - Door I Sign": _has("S1 - Door G Key"),
+        "Cave of Flames - Door G Sign": _c(_has("S5 - Door E Key"), _has("Rust Spray")),
+        "The Stagnant Swamp - Door E Sign": _o(_has("E1 - Door C Key"), _has("E1 - Door D Key")),
+        "The East Crater - Door D Sign": _has("E6 - Door C Key"),
+        "Desert Ruins - Door E Sign": _has("W1 - Door B Key"),
+        "Desert Ruins - Door F Sign": _has("W1 - Door D Key"),
+        "Desert Ruins - Door G Sign": _has("W1 - Door D Key"),
+        "Desert Ruins - Door H Sign": _c(_has("W1 - Door D Key"), _has("W1 - Door G Key")),
+        "Desert Ruins - Door I Sign": _c(_has("W1 - Door D Key"), _has("W1 - Door G Key"), _has("W1 - Door H Key")),
+        "Sea Turtle Rocks - Door G Sign": _c(_has("N6 - Door C Key"), _has("Night Vision Scope")),
         "The Tidal Coast - Door H Sign": _c(_has("N5 - Door D Key"),
                                             _o(_has("N5 - Door F Key"), _has("N5 - Door I Key"))),
     }
@@ -1451,6 +1743,19 @@ def set_rules(world: "WL3World") -> None:
         "Bank of the Wild River - Door B Sign": (coin_logic, 6),
         "Bank of the Wild River - Door C Sign": (coin_logic, 5),
         "Bank of the Wild River - Door D Sign": (key_logic, red),
+        "Beneath the Waves - Door H Sign": (coin_logic, 2),
+        "Beneath the Waves - Door I Sign": (coin_logic, 2),
+        "The West Crater - Door C Sign": (chest_logic, green),
+        "The West Crater - Door D Sign": (chest_logic, blue),
+        "The Big Bridge - Door D Sign": (key_logic, blue),
+        "The Big Bridge - Door E Sign": (chest_logic, blue),
+        "Cave of Flames - Door E Sign": (chest_logic, blue),
+        "Above the Clouds - Door D Sign": (chest_logic, green),
+        "Above the Clouds - Door F Sign": (chest_logic, blue),
+        "Castle of Illusions - Door G Sign": (coin_logic, 3),
+        "The Colossal Hole - Door D Sign": (chest_logic, blue),
+        "The Volcano's Base - Door I Sign": (chest_logic, blue),
+        "The Volcano's Base - Door K Sign": (key_logic, blue),
     }
     for loc_name, loc_data in DOOR_SIGN_LOCATION_TABLE.items():
         if loc_name in sign_rule_from:
