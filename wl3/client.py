@@ -436,6 +436,7 @@ class WL3Client(BizHawkClient):
         # trackers can SetNotify on that key to auto-tab as the player
         # enters/leaves levels.
         self._last_published_level: int = -2   # sentinel so first poll always sends
+        self._last_published_bosses = None      # boss names last published (None: nothing yet)
 
     # ------------------------------------------------------------------
     # on_package — server-pushed packets (DeathLink Bounced, etc.)
@@ -1400,6 +1401,7 @@ class WL3Client(BizHawkClient):
 
         # ---- Tracker autotabbing: publish current level to DataStorage ----
         await self._publish_current_level(ctx)
+        await self._publish_bosses_beaten(ctx)
 
     # ------------------------------------------------------------------
     # Item granting helpers
@@ -2935,6 +2937,36 @@ class WL3Client(BizHawkClient):
         except RequestFailedError as e:
             logger.warning(f"[WL3] Failed to set treasure 0x{treasure_id:02X}: {e}")
 
+    async def _publish_bosses_beaten(self, ctx: "BizHawkClientContext") -> None:
+        """Publish the bosses beaten so far (wBossDefeatedFlags, which the
+        ROM sets on every boss kill whatever the options) as a list of
+        names under ``wl3_bosses_beaten_{slot}``. Universal Tracker uses it
+        in seeds won by beating bosses that have no boss-defeat checks, to
+        mark a boss done (WL3World.reconnect_found_entrances). Sent only
+        when the list changes, and never before the save is loaded."""
+        if ctx.server is None or ctx.slot is None or not self._seeded_from_wram:
+            return
+        from .locations import BOSS_DEFEAT_LOCATION_TABLE
+        try:
+            raw = (await read(ctx.bizhawk_ctx, [(ADDR_BOSS_DEFEATED_FLAGS_WRAM, 2, "WRAM")]))[0]
+        except RequestFailedError:
+            return
+        beaten = sorted(data.boss_name for data in BOSS_DEFEAT_LOCATION_TABLE.values()
+                        if raw[data.boss_index >> 3] & (1 << (data.boss_index & 7)))
+        if beaten == self._last_published_bosses:
+            return
+        self._last_published_bosses = beaten
+        try:
+            await ctx.send_msgs([{
+                "cmd": "Set",
+                "key": f"wl3_bosses_beaten_{ctx.slot}",
+                "default": [],
+                "want_reply": False,
+                "operations": [{"operation": "replace", "value": beaten}],
+            }])
+        except Exception:
+            pass                            # never break the watcher loop on a publish error
+
     async def _publish_current_level(self, ctx: "BizHawkClientContext") -> None:
         """Publish the player's current level to AP DataStorage as
         ``wl3_current_level_{slot}`` so PopTracker (or any AP tracker)
@@ -2963,12 +2995,9 @@ class WL3Client(BizHawkClient):
         state    = data[0][0]
         w_level  = data[1][0]
 
+        ST_TITLE      = 0x00
+        ST_OVERWORLD  = 0x01
         ST_LEVEL      = 0x02
-        ST_PAUSE_MENU = 0x04
-        # Pause menu — keep the previous published level so the tracker
-        # stays tabbed on whichever level the player paused in.
-        if state == ST_PAUSE_MENU:
-            return
         if state == ST_LEVEL:
             if w_level == 0xC8:        # THE_TEMPLE
                 level = 0
@@ -2976,8 +3005,15 @@ class WL3Client(BizHawkClient):
                 level = 26
             else:
                 level = (w_level >> 3) + 1   # (wLevel / 8) + 1, 1-based
+        elif state in (ST_TITLE, ST_OVERWORLD):
+            level = 0          # really out of the level → overworld tab
         else:
-            level = 0          # overworld / title / menu / cutscene → no tab
+            # Every other state is a screen the game shows on top of a
+            # level and then returns from (pause menu, key-collect screen,
+            # treasure viewer, minigame, level clear, game over). Keep the
+            # last published level so the tracker doesn't flick to the
+            # overworld tab and back (seen on key pickups, 2026-11-22).
+            return
 
         if level == self._last_published_level:
             return

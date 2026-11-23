@@ -294,7 +294,7 @@ CHEST_RULES: dict = {
                                           _has("Roll Form"))), can_bounce),          # red
         _c(_has("Scissors"), can_jump_high),                                         # green
         _c(_has("Scissors"), _has("Full Moon Gong"), can_jump_high,
-           _o(_c(_has("High Jump Boots"), has_overalls_2, has_grab_1)), _has("Roll Form")),# blue
+           _o(_c(_has("High Jump Boots"), has_overalls_2, has_grab_1), _has("Roll Form"))),# blue
     ],
     "The Stagnant Swamp": [
         None,                                                                        # grey
@@ -809,7 +809,14 @@ BOSS_RULES: dict = {
     "Yellow Belly": _c(_o(can_pound_solid_blocks, _has("Zombie Form")), _o(has_grab_1, can_bounce), has_overalls_1),
 }
 
-able_to_beat_rudy = _c(has_grab_2,_o(has_overalls_1,has_vampire_1,_has("Zombie Form"),_has("Fat Form"),_has("Fire Form")))
+def boss_event_name(boss: str) -> str:
+    """The Universal Tracker event that stands for beating a boss when the
+    seed has no boss-defeat checks (set_rules; the map pack's locations.json
+    names it too: tools/build_tracker_pack.py)."""
+    return f"Defeat {boss}"
+
+
+able_to_beat_rudy =_c(has_grab_2,_o(has_overalls_1,has_vampire_1,_has("Zombie Form"),_has("Fat Form"),_has("Fire Form")))
 
 # ---------------------------------------------------------------------------
 # ---------------------------------------------------------------------------
@@ -1952,6 +1959,50 @@ def set_rules(world: "WL3World") -> None:
                 mw.get_location(loc_name, player).access_rule = \
                     lambda state, r=boss_rule: r(state, player)
 
+    # What it takes to beat each boss, as one rule: its level open, its own
+    # fight rule (boss_logic: BOSS_RULES with the difficulty, glitch and
+    # transformation changes made above) and, with Locked Doors, the door
+    # keys on the way to it (the DOOR_RULES entry of its boss-defeat check).
+    # Used by the bosses win condition and by the tracker's boss events,
+    # so both agree with the boss-defeat checks.
+    def _boss_fight(data):
+        parts = [r for r in (
+            level_rules.get(data.level_name),
+            boss_logic.get(data.boss_name),
+            DOOR_RULES.get(f"{data.boss_name} - Defeated") if locked_doors else None,
+        ) if r is not None]
+        return lambda state: all(r(state, player) for r in parts)
+
+    boss_fights = {data.boss_name: _boss_fight(data) for data in BOSS_DEFEAT_LOCATION_TABLE.values()}
+
+    # Universal Tracker only: a seed won by beating bosses, without the Boss
+    # Defeats checks, still wants to show which bosses are in reach. Each
+    # boss gets a "deferred event" (UT docs, map-integration.md): an event
+    # in a region of its own behind the boss's rule (boss_fights, the
+    # same rule the boss-defeat check would have), with a rule of its own
+    # that is False until the game client reports the boss beaten
+    # (WL3World.reconnect_found_entrances). On the map (the row of boss
+    # pictures on the overworld, and beside the boss's chest in its level)
+    # that reads: red = can't beat it yet, green = can, grey = beaten.
+    # Nothing here exists in a real generation.
+    from .options import VictoryCondition as _VC
+    if (getattr(mw, "generation_is_fake", False)
+            and int(world.options.victory_condition) == _VC.option_bosses
+            and not world.options.boss_defeats
+            and getattr(mw, "enforce_deferred_connections", "off") != "off"):
+        from BaseClasses import Item, ItemClassification, Location, Region
+        for loc_data in BOSS_DEFEAT_LOCATION_TABLE.values():
+            boss = loc_data.boss_name
+            fight = Region(f"{boss} Fight", player, mw)
+            mw.regions.append(fight)
+            event = Location(player, boss_event_name(boss), None, fight)
+            event.access_rule = lambda state: False
+            beaten = Item(f"{boss} Beaten", ItemClassification.progression, None, player)
+            beaten.game = world.game
+            event.place_locked_item(beaten)
+            fight.locations.append(event)
+            mw.get_region(loc_data.region, player).connect(fight, f"To {boss} Fight", boss_fights[boss])
+
     # Locked doors — AND each door rule onto whatever rule the location has.
     # With vanilla keys a chest's rule includes reaching its key, so a key
     # location's door rule carries over to the same-colour chest.
@@ -2010,13 +2061,16 @@ def set_rules(world: "WL3World") -> None:
     from .options import VictoryCondition
     victory = int(world.options.victory_condition)
     if victory == VictoryCondition.option_bosses:
-        # Bosses wincon — require N bosses defeated. Uses the 10 BOSS
-        # CHEST locations for reachability
-        from . import BOSS_CHEST_LOCATIONS
+        # Bosses wincon — require N bosses beatable: boss_fights (above),
+        # each boss's own rule, the same one its boss-defeat check gets.
+        # Not the chest the boss guards, which this used until 2026-11-22:
+        # a chest's rule isn't the boss's (Out of the Woods' blue chest
+        # doesn't need Grab, Anonster does), so a seed could count as
+        # winnable too early.
         bosses_needed = int(world.options.bosses_required)
         mw.completion_condition[player] = \
-            lambda state, n=bosses_needed, names=BOSS_CHEST_LOCATIONS: (
-                sum(state.can_reach_location(name, player) for name in names) >= n
+            lambda state, n=bosses_needed, fights=tuple(boss_fights.values()): (
+                sum(fight(state) for fight in fights) >= n
                 and able_to_beat_rudy(state, player)
             )
     else:

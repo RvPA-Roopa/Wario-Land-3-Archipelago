@@ -61,7 +61,10 @@ from .options import (WL3Options, KeyShuffle, CombinedItems, BossDefeats,
 from .regions import create_regions
 from .rom import WL3ProcedurePatch, write_tokens, KEY_COLOR_PALS, OBPAL_TREASURE_PURPLE
 from .rules import MUSIC_BOXES, set_rules
-from .tracker_maps import MAP_PAGE_GROUPS, OVERWORLD_MAP_INDEX
+from .tracker_maps import (MAP_PAGE_GROUPS, OVERWORLD_MAP_INDEX, OVERWORLD_BOSSES_MAP,
+                           ITEM_PAGE_ITEMS,
+                           ITEM_PAGE_LAYOUTS, MAP_ITEM_LAYOUTS, MAP_ITEM_LAYOUTS_RIGHT,
+                           MAP_ITEM_LAYOUTS_BOTTOM)
 from . import client as _client  # noqa: F401 — registers WL3Client with AutoBizHawkClientRegister
 
 
@@ -235,6 +238,12 @@ class WL3Settings(ap_settings.Group):
     rom_start: bool = True
 
 
+# Universal Tracker item icons beside the map. False = maps only. The icons
+# are what makes the map page slow (tested 2026-11-22: smooth without any,
+# very laggy with ~220), so tracker_maps.py lists only a few.
+SHOW_TRACKER_ITEMS = True
+
+
 def _tracker_map_index(data: Any) -> int:
     """Universal Tracker auto-tabbing: the client's published level (1-25;
     0 outside a level, 26 the Golf Building) -> its map's place in maps.json
@@ -244,7 +253,10 @@ def _tracker_map_index(data: Any) -> int:
             return data - 1
         if data == 0:
             return OVERWORLD_MAP_INDEX
-    return -1
+        return -1
+    # nothing published yet (the game client isn't connected): show the
+    # overworld rather than an empty white page
+    return OVERWORLD_MAP_INDEX
 
 
 class WL3World(World):
@@ -265,6 +277,24 @@ class WL3World(World):
     def interpret_slot_data(slot_data: Dict[str, Any]) -> Dict[str, Any]:
         return slot_data
 
+    # Universal Tracker: the game client publishes the names of the bosses
+    # beaten so far under this data storage key (client.py
+    # _publish_bosses_beaten). It turns each one's event (rules.py
+    # set_rules: only in seeds won by bosses without boss-defeat checks)
+    # from "in reach" to done.
+    found_entrances_datastorage_key = ("wl3_bosses_beaten_{player}",)
+
+    def reconnect_found_entrances(self, storage_key: str, storage_value: Any) -> None:
+        from .rules import boss_event_name
+        if getattr(self.multiworld, "enforce_deferred_connections", "off") == "off":
+            return
+        for boss in storage_value or []:
+            try:
+                event = self.multiworld.get_location(boss_event_name(str(boss)), self.player)
+            except KeyError:
+                continue                    # no such event in this seed
+            event.access_rule = lambda state: True
+
     def _tracker_world(self) -> Dict[str, Any]:
         """Universal Tracker's map tab: the level maps with every check at
         its spot, and the overworld. The maps are renders of the game's own
@@ -273,11 +303,39 @@ class WL3World(World):
         world, not the class: UT falls back to the world when the class has
         none) because the pack holds two sets of level maps, with and without
         padlocks on the locked doors."""
+        # Which maps: padlocks on the level maps only with Locked Doors, and
+        # the overworld with its row of boss pictures only when the seed is
+        # won by beating bosses. Under each picture: the boss-defeat check
+        # with Boss Defeats on; without it, the boss's event (rules.py
+        # set_rules), so the row still shows which bosses are in reach.
+        from .options import VictoryCondition
+        bosses = int(self.options.victory_condition) == VictoryCondition.option_bosses
+        suffix, ow_map = "", "overworld"
+        if bosses:
+            suffix, ow_map = "_bosses", OVERWORLD_BOSSES_MAP
+        maps_file = "maps/maps" + ("_locked" if self.options.locked_doors else "") + suffix + ".json"
+        groups = [(title, ow_map) if maps == "overworld" else (title, maps)
+                  for title, maps in MAP_PAGE_GROUPS]
+        items: Dict[str, Any] = {}
+        if ITEM_PAGE_ITEMS and SHOW_TRACKER_ITEMS:
+            # the item tracker: icons light up as items arrive, beside the
+            # map and on a tab of their own (icons come from the pack too)
+            items = {
+                "item_page_items":            ITEM_PAGE_ITEMS,
+                # No separate item tab ("item_page_item_layouts":
+                # ITEM_PAGE_LAYOUTS): its icons are built even while the tab
+                # is hidden, and every greyable icon costs frame time. Left
+                # out 2026-11-22 to see if that is the map page's lag.
+                "map_page_item_layouts_left": MAP_ITEM_LAYOUTS,
+                "map_page_item_layouts_right": MAP_ITEM_LAYOUTS_RIGHT,
+                "map_page_item_layouts_bottom": MAP_ITEM_LAYOUTS_BOTTOM,
+            }
         return {
+            **items,
             "external_pack_key":  "ut_pack_path",
-            "map_page_maps":      "maps/maps_locked.json" if self.options.locked_doors else "maps/maps.json",
+            "map_page_maps":      maps_file,
             "map_page_locations": "locations/locations.json",
-            "map_page_groups":    MAP_PAGE_GROUPS,
+            "map_page_groups":    groups,
             # auto-tabbing: the game client publishes the level Wario is in
             # (client.py _publish_current_level) under this data storage key
             "map_page_setting_key": "wl3_current_level_{player}",
