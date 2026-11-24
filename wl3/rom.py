@@ -398,6 +398,7 @@ MUSIC_BOXES_REQUIRED_OFFSET      = 0x080F85   # MusicBoxesRequired byte in Bank 
 BOSSES_REQUIRED_OFFSET           = 0x081070   # BossesRequired byte in Bank 20 (0 = boss wincon disabled)
 VICTORY_CONDITION_OPT_OFFSET     = 0x081071   # VictoryConditionOpt byte in Bank 20 (0=music_boxes, 1=bosses)
 TOTAL_AP_CHECKS_OFFSET           = 0x08107C   # TotalAPChecks 2-byte BCD in Bank 20 (denominator on treasure-map "NNN/MMM")
+AP_CHECK_COUNT_MASK_OFFSET       = 0x004D4C   # RecomputeAPChecksCollected.mask in Bank 1 (AP_CHECKS_* bits: the kinds of check counted)
 START_WITH_AXE_OFFSET            = 0x080F86   # StartWithAxeOpt byte in Bank 20
 START_WITH_MAG_GLASS_OFFSET      = 0x080F87   # StartWithMagnifyingGlassOpt byte in Bank 20
 ENTRANCE_SHUFFLE_OPT_OFFSET      = 0x080F88   # EntranceShuffleOpt byte in Bank 20 (0 = off, non-zero = on; gates the "?????" reveal system)
@@ -412,6 +413,7 @@ LOCKED_DOORS_TABLE_OFFSET        = 0x023A2A   # LockedDoors
 DOOR_SIGNS_TABLE_OFFSET          = 0x022FA7   # DoorSigns
 DOOR_PALETTES_TABLE_OFFSET       = 0x022C0E   # DoorPalettes
 PADLOCK_LOADS_TABLE_OFFSET       = 0x022F19   # PadlockLoads
+DOOR_KEYS_PAGE_OPT_OFFSET        = 0x09BEDC   # DoorKeysPageOpt byte in Bank 26 (1 = pause screen has the door-key pages)
 HIDDEN_PASSAGES_REVEALED_OFFSET = 0x01FE3F  # HiddenPassagesRevealedOpt byte (floating ROMX section — re-check after linker shifts)
 GOLF_PRICE_OPT_OFFSET            = 0x003A00   # GolfPriceOpt byte in Home bank
 GOLF_BUILDING_OPT_OFFSET         = 0x003A01   # GolfBuildingOpt byte in Home bank
@@ -1124,15 +1126,28 @@ def write_tokens(world: "WL3World", patch: WL3ProcedurePatch) -> None:
     # coins/bosses/shops gated by their options. Written as 2-byte BCD,
     # big-endian ([hundreds nibble][tens|ones]) matching the ROM's
     # PrintAPCheckDualCount reader.
+    # count_mask: the same kinds as bits (AP_CHECKS_*, treasure_constants.asm),
+    # so the collected count (pause screen and credits) leaves out flags of
+    # checks this seed doesn't have (boss kills with Boss Defeats off, ...).
+    from .locations import DOOR_SIGN_LOCATION_TABLE
     total_checks = 100 + 100  # chests + keys (always)
+    count_mask = 0b000001
     if world.options.bigcoinsanity:
         total_checks += 200
+        count_mask |= 0b000010
     if world.options.boss_defeats:
         total_checks += 10
+        count_mask |= 0b000100
     if world.options.shopsanity:
         total_checks += 10
+        count_mask |= 0b001000
     if world.options.coin_blocksanity:
         total_checks += 44
+        count_mask |= 0b010000
+    if world.options.locked_doors:
+        total_checks += len(DOOR_SIGN_LOCATION_TABLE)   # a signpost per locked door that has one
+        count_mask |= 0b100000
+    patch.write_token(APTokenTypes.WRITE, AP_CHECK_COUNT_MASK_OFFSET, bytes([count_mask]))
     hundreds = total_checks // 100
     tens_ones = total_checks % 100
     bcd_hi = hundreds & 0x0F           # e.g. 4 → 0x04
@@ -1830,6 +1845,8 @@ def write_tokens(world: "WL3World", patch: WL3ProcedurePatch) -> None:
         for offset in (LOCKED_DOORS_TABLE_OFFSET, DOOR_SIGNS_TABLE_OFFSET,
                        DOOR_PALETTES_TABLE_OFFSET, PADLOCK_LOADS_TABLE_OFFSET):
             patch.write_token(APTokenTypes.WRITE, offset, bytes([0xFF]))
+        # ... and the pause screen skips its door-key pages
+        patch.write_token(APTokenTypes.WRITE, DOOR_KEYS_PAGE_OPT_OFFSET, bytes([0x00]))
 
     # --- Random dialog text variants ---
     # tools/build_text_variants.py bundles all compiled RLE blobs from
