@@ -398,6 +398,7 @@ MUSIC_BOXES_REQUIRED_OFFSET      = 0x080F85   # MusicBoxesRequired byte in Bank 
 BOSSES_REQUIRED_OFFSET           = 0x081070   # BossesRequired byte in Bank 20 (0 = boss wincon disabled)
 VICTORY_CONDITION_OPT_OFFSET     = 0x081071   # VictoryConditionOpt byte in Bank 20 (0=music_boxes, 1=bosses)
 TOTAL_AP_CHECKS_OFFSET           = 0x08107C   # TotalAPChecks 2-byte BCD in Bank 20 (denominator on treasure-map "NNN/MMM")
+AP_AUTH_TOKEN_OFFSET             = 0x05BFF0   # APAuthToken: the last 16 bytes of Bank $16 (pinned); the client logs in with them (client.py set_auth)
 AP_CHECK_COUNT_MASK_OFFSET       = 0x004D4C   # RecomputeAPChecksCollected.mask in Bank 1 (AP_CHECKS_* bits: the kinds of check counted)
 START_WITH_AXE_OFFSET            = 0x080F86   # StartWithAxeOpt byte in Bank 20
 START_WITH_MAG_GLASS_OFFSET      = 0x080F87   # StartWithMagnifyingGlassOpt byte in Bank 20
@@ -1148,6 +1149,8 @@ def write_tokens(world: "WL3World", patch: WL3ProcedurePatch) -> None:
         total_checks += len(DOOR_SIGN_LOCATION_TABLE)   # a signpost per locked door that has one
         count_mask |= 0b100000
     patch.write_token(APTokenTypes.WRITE, AP_CHECK_COUNT_MASK_OFFSET, bytes([count_mask]))
+    # This ROM's login token (WL3World.generate_basic / modify_multidata).
+    patch.write_token(APTokenTypes.WRITE, AP_AUTH_TOKEN_OFFSET, world.auth)
     hundreds = total_checks // 100
     tens_ones = total_checks % 100
     bcd_hi = hundreds & 0x0F           # e.g. 4 → 0x04

@@ -10,6 +10,7 @@ Setup:
   4. Launch ArchipelagoBizHawkClient.exe and connect to your AP server
 """
 
+import base64
 import logging
 import time
 from typing import TYPE_CHECKING, Optional
@@ -105,6 +106,7 @@ ADDR_TREASURES_WRAM     = 0x2000   # WRAM domain offset for wTreasuresCollected 
 ADDR_UNLOCKED_LEVELS_WRAM = 0x1163 # wUnlockedLevels    (bank 1, 0xD163)
 ADDR_LEVEL_KEYS_WRAM      = 0x117C # wLevelKeys         (bank 1, 0xD17C)
 ADDR_KEY_INVENTORY_WRAM   = 0x1195 # wKeyInventory      (bank 1, 0xD195)
+ADDR_AUTH_TOKEN_ROM = 0x05BFF0  # APAuthToken, ROM file offset (rom.py AP_AUTH_TOKEN_OFFSET)
 ADDR_OPENED_CHESTS_WRAM = 0x11AE # wOpenedChests        (bank 1, 0xD1AE)
                                    # (in AP Persistent to escape pause-menu collection screen wipe of $D800-$DFFF)
 ADDR_MSG_BUFFER_WRAM = 0x11BB # wMsgBuffer (bank 1, 0xD1BB) 96 bytes; scrolling marquee uses first ~40 as flat glyphs
@@ -339,10 +341,16 @@ class WL3Client(BizHawkClient):
         # apply (idempotent); ONLY the msg banner is skipped. Root fix for
         # the /skip workaround. `None` until first SRAM read completes.
         self._msg_shown_baseline: "int | None" = None
+        self._msg_shown_requested: Optional[str] = None  # data storage key asked for (wl3_msg_shown_<team>_<slot>)
+        self._msg_shown_reply_ready: bool = False        # the server answered that Get
+        self._msg_shown_reply: "int | None" = None       # its value; None = nothing stored yet
         self._cached_received:  set  = set()   # AP IDs received; kept between disconnects
         self._prog_counts:      dict = {}       # ap_id → count received (for progressive tiers)
         self._combined_unlocks: bool = False
         self._seeded_from_wram: bool = False    # True after wOpenedChests read into _checked_locs
+        self._rom_ok_for_seed: Optional[str] = None  # ctx.seed_name of the room this ROM was checked against
+        self._token_login_pending: bool = False       # set_auth sent the ROM's token; no answer seen yet
+        self._hinted_address: Optional[str] = None    # server address the "port may have changed" hint was shown for
         self._goal_sent:        bool = False    # True after CLIENT_GOAL sent to server
         self._cmd_registered:   bool = False    # True after /levels command registered
         self._levels_shown:     bool = False    # True after auto-print on first connect
@@ -451,7 +459,16 @@ class WL3Client(BizHawkClient):
         - PrintJSON Hint: surface a hint in-game whenever a hint involving us
           is created (either an item going to us, or one of our items being
           revealed to someone else). Deduped via self._shown_hints so server
-          re-broadcasts on reconnect don't spam the player."""
+          re-broadcasts on reconnect don't spam the player.
+        - Retrieved: the stored "banners already shown" counter (game_watcher
+          asks for it once per connection's slot)."""
+        if cmd == "Retrieved":
+            keys = args.get("keys") or {}
+            if self._msg_shown_requested in keys:
+                value = keys[self._msg_shown_requested]
+                self._msg_shown_reply = value if isinstance(value, int) else None
+                self._msg_shown_reply_ready = True
+            return
         if cmd == "Bounced":
             tags = args.get("tags", []) or []
             if "DeathLink" not in tags:
@@ -554,10 +571,89 @@ class WL3Client(BizHawkClient):
         if "WARIO" not in rom_title:
             return False
 
-        ctx.game            = self.game
+        # A ROM was (re)loaded: forget what the last one's save had collected.
+        self._seeded_from_wram = False
+        self._checked_locs = set()
+        self._rom_ok_for_seed = None
+        self._msg_shown_baseline = None     # ... and ask the room again how far its banners got
+        self._msg_shown_requested = None
+
+        ctx.game          = self.game
         ctx.items_handling  = 0b111   # receive all items (own world + multiworld)
         ctx.want_slot_data  = True
         ctx.watcher_timeout = 0.125   # poll ~8x per second
+        return True
+
+    async def set_auth(self, ctx: "BizHawkClientContext") -> None:
+        """Log in with the ROM's own token instead of a typed slot name.
+
+        The room only knows the token of the ROM generated for it (apworld
+        modify_multidata), so a ROM from another seed is refused by the
+        server even with the same slot name. A ROM patched before the token
+        existed has only the bank's $ff fill there: for those the client
+        asks for the slot name, as it always did."""
+        try:
+            token = bytes((await read(ctx.bizhawk_ctx, [(ADDR_AUTH_TOKEN_ROM, 16, "ROM")]))[0])
+        except RequestFailedError:
+            return
+        if token in (bytes(16), b"\xff" * 16):
+            return
+        ctx.auth = base64.b64encode(token).decode("ascii")
+        self._token_login_pending = True
+
+    def _hint_if_connect_failed(self, ctx: "BizHawkClientContext") -> None:
+        """Say why a connection most likely failed, once per address: a room's
+        port changes when the room restarts, so an address stored in a patch
+        file (or typed from memory) goes stale. The standard client shows the
+        failure itself; this adds what to do about it."""
+        if ctx.server is not None:
+            if ctx.slot is not None:            # logged in: all is well
+                self._token_login_pending = False
+                self._hinted_address = None
+            return
+        address = ctx.server_address
+        if self._token_login_pending:
+            # Something answered at that address but didn't know this ROM.
+            self._token_login_pending = False
+            self._hinted_address = address
+            logger.error(f"[WL3] This ROM was not recognized by the room at {address}. "
+                         "Please check that the port number and the ROM are correct.")
+        elif (address and address != self._hinted_address and ctx.server_task is None
+              and not getattr(ctx, "disconnected_intentionally", False)):
+            # Nothing answered at that address at all.
+            self._hinted_address = address
+            logger.error(f"[WL3] Could not reach the room at {address}. "
+                         "Please ensure you have the correct patched ROM and port number.")
+
+    async def _rom_belongs_to_room(self, ctx: "BizHawkClientContext") -> bool:
+        """True once the loaded ROM is known to be the one generated for the
+        connected room and slot. False: not known yet, or it is the wrong ROM
+        (then the client has been disconnected) - the caller must do nothing.
+
+        set_auth only protects a login made with the ROM's token. A typed
+        slot name still gets a ROM with no token (patched before tokens
+        existed) or with another seed's token into the room, so compare the
+        ROM's token with the one the room sends in slot_data["auth"]. A room
+        generated before tokens existed sends none: nothing to compare."""
+        if self._rom_ok_for_seed is not None and self._rom_ok_for_seed == ctx.seed_name:
+            return True
+        if ctx.slot_data is None:
+            return False                    # not arrived yet
+        expected = ctx.slot_data.get("auth")
+        if expected:
+            try:
+                token = bytes((await read(ctx.bizhawk_ctx, [(ADDR_AUTH_TOKEN_ROM, 16, "ROM")]))[0])
+            except RequestFailedError:
+                return False                # retry next poll
+            if base64.b64encode(token).decode("ascii") != expected:
+                logger.error("[WL3] This ROM was not generated for this room. Nothing was sent. "
+                             "Load the ROM patched from this room's file, or connect to the room "
+                             "this ROM belongs to.")
+                ctx.auth = None
+                self._hinted_address = ctx.server_address   # already explained: no port hint on top
+                await ctx.disconnect()
+                return False
+        self._rom_ok_for_seed = ctx.seed_name or ""
         return True
 
     # ------------------------------------------------------------------
@@ -575,7 +671,13 @@ class WL3Client(BizHawkClient):
         # GATE ON SERVER CONNECTION: if we're not connected to AP, the client
         # can't show pickup msgs (no ctx.item_names to look up), so let the
         # ROM handle its own offline msgs instead of silencing both sides.
+        self._hint_if_connect_failed(ctx)
+        if ctx.slot is None and self._msg_shown_baseline is None:
+            self._msg_shown_requested = None    # connection lost before the counter arrived: ask again
         if ctx.server is not None and ctx.slot is not None:
+            # Wrong ROM for this room: touch nothing, send nothing.
+            if not await self._rom_belongs_to_room(ctx):
+                return
             try:
                 await write(ctx.bizhawk_ctx, [
                     (ADDR_CLIENT_HEARTBEAT_WRAM, bytes([240]), "WRAM"),
@@ -1197,37 +1299,37 @@ class WL3Client(BizHawkClient):
         # (bits/traps still apply — this is msg-only). Written back below as
         # items are processed. Reads that fail (e.g. SRAM not yet ready) leave
         # baseline at 0 for this tick; retried next tick.
-        if self._msg_shown_baseline is None:
-            try:
-                sram = (await read(ctx.bizhawk_ctx,
-                    [(ADDR_MSG_SHOWN_INDEX_SRAM, 2, "SRAM")]))[0]
-                raw_baseline = sram[0] | (sram[1] << 8)
-                # Sanity: baseline is the highest items_received index we've
-                # shown — it can never exceed any plausible AP item count.
-                # Older ROMs didn't reserve this SRAM slot, so a save that
-                # pre-dates the mechanism has whatever garbage happened to
-                # live at $A06D. If the value is implausibly large, treat
-                # SRAM as uninitialised: reset to 0 and rewrite below as
-                # msgs fire this session.
-                MAX_PLAUSIBLE_ITEMS = 10000
-                if raw_baseline > MAX_PLAUSIBLE_ITEMS:
-                    logger.info(
-                        f"[WL3] sMsgShownIndex SRAM has implausible value "
-                        f"{raw_baseline} — treating as uninitialised (reset to 0)"
-                    )
-                    self._msg_shown_baseline = 0
-                    try:
-                        await write(ctx.bizhawk_ctx, [(
-                            ADDR_MSG_SHOWN_INDEX_SRAM,
-                            bytes([0, 0]),
-                            "SRAM",
-                        )])
-                    except RequestFailedError:
-                        pass
+        #
+        # 2026-11-24: the counter now lives on the SERVER (data storage key
+        # wl3_msg_shown_<team>_<slot>), because the index counts the room's
+        # item list and the save file is the wrong place for it: loading a
+        # savestate rewinds SRAM (and the old code never wrote the right
+        # value back, so the next session replayed every banner since that
+        # savestate), an unflushed SaveRAM loses it, and a new save starts
+        # with junk in it. SRAM is now only read, once, for a game that was
+        # already under way when this changed (nothing stored yet), and only
+        # believed if it isn't ahead of the room's item list.
+        # Until the server has answered, no items are handled (a tick or two).
+        if self._msg_shown_baseline is None and ctx.slot is not None:
+            key = f"wl3_msg_shown_{ctx.team}_{ctx.slot}"
+            if self._msg_shown_requested != key:
+                self._msg_shown_requested = key
+                self._msg_shown_reply_ready = False
+                try:
+                    await ctx.send_msgs([{"cmd": "Get", "keys": [key]}])
+                except Exception:
+                    self._msg_shown_requested = None    # ask again next tick
+            elif self._msg_shown_reply_ready:
+                if self._msg_shown_reply is not None:
+                    self._msg_shown_baseline = self._msg_shown_reply
                 else:
-                    self._msg_shown_baseline = raw_baseline
-            except RequestFailedError:
-                pass
+                    try:
+                        sram = (await read(ctx.bizhawk_ctx,
+                            [(ADDR_MSG_SHOWN_INDEX_SRAM, 2, "SRAM")]))[0]
+                        old = sram[0] | (sram[1] << 8)
+                        self._msg_shown_baseline = old if old <= len(ctx.items_received) else 0
+                    except RequestFailedError:
+                        pass                            # retry next tick
 
         # ---- Grant any newly received items ----
         # `_caught_up` is False on the first call after a (re)connect — items
@@ -1237,7 +1339,8 @@ class WL3Client(BizHawkClient):
         # already shown in a previous session).
         catch_up_boundary = len(ctx.items_received) if not self._caught_up else self._items_handled
 
-        while self._items_handled < len(ctx.items_received):
+        items_ready = self._msg_shown_baseline is not None
+        while items_ready and self._items_handled < len(ctx.items_received):
             is_catch_up = self._items_handled < catch_up_boundary
             net_item = ctx.items_received[self._items_handled]
             ap_id = net_item.item
@@ -1325,22 +1428,24 @@ class WL3Client(BizHawkClient):
                 pass
             self._items_handled += 1
 
-        # ---- Persist high-water mark to SRAM so future reconnects skip
-        # ---- the msg banner for items we've already shown this session.
+        # ---- Persist the high-water mark on the server so future sessions
+        # ---- skip the msg banner for items already shown ("max": it can
+        # ---- only ever go up, whatever order writes arrive in).
         if (self._msg_shown_baseline is not None
                 and self._items_handled > self._msg_shown_baseline):
-            self._msg_shown_baseline = self._items_handled
             try:
-                await write(ctx.bizhawk_ctx, [(
-                    ADDR_MSG_SHOWN_INDEX_SRAM,
-                    bytes([self._items_handled & 0xFF,
-                           (self._items_handled >> 8) & 0xFF]),
-                    "SRAM",
-                )])
-            except RequestFailedError:
-                pass
+                await ctx.send_msgs([{
+                    "cmd": "Set",
+                    "key": self._msg_shown_requested,
+                    "default": 0,
+                    "want_reply": False,
+                    "operations": [{"operation": "max", "value": self._items_handled}],
+                }])
+                self._msg_shown_baseline = self._items_handled
+            except Exception:
+                pass                                    # retry next tick
 
-        if not self._caught_up:
+        if items_ready and not self._caught_up:
             self._caught_up = True
 
         # Keep cache in sync with full server list
